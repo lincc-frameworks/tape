@@ -2,8 +2,9 @@ import pandas as pd
 import numpy as np
 
 class timeseries():
-    def __init__(self,data=None):
-        self.data = data
+    def __init__(self):
+        self.data = None
+        self.id = None
     
     #I/O
     def from_dict(self,data_dict,band_label='band'):
@@ -11,6 +12,11 @@ class timeseries():
         index = self._build_index(data_dict[band_label])
         data_dict = {key: data_dict[key] for key in data_dict if key != band_label}
         self.data = pd.DataFrame(data=data_dict,index=index).sort_index()
+        return self
+
+    def _from_ensemble(self, data,object_id):
+        self.data=data
+        self.id=object_id
         return self
     
     @property
