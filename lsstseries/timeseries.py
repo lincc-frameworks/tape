@@ -5,6 +5,7 @@ class timeseries():
     def __init__(self):
         self.data = None
         self.id = None
+        self.cols = ['time','flux','flux_err']
     
     #I/O
     def from_dict(self,data_dict,band_label='band'):
@@ -15,24 +16,26 @@ class timeseries():
         return self
 
     def _from_ensemble(self, data,object_id):
+        """loader function for inputing data from an ensemble"""
+        self.cols = list(data.columns)
         self.data=data
         self.id=object_id
         return self
-    
+
     @property
     def time(self):
         """Time values stored as a Pandas Series"""
-        return self.data["time"]
+        return self.data[self.cols[0]]
     
     @property
     def flux(self):
         """Flux values stored as a Pandas Series"""
-        return self.data["flux"]
+        return self.data[self.cols[1]]
     
     @property
     def flux_err(self):
         """Flux error values stored as a Pandas Series"""
-        return self.data["flux_err"]
+        return self.data[self.cols[2]]
     
     @property
     def band(self):

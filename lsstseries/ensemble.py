@@ -6,20 +6,24 @@ from .timeseries import timeseries
 class ensemble():
     """ensemble object is a collection of light curve ids"""
     def __init__(self,token=None):
-        self.table = None #holds the latest query
+        self.result = None #holds the latest query
         self.token = token
 
     def tap_token(self, token):
+        """Add/update a TAP token to the class, enables querying
+        Read here for information on TAP access: https://data.lsst.cloud/api-aspect
+        """
         self.token=token
 
     def query_tap(self,query,maxrec=None):
+        """query the TAP service, query is an ADQL formatted string"""
         cred = vo.auth.CredentialStore()
         cred.set_password("x-oauth-basic", self.token)
 
         service = vo.dal.TAPService("https://data.lsst.cloud/api/tap",cred.get("ivo://ivoa.net/sso#BasicAA"))
         results = service.search(query, maxrec=maxrec)
         result = results.to_table().to_pandas()
-        self.table = result
+        self.result = result
         return result
 
     def query_ids(self, ids, 
@@ -29,6 +33,7 @@ class ensemble():
                   catalog='dp02_dc2_catalogs',
                   table='DiaSource',
                   maxrec=None):
+        """query based on a list of object ids"""
         cols = core_cols+add_cols
         idx_cols = ['diaObjectId','filterName']
 
@@ -36,13 +41,6 @@ class ensemble():
         select_cols = ",".join(idx_cols)+','+','.join(cols)
         str_ids = [str(obj_id) for obj_id in ids]
         id_list = "("+",".join(str_ids)+")"
-        """
-        for obj_id in ids:
-            id_result = self.query_tap(f"SELECT {select_cols} "
-                            f"FROM {catalog}.{table} "
-                            f"WHERE diaObjectId={obj_id}")
-            result = pd.concat([result,id_result])
-        """
 
         result = self.query_tap(f"SELECT {select_cols} "
                             f"FROM {catalog}.{table} "
@@ -50,10 +48,12 @@ class ensemble():
         index = self._build_index(result['diaObjectId'],result['filterName'])
         result.index = index
         result = result[cols].sort_index()
-        self.table = result
+        self.result = result
         return result
 
     def to_timeseries(self,dataframe,target,core_cols=['midPointTai','psFlux','psFluxErr'],add_cols=[]):
+        """construct a timeseries object from one target object_id, assumes that the result
+        is a collection of lightcurves (output from query_ids)"""
         cols = core_cols+add_cols
         df = dataframe.xs(target)
         ts = timeseries()._from_ensemble(data=df,object_id=target)
