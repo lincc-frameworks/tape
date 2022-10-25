@@ -100,3 +100,28 @@ class timeseries():
         tuples = zip(band, range(len(band)))
         index = pd.MultiIndex.from_tuples(tuples, names=["band", "index"])
         return index
+
+    def flux_to_mag(self, cols):
+        """Transforms TAP query from fluxes to magnitudes
+
+         Parameters
+        ----------
+        cols: `list` of `str`
+            List of columns to be queried, contaning Flux in the name
+
+        Returns:
+        ----------
+        cols_mag `list` of `str`
+            List of columns to be queried, replaced with magnitudes
+        """
+
+        cols_mag = []
+        for col in cols:
+            pos_Flux = col.find('Flux')
+            if pos_Flux == -1:
+                cols_mag.append(col)
+            else:
+                pre_var, post_var = col[:pos_Flux], col[pos_Flux+len('Flux'):]
+                cols_mag.append(
+                    'scisql_nanojanskyToAbMag('+pre_var+'Flux'+post_var+') AS '+pre_var+'AbMag'+post_var)
+        return cols_mag
