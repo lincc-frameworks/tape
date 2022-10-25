@@ -5,11 +5,11 @@ class timeseries():
     """represent and analyze Rubin timeseries data"""
     def __init__(self, data=None):
         self.data = data
-        self.meta = {'id': None} # metadata dict
-        self.colmap = {'time': None, 'flux': None, 'flux_err': None} # column mapping
+        self.meta = {'id': None}  # metadata dict
+        self.colmap = {'time': None, 'flux': None, 'flux_err': None}  # column mapping
 
     # I/O
-    def from_dict(self, data_dict, time_label='time', flux_label='flux', err_label='flux_err', 
+    def from_dict(self, data_dict, time_label='time', flux_label='flux', err_label='flux_err',
                   band_label='band'):
         """Build dataframe from a python dictionary
 
@@ -29,44 +29,39 @@ class timeseries():
 
         try:
             data_dict[band_label]
-        except KeyError:
-            raise KeyError(f"The indicated label '{band_label}' was not found.")
+        except KeyError as exc:
+            raise KeyError(f"The indicated label '{band_label}' was not found.") from exc
         index = self._build_index(data_dict[band_label])
         data_dict = {key: data_dict[key] for key in data_dict if key != band_label}
         self.data = pd.DataFrame(data=data_dict, index=index).sort_index()
 
         labels = [time_label, flux_label, err_label]
-        
         for label, quantity in zip(labels, list(self.colmap.keys())):
 
-            if (quantity == 'flux_err') and (label is None): # flux_err is optional
+            if (quantity == 'flux_err') and (label is None):  # flux_err is optional
                 continue
 
-            try:
-                self.data[label]
+            if label in self.data.columns:
                 self.colmap[quantity] = label
-            except KeyError:
+            else:
                 raise KeyError(f"The indicated label '{label}' was not found.")
-            
-        return self      
+
+        return self
 
     def _from_ensemble(self, data, object_id, time_label='time', flux_label='flux', err_label='flux_err'):
         """Loader function for inputing data from an ensemble"""
-        self.cols = list(data.columns)
         self.data = data
         self.meta['id'] = object_id
 
         labels = [time_label, flux_label, err_label]
-        
         for label, quantity in zip(labels, list(self.colmap.keys())):
 
-            if (quantity == 'flux_err') and (label is None): # flux_err is optional
+            if (quantity == 'flux_err') and (label is None):  # flux_err is optional
                 continue
 
-            try:
-                self.data[label]
+            if label in self.data.columns:
                 self.colmap[quantity] = label
-            except KeyError:
+            else:
                 raise KeyError(f"The indicated label '{label}' was not found.")
 
         return self
@@ -84,10 +79,9 @@ class timeseries():
     @property
     def flux_err(self):
         """Flux error values stored as a Pandas Series"""
-        if self.colmap['flux_err'] is not None: # Errors are not mandatory
+        if self.colmap['flux_err'] is not None:  # Errors are not mandatory
             return self.data[self.colmap['flux_err']]
-        else:
-            return None
+        return None
 
     @property
     def band(self):
@@ -100,28 +94,3 @@ class timeseries():
         tuples = zip(band, range(len(band)))
         index = pd.MultiIndex.from_tuples(tuples, names=["band", "index"])
         return index
-
-    def flux_to_mag(self, cols):
-        """Transforms TAP query from fluxes to magnitudes
-
-         Parameters
-        ----------
-        cols: `list` of `str`
-            List of columns to be queried, contaning Flux in the name
-
-        Returns:
-        ----------
-        cols_mag `list` of `str`
-            List of columns to be queried, replaced with magnitudes
-        """
-
-        cols_mag = []
-        for col in cols:
-            pos_Flux = col.find('Flux')
-            if pos_Flux == -1:
-                cols_mag.append(col)
-            else:
-                pre_var, post_var = col[:pos_Flux], col[pos_Flux+len('Flux'):]
-                cols_mag.append(
-                    'scisql_nanojanskyToAbMag('+pre_var+'Flux'+post_var+') AS '+pre_var+'AbMag'+post_var)
-        return cols_mag
