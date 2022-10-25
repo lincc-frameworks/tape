@@ -42,8 +42,7 @@ class ensemble():
         cred = vo.auth.CredentialStore()
         cred.set_password("x-oauth-basic", self.token)
 
-        service = vo.dal.TAPService("https://data.lsst.cloud/api/tap", 
-                                    cred.get("ivo://ivoa.net/sso#BasicAA"))
+        service = vo.dal.TAPService("https://data.lsst.cloud/api/tap", cred.get("ivo://ivoa.net/sso#BasicAA"))
         results = service.search(query, maxrec=maxrec)
         result = results.to_table().to_pandas()
         self.result = result
@@ -53,10 +52,11 @@ class ensemble():
                   time_col='midPointTai',
                   flux_col='psFlux',
                   err_col='psFluxErr',
-                  add_cols=[],
+                  add_cols=None,
                   id_field='diaObjectId',
                   catalog='dp02_dc2_catalogs',
                   table='DiaSource',
+                  to_mag=True,
                   maxrec=None):
         """Query based on a list of object ids; applicable for DP0.2
 
@@ -84,18 +84,26 @@ class ensemble():
         result: `pd.df`
             Result of the query, as pandas dataframe
         """
-        core_cols = [time_col,flux_col,err_col]
-        cols = core_cols+add_cols
+        cols = [time_col, flux_col, err_col]
+
+        if to_mag:
+            query_cols, cols = self.flux_to_mag(cols)
+        else:
+            query_cols = cols
+
+        if add_cols is not None:
+            cols = cols+add_cols
         idx_cols = ['diaObjectId', 'filterName']
 
         result = pd.DataFrame(columns=idx_cols+cols)
-        select_cols = ",".join(idx_cols)+','+','.join(cols)
+        select_cols = ",".join(idx_cols)+','+','.join(query_cols)
         str_ids = [str(obj_id) for obj_id in ids]
         id_list = "("+",".join(str_ids)+")"
 
         result = self.query_tap(f"SELECT {select_cols} "
                                 f"FROM {catalog}.{table} "
-                                f"WHERE {id_field} IN {id_list}")
+                                f"WHERE {id_field} IN {id_list}",
+                                maxrec=maxrec)
         index = self._build_index(result['diaObjectId'], result['filterName'])
         result.index = index
         result = result[cols].sort_index()
@@ -107,8 +115,7 @@ class ensemble():
 
         return result
 
-    def to_timeseries(self, dataframe, target, time_col=None, 
-                      flux_col=None, err_col=None):
+    def to_timeseries(self, dataframe, target, time_col=None, flux_col=None, err_col=None):
         """Construct a timeseries object from one target object_id, assumes that the result
         is a collection of lightcurves (output from query_ids)
 
@@ -137,6 +144,36 @@ class ensemble():
         ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col, 
                                          flux_label=flux_col, err_label=err_col)
         return ts
+
+    def flux_to_mag(self, cols):
+        """Transforms TAP query from fluxes to magnitudes
+
+         Parameters
+        ----------
+        cols: `list` of `str`
+            List of columns to be queried, containing Flux in the name
+
+        Returns:
+        ----------
+        cols_mag `list` of `str`
+            List of columns to be queried, replaced with magnitudes
+        cols_label 'list' of 'str'
+            List of column labels for the returned quantities
+        """
+
+        cols_mag = []
+        cols_label = []
+        for col in cols:
+            pos_flux = col.find('Flux')
+            if pos_flux == -1:
+                cols_mag.append(col)
+                cols_label.append(col)
+            else:
+                pre_var, post_var = col[:pos_flux], col[pos_flux+len('Flux'):]
+                cols_mag.append(
+                    'scisql_nanojanskyToAbMag('+pre_var+'Flux'+post_var+') AS '+pre_var+'AbMag'+post_var)
+                cols_label.append(pre_var+'AbMag'+post_var)
+        return cols_mag, cols_label
 
     def _build_index(self, obj_id, band):
         """Build pandas multiindex from object_ids and bands"""
