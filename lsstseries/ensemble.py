@@ -87,12 +87,22 @@ class ensemble():
         cols = [time_col, flux_col, err_col]
 
         if to_mag:
-            query_cols, cols = self.flux_to_mag(cols)
+            flux_query, flux_label = self.flux_to_mag([flux_col])
+            flux_col = flux_label[0]
+            if err_col is not None:
+                err_query, err_label = self.flux_to_mag([err_col])
+                err_col = err_label[0]
+
+            query_cols = [time_col] + flux_query + err_query
+            cols = [time_col, flux_col, err_col]
+
         else:
             query_cols = cols
 
         if add_cols is not None:
             cols = cols+add_cols
+            query_cols = query_cols+add_cols
+
         idx_cols = ['diaObjectId', 'filterName']
 
         result = pd.DataFrame(columns=idx_cols+cols)
