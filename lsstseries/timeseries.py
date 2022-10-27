@@ -17,15 +17,16 @@ class timeseries():
         Parameters
         ----------
         data_dict : `dict`
-            Dictionary contaning the data
+            Dictionary contaning the data.
         time_label: `str`
-            Name for column containing time information
+            Name for column containing time information.
         flux_label: `str`
-            Name for column containing signal (flux, magnitude, etc) information
+            Name for column containing signal
+            (flux, magnitude, etc) information.
         err_label: `str`
-            Name for column containing error information
+            Name for column containing error information.
         band_label: `str`
-            Name for column containing filter information
+            Name for column containing filter information.
         """
 
         try:
@@ -96,32 +97,53 @@ class timeseries():
         index = pd.MultiIndex.from_tuples(tuples, names=["band", "index"])
         return index
 
-    def stetson_J_multi(self):
-        unq_band = np.unique(self.band)
-        result = {}
+    def stetson_J(self, band=None):
+        """Compute the stetsonJ statistic on data from one or several bands
+
+        Parameters
+        ----------
+        band : `str` or `list` of `str`
+            Single band descriptor, or list of such descriptors.
+
+        Returns
+        -------
+        stetsonJ : `dict`
+            StetsonJ statistic for each of input bands.
+
+        Notes
+        ----------
+        In case that no value for band is passed, the function is executed
+        on all avaliable bands.
+        """
+
+        if band is None:
+            unq_band = np.unique(self.band)
+        if type(band) == 'str':
+            unq_band = [band]
+
+        StetsonJ = {}
         # TODO: ability to remove nan values
         for band in unq_band:
             fluxes = self.data.loc[band]['psFlux'].values
             errors = self.data.loc[band]['psFluxErr'].values
-            result[band] = self.stetson_J(fluxes, errors)
-        return result
+            StetsonJ[band] = self.stetson_J_single(fluxes, errors)
 
-    def stetson_J(self, fluxes, errors):
+        return StetsonJ
+
+    def stetson_J_single(self, fluxes, errors):
         """Compute the single band stetsonJ statistic.
 
         Parameters
         ----------
         fluxes : `numpy.ndarray` (N,)
-            Calibrated lightcurve flux values.
+            Lightcurve flux values.
         errors : `numpy.ndarray` (N,)
-            Errors on the calibrated lightcurve fluxes.
-        mean : `float`
-            Starting mean from previous plugin.
+            Errors on the lightcurve fluxes.
 
         Returns
         -------
         stetsonJ : `float`
-            stetsonJ statistic for the input fluxes and errors.
+            StetsonJ statistic
 
         References
         ----------
