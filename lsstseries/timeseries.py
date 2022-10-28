@@ -124,8 +124,8 @@ class timeseries():
         StetsonJ = {}
         # TODO: ability to remove nan values
         for band in unq_band:
-            fluxes = self.data.loc[band]['psFlux'].values
-            errors = self.data.loc[band]['psFluxErr'].values
+            fluxes = self.flux[band].values
+            errors = self.flux_err[band].values
             StetsonJ[band] = self.stetson_J_single(fluxes, errors)
 
         return StetsonJ
