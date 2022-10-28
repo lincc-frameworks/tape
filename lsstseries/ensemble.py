@@ -151,7 +151,7 @@ class ensemble():
             err_col = self._err_col
 
         df = dataframe.xs(target)
-        ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col, 
+        ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
                                          flux_label=flux_col, err_label=err_col)
         return ts
 
@@ -180,9 +180,18 @@ class ensemble():
                 cols_label.append(col)
             else:
                 pre_var, post_var = col[:pos_flux], col[pos_flux+len('Flux'):]
-                cols_mag.append(
-                    'scisql_nanojanskyToAbMag('+pre_var+'Flux'+post_var+') AS '+pre_var+'AbMag'+post_var)
-                cols_label.append(pre_var+'AbMag'+post_var)
+                flux_str = pre_var+'Flux'
+                mag_str = pre_var+'AbMag'
+                if col.find('Err') != -1:
+                    flux_str_err = pre_var+'Flux'+post_var
+                    mag_str_err = pre_var+'AbMag'+post_var
+                    cols_mag.append(
+                        'scisql_nanojanskyToAbMagSigma('+flux_str+','+flux_str_err+') AS '+mag_str_err)
+                    cols_label.append(mag_str_err)
+                else:
+                    cols_mag.append(
+                        'scisql_nanojanskyToAbMag('+flux_str+') AS '+mag_str)
+                    cols_label.append(mag_str)
         return cols_mag, cols_label
 
     def _build_index(self, obj_id, band):
