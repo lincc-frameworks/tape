@@ -154,6 +154,9 @@ class timeseries():
         ----------
         Taken from
         https://github.com/lsst/meas_base/blob/main/python/lsst/meas/base/diaCalculationPlugins.py
+
+        Using the function on random gaussian distribution gives result of -0.2
+        instead of expected result of 0?
         """
         mean = None
 
