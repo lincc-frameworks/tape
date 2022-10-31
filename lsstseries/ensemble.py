@@ -1,6 +1,7 @@
 import pandas as pd
 import pyvo as vo
 from .timeseries import timeseries
+import time
 
 
 class ensemble():
@@ -24,7 +25,7 @@ class ensemble():
         """
         self.token = token
 
-    def query_tap(self, query, maxrec=None):
+    def query_tap(self, query, maxrec=None,debug=True):
         """Query the TAP service
 
         Parameters
@@ -41,9 +42,14 @@ class ensemble():
         """
         cred = vo.auth.CredentialStore()
         cred.set_password("x-oauth-basic", self.token)
-
+        
         service = vo.dal.TAPService("https://data.lsst.cloud/api/tap", cred.get("ivo://ivoa.net/sso#BasicAA"))
+        
+        time0 = time.time()
         results = service.search(query, maxrec=maxrec)
+        time1 = time.time()
+        if debug:
+            print(f"Query Time: {time1-time0} (s)")
         result = results.to_table().to_pandas()
         self.result = result
         return result
@@ -199,6 +205,17 @@ class ensemble():
         # Create a multiindex
 
         idx = range(len(list(zip(obj_id, band))))
+
+        #idx to count up for each unique pair of obj_id,band 
+        count_dict = {}
+        idx = []
+        for o, b in zip(obj_id,band):
+            if f"{o},{b}" in count_dict.keys():
+                idx.append(count_dict[f"{o},{b}"])
+                count_dict[f"{o},{b}"]+=1
+            else:
+                idx.append(0)
+                count_dict[f"{o},{b}"]=1
         tuples = zip(obj_id, band, idx)
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
