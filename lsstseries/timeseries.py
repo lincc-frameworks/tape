@@ -115,22 +115,27 @@ class timeseries():
         In case that no value for band is passed, the function is executed
         on all avaliable bands.
         """
+        unq_band = np.unique(self.band)
 
         if band is None:
-            unq_band = np.unique(self.band)
-        if type(band) == 'str':
-            unq_band = [band]
+            band = unq_band
+        if type(band) == str:
+            band = [band]
+
+        assert hasattr(band, '__iter__') is True
 
         StetsonJ = {}
         # TODO: ability to remove nan values
-        for band in unq_band:
-            fluxes = self.flux[band].values
-            errors = self.flux_err[band].values
-            StetsonJ[band] = self.stetson_J_single(fluxes, errors)
-
+        for b in band:
+            if b in unq_band:
+                fluxes = self.flux[b].values
+                errors = self.flux_err[b].values
+                StetsonJ[b] = self._stetson_J_single(fluxes, errors)
+            else:
+                StetsonJ[b] = np.nan
         return StetsonJ
 
-    def stetson_J_single(self, fluxes, errors):
+    def _stetson_J_single(self, fluxes, errors):
         """Compute the single band stetsonJ statistic.
 
         Parameters
@@ -161,6 +166,9 @@ class timeseries():
         mean = None
 
         n_points = len(fluxes)
+        if n_points <= 1:
+            return np.nan
+
         flux_mean = self._stetson_mean(fluxes, errors, mean)
         delta_val = (
             np.sqrt(n_points / (n_points - 1)) * (fluxes - flux_mean) / errors)
