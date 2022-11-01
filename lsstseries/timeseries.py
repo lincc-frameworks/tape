@@ -50,6 +50,25 @@ class timeseries():
 
         return self
 
+    def handle_nans(self, strategy='remove'):
+        """Clean the input dataset of NaN values
+
+        Parameters
+        ----------
+        strategy : `str`
+            strategy to handle NaNs
+        """
+
+        if strategy =='remove':
+            self.data = self.data.dropna()
+        elif strategy == 'interpolate':
+            raise NotImplementedError
+        else:
+            raise ValueError("Provided strategy not recognized")
+
+        return self
+
+
     def _from_ensemble(self, data, object_id, time_label='time', flux_label='flux', err_label='flux_err'):
         """Loader function for inputing data from an ensemble"""
         self.data = data
