@@ -12,7 +12,7 @@ class TestReturnValues(unittest.TestCase):
                      'flux_err': [1]*len(flux_list), 'band': ['r']*len(flux_list)}
         ts = timeseries()
         test_ts = ts.from_dict(data_dict=test_dict)
-        print('test StetsonJ value is:' + str(test_ts.stetson_J()['r']))
+        print('test StetsonJ value is: ' + str(test_ts.stetson_J()['r']))
         self.assertEqual(test_ts.stetson_J()['r'],
                          0.8)
 
