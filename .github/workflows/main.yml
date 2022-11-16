@@ -19,7 +19,7 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      # Setup python and install requirements
+      # Setup python and install requirements - specified manually atm!
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -28,7 +28,8 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install numpy
+          pip install pandas
       # Runs a single command using the runners shell
       - name: Run a one-line script
         run: echo Hello, world!
