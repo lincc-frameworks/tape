@@ -1,4 +1,5 @@
 import pandas as pd
+import dask.dataframe as dd
 import pyvo as vo
 from .timeseries import timeseries
 import time
@@ -10,10 +11,39 @@ class ensemble:
     def __init__(self, token=None):
         self.result = None  # holds the latest query
         self.token = token
+        self.data = None
 
-        self._time_col = "midPointTai"
-        self._flux_col = "psFlux"
-        self._err_col = "psFluxErr"
+        self._time_col = 'midPointTai'
+        self._flux_col = 'psFlux'
+        self._err_col = 'psFluxErr'
+        self._band_col = 'band'
+
+    def count(self, sort=True, ascending=False):
+        """Return the number of available measurements for each lightcurve"""
+        counts = self.data.groupby('object_id').object_id.count().compute()
+        if sort:
+            return counts.sort_values(ascending=ascending)
+        else:
+            return counts
+
+    def prune(self, threshold):
+        """remove objects with less observations than a given threshold"""
+        raise NotImplementedError
+
+    def from_parquet(self, file, time_col=None, flux_col=None,
+                     err_col=None, band_col=None):
+        """Read in a parquet file"""
+        self.data = dd.read_parquet(file, index=False)
+
+        # Track critical column changes
+        if time_col is not None:
+            self._time_col = time_col
+        if flux_col is not None:
+            self._flux_col = flux_col
+        if err_col is not None:
+            self._err_col = err_col
+        if band_col is not None:
+            self._band_col = band_col
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
@@ -137,16 +167,12 @@ class ensemble:
 
         return result
 
-    def to_timeseries(
-        self, dataframe, target, time_col=None, flux_col=None, err_col=None
-    ):
-        """Construct a timeseries object from one target object_id, assumes that the result
-        is a collection of lightcurves (output from query_ids)
+    def to_timeseries(self, target, time_col=None, flux_col=None, err_col=None, band_col=None):
+        """Construct a timeseries object from one target object_id, assumes
+        that the result is a collection of lightcurves (output from query_ids)
 
         Parameters
         ----------
-        dataframe: `pd.df`
-            Ensemble object
         target: `int`
             Id of a source to be extracted
 
@@ -156,22 +182,21 @@ class ensemble:
             Timeseries for a single object
         """
 
-        # Without a specified column, use defaults (which are updated via query_id)
+        # Without a specified column, use defaults
         if time_col is None:
             time_col = self._time_col
         if flux_col is None:
             flux_col = self._flux_col
         if err_col is None:
             err_col = self._err_col
+        if band_col is None:
+            band_col = self._band_col
 
-        df = dataframe.xs(target)
-        ts = timeseries()._from_ensemble(
-            data=df,
-            object_id=target,
-            time_label=time_col,
-            flux_label=flux_col,
-            err_label=err_col,
-        )
+        # df = self.data.xs(target)
+        df = self.data
+        df = df[df['object_id'] == target].compute()  # brought into memory
+        ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
+                                         flux_label=flux_col, err_label=err_col, band_label=band_col)
         return ts
 
     def flux_to_mag(self, cols):

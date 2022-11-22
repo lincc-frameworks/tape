@@ -65,18 +65,14 @@ class timeseries:
         self.data = self.data.dropna(**kwargs)
         return self
 
-    def _from_ensemble(
-        self,
-        data,
-        object_id,
-        time_label="time",
-        flux_label="flux",
-        err_label="flux_err",
-        band_label="band",
-    ):
+    def _from_ensemble(self, data, object_id, time_label='time', flux_label='flux',
+                       err_label='flux_err', band_label='band'):
         """Loader function for inputing data from an ensemble"""
         self.data = data
         self.meta["id"] = object_id
+
+        index = self._build_index(self.data[band_label])
+        self.data.index = index
 
         index = self._build_index(self.data[band_label])
         self.data.index = index
