@@ -28,6 +28,13 @@ class ensemble:
 
     def prune(self, threshold):
         """remove objects with less observations than a given threshold"""
+        subset_ids = self.count().index[self.count() >= threshold]
+        mask = self.data['object_id'].isin(subset_ids)
+        self.data = self.data[mask]
+        return self
+
+    def batch(self, func):
+        """Run a function from lsstseries.timeseries on the available ids"""
         raise NotImplementedError
 
     def from_parquet(self, file, time_col=None, flux_col=None,
