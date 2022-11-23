@@ -26,6 +26,11 @@ class ensemble:
         else:
             return counts
 
+    def dropna(self, threshold):
+        """wrapper for dask.dataframe.dropna"""
+        self.data = self.data[self.data.isnull().sum(axis=1) < threshold]
+        return self
+
     def prune(self, threshold):
         """remove objects with less observations than a given threshold"""
         subset_ids = self.count().index[self.count() >= threshold]
