@@ -13,6 +13,7 @@ class ensemble:
         self.token = token
         self.data = None
 
+        self._id_col = 'object_id'
         self._time_col = 'midPointTai'
         self._flux_col = 'psFlux'
         self._err_col = 'psFluxErr'
@@ -20,7 +21,7 @@ class ensemble:
 
     def count(self, sort=True, ascending=False):
         """Return the number of available measurements for each lightcurve"""
-        counts = self.data.groupby('object_id').object_id.count().compute()
+        counts = self.data.groupby(self._id_col)[self._id_col].count().compute()
         if sort:
             return counts.sort_values(ascending=ascending)
         else:
@@ -34,7 +35,7 @@ class ensemble:
     def prune(self, threshold):
         """remove objects with less observations than a given threshold"""
         subset_ids = self.count().index[self.count() >= threshold]
-        mask = self.data['object_id'].isin(subset_ids)
+        mask = self.data[self._id_col].isin(subset_ids)
         self.data = self.data[mask]
         return self
 
@@ -42,12 +43,14 @@ class ensemble:
         """Run a function from lsstseries.timeseries on the available ids"""
         raise NotImplementedError
 
-    def from_parquet(self, file, time_col=None, flux_col=None,
+    def from_parquet(self, file, id_col = None, time_col=None, flux_col=None,
                      err_col=None, band_col=None):
         """Read in a parquet file"""
         self.data = dd.read_parquet(file, index=False)
 
         # Track critical column changes
+        if id_col is not None:
+            self._id_col = id_col
         if time_col is not None:
             self._time_col = time_col
         if flux_col is not None:
@@ -59,7 +62,8 @@ class ensemble:
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
-        Read here for information on TAP access: https://data.lsst.cloud/api-aspect
+        Read here for information on TAP access: 
+        https://data.lsst.cloud/api-aspect
 
         Parameters
         ----------
@@ -179,8 +183,9 @@ class ensemble:
 
         return result
 
-    def to_timeseries(self, target, time_col=None, flux_col=None, err_col=None, band_col=None):
-        """Construct a timeseries object from one target object_id, assumes
+    def to_timeseries(self, target, id_col=None, time_col=None, 
+                      flux_col=None, err_col=None, band_col=None):
+        """Construct a timeseries object from one target object_id, assumes 
         that the result is a collection of lightcurves (output from query_ids)
 
         Parameters
@@ -195,6 +200,8 @@ class ensemble:
         """
 
         # Without a specified column, use defaults
+        if id_col is None:
+            id_col = self._id_col
         if time_col is None:
             time_col = self._time_col
         if flux_col is None:
@@ -206,7 +213,7 @@ class ensemble:
 
         # df = self.data.xs(target)
         df = self.data
-        df = df[df['object_id'] == target].compute()  # brought into memory
+        df = df[df[self._id_col]==target].compute() # brought into memory
         ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
                                          flux_label=flux_col, err_label=err_col, band_label=band_col)
         return ts
