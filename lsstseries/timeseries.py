@@ -50,22 +50,9 @@ class timeseries():
 
         return self
 
-    def handle_nans(self, strategy='remove'):
-        """Clean the input dataset of NaN values
-
-        Parameters
-        ----------
-        strategy : `str`
-            strategy to handle NaNs
-        """
-
-        if strategy =='remove':
-            self.data = self.data.dropna()
-        elif strategy == 'interpolate':
-            raise NotImplementedError
-        else:
-            raise ValueError("Provided strategy not recognized")
-
+    def dropna(self, **kwargs):
+        """Handle NaN values, wrapper for pandas.DataFrame.dropna"""
+        self.data = self.data.dropna(**kwargs)
         return self
 
 
