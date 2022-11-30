@@ -210,7 +210,7 @@ class ensemble():
         count_dict = {}
         idx = []
         for o, b in zip(obj_id,band):
-            if f"{o},{b}" in count_dict.keys():
+            if f"{o},{b}" in count_dict:
                 idx.append(count_dict[f"{o},{b}"])
                 count_dict[f"{o},{b}"]+=1
             else:

@@ -103,7 +103,19 @@ class timeseries():
     def _build_index(self, band):
         """Build pandas multiindex from band array"""
         # Create a multiindex
-        tuples = zip(band, range(len(band)))
+        idx = range(len(band))
+
+        #idx to count up for each unique pair of obj_id,band 
+        count_dict = {}
+        idx = []
+        for b in band:
+            if f"{b}" in count_dict:
+                idx.append(count_dict[f"{b}"])
+                count_dict[f"{b}"]+=1
+            else:
+                idx.append(0)
+                count_dict[f"{b}"]=1
+        tuples = zip(band, idx)
         index = pd.MultiIndex.from_tuples(tuples, names=["band", "index"])
         return index
 
