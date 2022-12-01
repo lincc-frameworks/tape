@@ -1,49 +1,51 @@
 import numpy as np
 
+
 def calc_stetson_J(flux, err, band, band_to_calc=None):
-    """Compute the stetsonJ statistic on data from one or several bands
-        Parameters
-        ----------
-        flux : `numpy.ndarray` (N,)
-            Array of flux/magnitude measurements
-        err : `numpy.ndarray` (N,)
-            Array of associated flux/magnitude errors
-        band : `numpy.ndarray` (N,)
-            Array of associated band labels
-        band_to_calc : `str` or `list` of `str`
-            Bands to calculate stetson J on. Single band descriptor, or list 
-            of such descriptors.
-        Returns
-        -------
-        stetsonJ : `dict`
-            StetsonJ statistic for each of input bands.
-        Notes
-        ----------
-        In case that no value for `band_to_calc` is passed, the function is 
-        executed on all available bands in `band`.
-        """
+    """Compute the StetsonJ statistic on data from one or several bands
+    Parameters
+    ----------
+    flux : `numpy.ndarray` (N,)
+        Array of flux/magnitude measurements
+    err : `numpy.ndarray` (N,)
+        Array of associated flux/magnitude errors
+    band : `numpy.ndarray` (N,)
+        Array of associated band labels
+    band_to_calc : `str` or `list` of `str`
+        Bands to calculate StetsonJ on. Single band descriptor, or list
+        of such descriptors.
+    Returns
+    -------
+    stetsonJ : `dict`
+        StetsonJ statistic for each of input bands.
+    Notes
+    ----------
+    In case that no value for `band_to_calc` is passed, the function is
+    executed on all available bands in `band`.
+    """
 
     unq_band = np.unique(band)
 
     if band_to_calc is None:
         band_to_calc = unq_band
-    if isinstance(band_to_calc,str):
+    if isinstance(band_to_calc, str):
         band_to_calc = [band_to_calc]
 
-    assert hasattr(band_to_calc, '__iter__') is True
+    assert hasattr(band_to_calc, "__iter__") is True
 
-    StetsonJ = {}
+    stetsonJ = {}
     # TODO: ability to remove nan values
     for b in band_to_calc:
         if b in unq_band:
             mask = band == b
             fluxes = flux[mask]
             errors = err[mask]
-            StetsonJ[b] = _stetson_J_single(fluxes, errors)
+            stetsonJ[b] = _stetson_J_single(fluxes, errors)
         else:
-            StetsonJ[b] = np.nan
+            stetsonJ[b] = np.nan
 
-    return StetsonJ
+    return stetsonJ
+
 
 def _stetson_J_single(fluxes, errors):
     """Compute the single band stetsonJ statistic.
@@ -68,23 +70,18 @@ def _stetson_J_single(fluxes, errors):
     Using the function on random gaussian distribution gives result of -0.2
     instead of expected result of 0?
     """
-    mean = None
     n_points = len(fluxes)
     if n_points <= 1:
         return np.nan
-    flux_mean = _stetson_mean(fluxes, errors, mean)
-    delta_val = (
-        np.sqrt(n_points / (n_points - 1)) * (fluxes - flux_mean) / errors)
-    p_k = delta_val ** 2 - 1
+    flux_mean = _stetson_J_mean(fluxes, errors)
+    delta_val = np.sqrt(n_points / (n_points - 1)) * (fluxes - flux_mean) / errors
+    p_k = delta_val**2 - 1
     return np.mean(np.sign(p_k) * np.sqrt(np.fabs(p_k)))
 
-def _stetson_mean(values,
-                  errors,
-                  mean=None,
-                  alpha=2.,
-                  beta=2.,
-                  n_iter=20,
-                  tol=1e-6):
+
+def _stetson_J_mean(
+    values, errors, mean=None, alpha=2.0, beta=2.0, n_iter=20, tol=1e-6
+):
     """Compute the stetson mean of the fluxes which down-weights outliers.
     Weighted biased on an error weighted difference scaled by a constant
     (1/``a``) and raised to the power beta. Higher betas more harshly
@@ -124,14 +121,12 @@ def _stetson_mean(values,
     """
     n_points = len(values)
     n_factor = np.sqrt(n_points / (n_points - 1))
-    inv_var = 1 / errors ** 2
+    inv_var = 1 / errors**2
     if mean is None:
         mean = np.average(values, weights=inv_var)
     for iter_idx in range(n_iter):
         chi = np.fabs(n_factor * (values - mean) / errors)
-        tmp_mean = np.average(
-            values,
-            weights=inv_var / (1 + (chi / alpha) ** beta))
+        tmp_mean = np.average(values, weights=inv_var / (1 + (chi / alpha) ** beta))
         diff = np.fabs(tmp_mean - mean)
         mean = tmp_mean
         if diff / mean < tol and diff < tol:
