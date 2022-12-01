@@ -198,7 +198,7 @@ class ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:
