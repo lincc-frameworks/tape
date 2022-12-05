@@ -129,6 +129,8 @@ def _stetson_J_mean(
         tmp_mean = np.average(values, weights=inv_var / (1 + (chi / alpha) ** beta))
         diff = np.fabs(tmp_mean - mean)
         mean = tmp_mean
-        if diff / mean < tol and diff < tol:
+        if mean == 0:  # catch divide by zero in diff / mean
+            break
+        elif diff / mean < tol and diff < tol:
             break
     return mean
