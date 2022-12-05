@@ -43,7 +43,7 @@ class ensemble:
         """Run a function from lsstseries.timeseries on the available ids"""
         raise NotImplementedError
 
-    def from_parquet(self, file, id_col = None, time_col=None, flux_col=None,
+    def from_parquet(self, file, id_col=None, time_col=None, flux_col=None,
                      err_col=None, band_col=None):
         """Read in a parquet file"""
         self.data = dd.read_parquet(file, index=False)
@@ -62,7 +62,7 @@ class ensemble:
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
-        Read here for information on TAP access: 
+        Read here for information on TAP access:
         https://data.lsst.cloud/api-aspect
 
         Parameters
@@ -183,9 +183,9 @@ class ensemble:
 
         return result
 
-    def to_timeseries(self, target, id_col=None, time_col=None, 
+    def to_timeseries(self, target, id_col=None, time_col=None,
                       flux_col=None, err_col=None, band_col=None):
-        """Construct a timeseries object from one target object_id, assumes 
+        """Construct a timeseries object from one target object_id, assumes
         that the result is a collection of lightcurves (output from query_ids)
 
         Parameters
@@ -213,7 +213,7 @@ class ensemble:
 
         # df = self.data.xs(target)
         df = self.data
-        df = df[df[self._id_col]==target].compute() # brought into memory
+        df = df[df[self._id_col] == target].compute()  # brought into memory
         ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
                                          flux_label=flux_col, err_label=err_col, band_label=band_col)
         return ts
