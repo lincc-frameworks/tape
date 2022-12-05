@@ -1,17 +1,19 @@
 import pandas as pd
 import pyvo as vo
 from .timeseries import timeseries
+import time
 
 
-class ensemble():
+class ensemble:
     """ensemble object is a collection of light curve ids"""
+
     def __init__(self, token=None):
         self.result = None  # holds the latest query
         self.token = token
 
-        self._time_col = 'midPointTai'
-        self._flux_col = 'psFlux'
-        self._err_col = 'psFluxErr'
+        self._time_col = "midPointTai"
+        self._flux_col = "psFlux"
+        self._err_col = "psFluxErr"
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
@@ -24,7 +26,7 @@ class ensemble():
         """
         self.token = token
 
-    def query_tap(self, query, maxrec=None):
+    def query_tap(self, query, maxrec=None, debug=False):
         """Query the TAP service
 
         Parameters
@@ -41,23 +43,31 @@ class ensemble():
         """
         cred = vo.auth.CredentialStore()
         cred.set_password("x-oauth-basic", self.token)
-
-        service = vo.dal.TAPService("https://data.lsst.cloud/api/tap", cred.get("ivo://ivoa.net/sso#BasicAA"))
+        service = vo.dal.TAPService(
+            "https://data.lsst.cloud/api/tap", cred.get("ivo://ivoa.net/sso#BasicAA")
+        )
+        time0 = time.time()
         results = service.search(query, maxrec=maxrec)
+        time1 = time.time()
+        if debug:
+            print(f"Query Time: {time1-time0} (s)")
         result = results.to_table().to_pandas()
         self.result = result
         return result
 
-    def query_ids(self, ids,
-                  time_col='midPointTai',
-                  flux_col='psFlux',
-                  err_col='psFluxErr',
-                  add_cols=None,
-                  id_field='diaObjectId',
-                  catalog='dp02_dc2_catalogs',
-                  table='DiaSource',
-                  to_mag=True,
-                  maxrec=None):
+    def query_ids(
+        self,
+        ids,
+        time_col="midPointTai",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+        add_cols=None,
+        id_field="diaObjectId",
+        catalog="dp02_dc2_catalogs",
+        table="DiaSource",
+        to_mag=True,
+        maxrec=None,
+    ):
         """Query based on a list of object ids; applicable for DP0.2
 
         Parameters
@@ -100,21 +110,23 @@ class ensemble():
             query_cols = cols
 
         if add_cols is not None:
-            cols = cols+add_cols
-            query_cols = query_cols+add_cols
+            cols = cols + add_cols
+            query_cols = query_cols + add_cols
 
-        idx_cols = ['diaObjectId', 'filterName']
+        idx_cols = ["diaObjectId", "filterName"]
 
-        result = pd.DataFrame(columns=idx_cols+cols)
-        select_cols = ",".join(idx_cols)+','+','.join(query_cols)
+        result = pd.DataFrame(columns=idx_cols + cols)
+        select_cols = ",".join(idx_cols) + "," + ",".join(query_cols)
         str_ids = [str(obj_id) for obj_id in ids]
-        id_list = "("+",".join(str_ids)+")"
+        id_list = "(" + ",".join(str_ids) + ")"
 
-        result = self.query_tap(f"SELECT {select_cols} "
-                                f"FROM {catalog}.{table} "
-                                f"WHERE {id_field} IN {id_list}",
-                                maxrec=maxrec)
-        index = self._build_index(result['diaObjectId'], result['filterName'])
+        result = self.query_tap(
+            f"SELECT {select_cols} "
+            f"FROM {catalog}.{table} "
+            f"WHERE {id_field} IN {id_list}",
+            maxrec=maxrec,
+        )
+        index = self._build_index(result["diaObjectId"], result["filterName"])
         result.index = index
         result = result[cols].sort_index()
         self.result = result
@@ -125,7 +137,9 @@ class ensemble():
 
         return result
 
-    def to_timeseries(self, dataframe, target, time_col=None, flux_col=None, err_col=None):
+    def to_timeseries(
+        self, dataframe, target, time_col=None, flux_col=None, err_col=None
+    ):
         """Construct a timeseries object from one target object_id, assumes that the result
         is a collection of lightcurves (output from query_ids)
 
@@ -151,8 +165,13 @@ class ensemble():
             err_col = self._err_col
 
         df = dataframe.xs(target)
-        ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
-                                         flux_label=flux_col, err_label=err_col)
+        ts = timeseries()._from_ensemble(
+            data=df,
+            object_id=target,
+            time_label=time_col,
+            flux_label=flux_col,
+            err_label=err_col,
+        )
         return ts
 
     def flux_to_mag(self, cols):
@@ -174,31 +193,44 @@ class ensemble():
         cols_mag = []
         cols_label = []
         for col in cols:
-            pos_flux = col.find('Flux')
+            pos_flux = col.find("Flux")
             if pos_flux == -1:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux+len('Flux'):]
-                flux_str = pre_var+'Flux'
-                mag_str = pre_var+'AbMag'
-                if col.find('Err') != -1:
-                    flux_str_err = pre_var+'Flux'+post_var
-                    mag_str_err = pre_var+'AbMag'+post_var
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
+                flux_str = pre_var + "Flux"
+                mag_str = pre_var + "AbMag"
+                if col.find("Err") != -1:
+                    flux_str_err = pre_var + "Flux" + post_var
+                    mag_str_err = pre_var + "AbMag" + post_var
                     cols_mag.append(
-                        'scisql_nanojanskyToAbMagSigma('+flux_str+','+flux_str_err+') AS '+mag_str_err)
+                        "scisql_nanojanskyToAbMagSigma("
+                        + flux_str
+                        + ","
+                        + flux_str_err
+                        + ") AS "
+                        + mag_str_err
+                    )
                     cols_label.append(mag_str_err)
                 else:
                     cols_mag.append(
-                        'scisql_nanojanskyToAbMag('+flux_str+') AS '+mag_str)
+                        "scisql_nanojanskyToAbMag(" + flux_str + ") AS " + mag_str
+                    )
                     cols_label.append(mag_str)
         return cols_mag, cols_label
 
     def _build_index(self, obj_id, band):
         """Build pandas multiindex from object_ids and bands"""
-        # Create a multiindex
-
-        idx = range(len(list(zip(obj_id, band))))
+        count_dict = {}
+        idx = []
+        for o, b in zip(obj_id, band):
+            if f"{o},{b}" in count_dict:
+                idx.append(count_dict[f"{o},{b}"])
+                count_dict[f"{o},{b}"] += 1
+            else:
+                idx.append(0)
+                count_dict[f"{o},{b}"] = 1
         tuples = zip(obj_id, band, idx)
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
