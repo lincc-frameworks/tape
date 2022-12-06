@@ -2,6 +2,7 @@ import pandas as pd
 import dask.dataframe as dd
 import pyvo as vo
 from .timeseries import timeseries
+from .analysis.stetsonj import calc_stetson_J
 import time
 
 
@@ -21,7 +22,7 @@ class ensemble:
 
     def count(self, sort=True, ascending=False):
         """Return the number of available measurements for each lightcurve"""
-        counts = self.data.groupby(self._id_col)[self._id_col].count().compute()
+        counts = self.data.groupby(self._id_col)[self._time_col].count().compute()
         if sort:
             return counts.sort_values(ascending=ascending)
         else:
@@ -35,18 +36,41 @@ class ensemble:
     def prune(self, threshold):
         """remove objects with less observations than a given threshold"""
         subset_ids = self.count().index[self.count() >= threshold]
-        mask = self.data[self._id_col].isin(subset_ids)
-        self.data = self.data[mask]
+        self.data = self.data.map_partitions(lambda x: x[x.index.isin(subset_ids)])
         return self
 
-    def batch(self, func):
-        """Run a function from lsstseries.timeseries on the available ids"""
-        raise NotImplementedError
+    def batch(self, func, param_cols=None):
+        """Run a function from lsstseries.timeseries on the available ids
+
+        Parameters
+        ----------
+        func : `function`
+            A function to apply to all objects in the ensemble
+        param_cols: `list`
+            Not yet implemented, will allow passage of ensemble columns to use
+            as input parameters for a given function
+
+        Returns
+        ----------
+        result: `Dask.Series of function results`
+            Results of the batched function run
+        """
+        known_cols = {'calc_stetson_J': [self._flux_col, self._err_col, self._band_col]}
+
+        if func == calc_stetson_J:
+            batch = self.data.groupby(self._id_col).apply(lambda x: func(x[known_cols['calc_stetson_J'][0]],
+                                                                         x[known_cols['calc_stetson_J'][1]],
+                                                                         x[known_cols['calc_stetson_J'][2]]),
+                                                          meta=(self._id_col, type(self._id_col)))
+        else:
+            raise NotImplementedError  # General batching not yet implemented
+
+        result = batch.compute()
+        return result
 
     def from_parquet(self, file, id_col=None, time_col=None, flux_col=None,
-                     err_col=None, band_col=None):
-        """Read in a parquet file"""
-        self.data = dd.read_parquet(file, index=False)
+                     err_col=None, band_col=None, npartitions=None, additional_cols=True,
+                     partition_size=None):
 
         # Track critical column changes
         if id_col is not None:
@@ -59,6 +83,18 @@ class ensemble:
             self._err_col = err_col
         if band_col is not None:
             self._band_col = band_col
+
+        """Read in a parquet file"""
+        if additional_cols:
+            columns = None
+        else:
+            columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
+        self.data = dd.read_parquet(file, index=self._id_col, columns=columns)
+
+        if npartitions is not None:
+            self.data = self.data.repartition(npartitions=npartitions)
+        elif partition_size is not None:
+            self.data = self.data.repartition(partition_size=partition_size)
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
