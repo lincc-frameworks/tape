@@ -2,7 +2,7 @@ import pandas as pd
 import dask.dataframe as dd
 import pyvo as vo
 from .timeseries import timeseries
-from .analysis.stetsonj import calc_stetson_J
+# from .analysis.stetsonj import calc_stetson_J
 import time
 
 
@@ -39,31 +39,39 @@ class ensemble:
         self.data = self.data.map_partitions(lambda x: x[x.index.isin(subset_ids)])
         return self
 
-    def batch(self, func, param_cols=None):
+    def batch(self, func, *args, **kwargs):
         """Run a function from lsstseries.timeseries on the available ids
 
         Parameters
         ----------
         func : `function`
             A function to apply to all objects in the ensemble
-        param_cols: `list`
-            Not yet implemented, will allow passage of ensemble columns to use
-            as input parameters for a given function
+        *args:
+            Denotes the ensemble columns to use as inputs for a function,
+            order must be correct for function. If passing a lsstseries
+            function, these are populated automatically.
+        **kwargs:
+            Additional optional parameters passed for the selected function
 
         Returns
         ----------
         result: `Dask.Series of function results`
             Results of the batched function run
+
+        Example
+        ----------
+        `
+        from lsstseries.analysis.stetsonj import calc_stetson_J
+        ensemble.batch(calc_stetson_J, band_to_calc='i')
+        `
         """
         known_cols = {'calc_stetson_J': [self._flux_col, self._err_col, self._band_col]}
+        if func.__name__ in known_cols:
+            args = known_cols[func.__name__]
 
-        if func == calc_stetson_J:
-            batch = self.data.groupby(self._id_col).apply(lambda x: func(x[known_cols['calc_stetson_J'][0]],
-                                                                         x[known_cols['calc_stetson_J'][1]],
-                                                                         x[known_cols['calc_stetson_J'][2]]),
-                                                          meta=(self._id_col, type(self._id_col)))
-        else:
-            raise NotImplementedError  # General batching not yet implemented
+        batch = self.data.groupby(self._id_col).apply(lambda x: func(*[x[arg] for arg in args],
+                                                                     **kwargs),
+                                                      meta=(self._id_col, type(self._id_col)))
 
         result = batch.compute()
         return result
