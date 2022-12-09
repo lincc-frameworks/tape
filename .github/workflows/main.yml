@@ -38,11 +38,21 @@ jobs:
           pip install numpy
           pip install pandas
           pip install pyvo
+          pip install coverage
 
       # Runs a single command using the runners shell
       - name: Run Hello, world message
         run: echo Hello, world!
 
       # Runs a set of commands using the runners shell
+      # Instructions for coverage are from:
+      # https://coverage.readthedocs.io/en/6.5.0/
       - name: Run a test script
-        run: python ./test.py
+        run: |
+            coverage run --source lsstseries.timeseries -m unittest discover && coverage xml
+
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v2
+        with:
+          file: ./coverage.xml
+
