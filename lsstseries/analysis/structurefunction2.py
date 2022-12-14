@@ -18,12 +18,14 @@ def calc_sf2(time, flux, err, bins, band, band_to_calc=None):
     band : `numpy.ndarray` (N,)
         Array of associated band labels,
     band_to_calc : `str` or `list` of `str`
-        Bands to calculate StetsonJ on. Single band descriptor, or list
-        of such descriptors.
+        Bands to calculate structure function on. Single band descriptor,
+        or list of such descriptors.
 
     Returns
     -------
-
+    sf2 : `dict`
+        Structure function squared for each of input bands.
+         
     Notes
     ----------
     In case that no value for `band_to_calc` is passed, the function is
@@ -55,18 +57,18 @@ def calc_sf2(time, flux, err, bins, band, band_to_calc=None):
 def _sf2_single(times, fluxes, errors, bins):
     """Calculate structure function squared
 
-    Calculate structure function squared from the avaliable data. This is
+    Calculate structure function squared from the available data. This is
     AGN-type definition, i.e., variance of the distribution of the
-    differences of measurments at different times
+    differences of measurements at different times
 
     Parameters
     ----------
     time : `np.array` [`float`]
-        Times at which the measurment was conducted.
+        Times at which the measurements were conducted.
     y : `np.array` [`float`]
-        Measurment values
+        Measurements values
     yerr : `np.array` [`float`]
-        Measurment errors.
+        Measurements errors.
     bins :  `np.array` [`float`]:
         Edges of time bin in which data is grouped together.
 
@@ -90,8 +92,8 @@ def _sf2_single(times, fluxes, errors, bins):
     fluxes = fluxes.values
     errors = errors.values
 
-    # compute dt (difference of times) and
-    # dm (difference of magnitudes) for all gaps
+    # compute d_times (difference of times) and
+    # d_fluxes (difference of magnitudes, i.e., fluxes) for all gaps
     # d_times - difference of times
     dt_matrix = times.reshape((1, times.size)) - times.reshape((times.size, 1))
     d_times = dt_matrix[dt_matrix > 0].flatten().astype(np.float16)
@@ -110,6 +112,6 @@ def _sf2_single(times, fluxes, errors, bins):
 
     # structure function at specific dt
     # the line below will throw error if the bins are not covering the whole range
-    SFs, bin_edgs, _ = binned_statistic(d_times, cor_flux2, 'mean', bins)
+    sfs, bin_edgs, _ = binned_statistic(d_times, cor_flux2, 'mean', bins)
 
-    return (bin_edgs[0:-1] + bin_edgs[1:])/2, SFs
+    return (bin_edgs[0:-1] + bin_edgs[1:])/2, sfs
