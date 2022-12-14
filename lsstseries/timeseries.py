@@ -1,5 +1,6 @@
 import pandas as pd
 from lsstseries.analysis.stetsonj import calc_stetson_J
+from lsstseries.analysis.structurefunction2 import calc_sf2
 
 
 class timeseries:
@@ -149,3 +150,26 @@ class timeseries:
         on all available bands.
         """
         return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
+
+    def sf2(self, bins=None, band=None):
+        """Compute the structure function squared statistic on data
+
+        Parameters
+        ----------
+        bins : `np.array`
+            Times defining edges of time bins in which to compute
+            structure function
+        band : `str` or `list` of `str`
+            Single band descriptor, or list of such descriptors.
+
+        Returns
+        -------
+        stetsonJ : `dict`
+            Structure function squared statistic for each of input bands.
+
+        Notes
+        ----------
+        In case that no value for band is passed, the function is executed
+        on all available bands.
+        """
+        return calc_sf2(self.time, self.flux, self.flux_err, bins, self.band, band_to_calc=band)

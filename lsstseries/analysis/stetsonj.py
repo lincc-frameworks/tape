@@ -3,6 +3,7 @@ import numpy as np
 
 def calc_stetson_J(flux, err, band, band_to_calc=None):
     """Compute the StetsonJ statistic on data from one or several bands
+
     Parameters
     ----------
     flux : `numpy.ndarray` (N,)
@@ -14,10 +15,12 @@ def calc_stetson_J(flux, err, band, band_to_calc=None):
     band_to_calc : `str` or `list` of `str`
         Bands to calculate StetsonJ on. Single band descriptor, or list
         of such descriptors.
+
     Returns
     -------
     stetsonJ : `dict`
         StetsonJ statistic for each of input bands.
+
     Notes
     ----------
     In case that no value for `band_to_calc` is passed, the function is
@@ -49,20 +52,24 @@ def calc_stetson_J(flux, err, band, band_to_calc=None):
 
 def _stetson_J_single(fluxes, errors):
     """Compute the single band stetsonJ statistic.
+
     Parameters
     ----------
     fluxes : `numpy.ndarray` (N,)
         Lightcurve flux values.
     errors : `numpy.ndarray` (N,)
         Errors on the lightcurve fluxes.
+
     Returns
     -------
     stetsonJ : `float`
         StetsonJ statistic
+
     References
     ----------
     .. [1] Stetson, P. B., "On the Automatic Determination of Light-Curve
     Parameters for Cepheid Variables", PASP, 108, 851S, 1996
+
     Notes
     ----------
     Taken from
@@ -70,6 +77,7 @@ def _stetson_J_single(fluxes, errors):
     Using the function on random gaussian distribution gives result of -0.2
     instead of expected result of 0?
     """
+
     n_points = len(fluxes)
     if n_points <= 1:
         return np.nan
@@ -83,10 +91,12 @@ def _stetson_J_mean(
     values, errors, mean=None, alpha=2.0, beta=2.0, n_iter=20, tol=1e-6
 ):
     """Compute the stetson mean of the fluxes which down-weights outliers.
+
     Weighted biased on an error weighted difference scaled by a constant
     (1/``a``) and raised to the power beta. Higher betas more harshly
     penalize outliers and ``a`` sets the number of sigma where a weighted
     difference of 1 occurs.
+
     Parameters
     ----------
     values : `numpy.dnarray`, (N,)
@@ -106,14 +116,17 @@ def _stetson_J_mean(
     tol : `float`
         Fractional and absolute tolerance goal on the change in the mean
         before exiting early. (Default value is 1e-6)
+
     Returns
     -------
     mean : `float`
         Weighted stetson mean result.
+
     References
     ----------
     .. [1] Stetson, P. B., "On the Automatic Determination of Light-Curve
     Parameters for Cepheid Variables", PASP, 108, 851S, 1996
+
     Notes
     ----------
     Taken from
