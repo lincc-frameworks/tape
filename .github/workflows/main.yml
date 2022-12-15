@@ -35,23 +35,15 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install numpy
-          pip install scipy
-          pip install pandas
-          pip install pyvo
-          pip install coverage
+          pip install numpy scipy pandas pyvo
+          pip install pytest pytest-cov
+          pip install .[all]
 
-      # Runs a single command using the runners shell
-      - name: Run Hello, world message
-        run: echo Hello, world!
-
-      # Runs a set of commands using the runners shell
       # Instructions for coverage are from:
       # https://coverage.readthedocs.io/en/6.5.0/
-      - name: Run a test script
+      - name: Test with pytest
         run: |
-            coverage run --source lsstseries.timeseries -m unittest discover && coverage xml
-
+          python -m pytest --cov=lsstseries --cov-report=xml
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v2
         with:

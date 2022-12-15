@@ -12,3 +12,18 @@ In short term we are working on two main goals of the project:
   - Enable efficient and scalable evaluation of algorithm on time-domain data
 
 This is LINCC project - find more information about LINCC [here](https://www.lsstcorporation.org/lincc/frameworks)
+
+## Getting started - for developers
+
+Download code and install dependencies in a conda environment. Run unit tests at the end as a verification that the packages are properly installed.
+
+```
+$ git clone https://github.com/lincc-frameworks/lsstseries
+$ cd lsstseries/
+$ conda create -n seriesenv
+$ conda activate seriesenv
+
+$ python3 -m pip install --upgrade pip
+$ pip install numpy scipy pandas pyvo coverage
+$ pytest
+```
