@@ -1,27 +1,59 @@
 import pandas as pd
 import dask.dataframe as dd
+from dask.distributed import Client
 import pyvo as vo
 from .timeseries import timeseries
-# from .analysis.stetsonj import calc_stetson_J
 import time
 
 
 class ensemble:
     """ensemble object is a collection of light curve ids"""
 
-    def __init__(self, token=None):
+    def __init__(self, token=None, **kwargs):
         self.result = None  # holds the latest query
         self.token = token
         self.data = None
 
+        # Assign Default Values for critical column quantities
         self._id_col = 'object_id'
         self._time_col = 'midPointTai'
         self._flux_col = 'psFlux'
         self._err_col = 'psFluxErr'
         self._band_col = 'band'
 
+        # Setup Dask Distributed Client
+        self.client = Client(**kwargs)  # arguments passed along to Client
+
+    def client_info(self):
+        """Calls the Dask Client, which returns cluster information
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        ----------
+        self.client: `distributed.client.Client`
+            Dask Client information
+        """
+        return self.client  # Prints Dask dashboard to screen
+
     def count(self, sort=True, ascending=False):
-        """Return the number of available measurements for each lightcurve"""
+        """Return the number of available rows/measurements for each lightcurve
+
+        Parameters
+        ----------
+        sort: `bool`, optional
+            Indicates whether the resulting counts should be sorted on counts
+        ascending: `bool`, optional
+            When sorting, indicates whether the result is ordering is ascending
+            or descending
+
+        Returns
+        ----------
+        counts: `pandas.series`
+            A series of counts by object
+        """
         counts = self.data.groupby(self._id_col)[self._time_col].count().compute()
         if sort:
             return counts.sort_values(ascending=ascending)
@@ -29,14 +61,39 @@ class ensemble:
             return counts
 
     def dropna(self, threshold):
-        """wrapper for dask.dataframe.dropna"""
+        """wrapper for dask.dataframe.dropna
+
+        Parameters
+        ----------
+        threshold: `int`
+            The minimum number of nans present in a row needed to drop the row
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with nans removed according to the threshold
+            scheme
+        """
         self.data = self.data[self.data.isnull().sum(axis=1) < threshold]
         return self
 
     def prune(self, threshold):
-        """remove objects with less observations than a given threshold"""
-        subset_ids = self.count().index[self.count() >= threshold]
-        self.data = self.data.map_partitions(lambda x: x[x.index.isin(subset_ids)])
+        """remove objects with less observations than a given threshold
+
+        Parameters
+        ----------
+        threshold: `int`
+            The minimum number of observations needed to retain an object
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with pruned rows removed
+        """
+        counts = self.data.groupby(self._id_col).count()
+        counts = counts.rename(columns={self._time_col: "num_obs"})[['num_obs']]
+        self.data = self.data.join(counts, how='left')
+        self.data = self.data[self.data['num_obs'] >= threshold]
         return self
 
     def batch(self, func, *args, **kwargs):
@@ -55,8 +112,8 @@ class ensemble:
 
         Returns
         ----------
-        result: `Dask.Series of function results`
-            Results of the batched function run
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with pruned rows removed
 
         Example
         ----------
@@ -77,8 +134,41 @@ class ensemble:
         return result
 
     def from_parquet(self, file, id_col=None, time_col=None, flux_col=None,
-                     err_col=None, band_col=None, npartitions=None, additional_cols=True,
-                     partition_size=None):
+                     err_col=None, band_col=None, additional_cols=True,
+                     npartitions=None, partition_size=None):
+        """ Read in parquet file(s) into an ensemble object
+
+        Parameters
+        ----------
+        file: 'str'
+            Path to a parquet file, or multiple parquet files to be read into
+            the ensemble
+        id_col: 'str', optional
+            Identifies which column contains the Object IDs
+        time_col: 'str', optional
+            Identifies which column contains the time information
+        flux_col: 'str', optional
+            Identifies which column contains the flux/magnitude information
+        err_col: 'str', optional
+            Identifies which column contains the error information
+        band_col: 'str', optional
+            Identifies which column contains the band information
+        additional_cols: 'bool', optional
+            Boolean to indicate whether to carry in columns beyond the
+            critical columns, true will, while false will only load the columns
+            containing the critical quantities (id,time,flux,err,band)
+        npartitions: `int`, optional
+            If specified, attempts to repartition the ensemble to the specified
+            number of partitions
+        partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+
+        Returns
+        ----------
+        result: `Dask.Series of function results`
+            Results of the batched function run
+        """
 
         # Track critical column changes
         if id_col is not None:
@@ -92,17 +182,20 @@ class ensemble:
         if band_col is not None:
             self._band_col = band_col
 
-        """Read in a parquet file"""
         if additional_cols:
             columns = None
         else:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
-        self.data = dd.read_parquet(file, index=self._id_col, columns=columns)
+
+        # Read in a parquet file
+        self.data = dd.read_parquet(file, index=self._id_col, columns=columns, split_row_groups=True)
 
         if npartitions is not None:
             self.data = self.data.repartition(npartitions=npartitions)
         elif partition_size is not None:
             self.data = self.data.repartition(partition_size=partition_size)
+
+        return self
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
@@ -123,7 +216,7 @@ class ensemble:
         ----------
         query : `str`
             Query is an ADQL formatted string
-        maxrec: `int`
+        maxrec: `int`, optional
             Max number of results returned
 
         Returns
@@ -236,11 +329,26 @@ class ensemble:
         ----------
         target: `int`
             Id of a source to be extracted
+        id_col: 'str', optional
+            Identifies which column contains the Object IDs
+        time_col: 'str', optional
+            Identifies which column contains the time information
+        flux_col: 'str', optional
+            Identifies which column contains the flux/magnitude information
+        err_col: 'str', optional
+            Identifies which column contains the error information
+        band_col: 'str', optional
+            Identifies which column contains the band information
 
         Returns
         ----------
         ts: `timeseries`
             Timeseries for a single object
+
+        Note
+        ----
+        All _col parameters when not specified will use the appropriate columns
+        determined on data ingest as critical columns.
         """
 
         # Without a specified column, use defaults
@@ -255,9 +363,8 @@ class ensemble:
         if band_col is None:
             band_col = self._band_col
 
-        # df = self.data.xs(target)
         df = self.data
-        df = df[df[self._id_col] == target].compute()  # brought into memory
+        df = df[df.index == target].compute()  # brought into memory
         ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
                                          flux_label=flux_col, err_label=err_col, band_label=band_col)
         return ts
