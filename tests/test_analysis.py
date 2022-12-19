@@ -43,4 +43,3 @@ def test_sf2():
 
     print("test sf2 value is: " + str(res))
     assert sum(res[1]) == -0.0126072883605957
-

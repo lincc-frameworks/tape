@@ -38,6 +38,8 @@ jobs:
           pip install numpy scipy pandas pyvo
           pip install pytest pytest-cov
           pip install .[all]
+          pip install "dask[complete]"
+          pip install pyarrow 
 
       # Instructions for coverage are from:
       # https://coverage.readthedocs.io/en/6.5.0/
