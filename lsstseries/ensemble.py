@@ -363,8 +363,7 @@ class ensemble:
         if band_col is None:
             band_col = self._band_col
 
-        df = self.data
-        df = df[df.index == target].compute()  # brought into memory
+        df = self.data.loc[target].compute()
         ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
                                          flux_label=flux_col, err_label=err_col, band_label=band_col)
         return ts

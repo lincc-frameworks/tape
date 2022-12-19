@@ -47,12 +47,24 @@ def test_prune(parquet_data):
 
 
 def test_batch(parquet_data):
-
+    """
+    Test that ensemble.batch() returns the correct values of the first result
+    """
     ens = parquet_data
     result = ens.prune(10).dropna(1).batch(calc_stetson_J, band_to_calc=None)
 
     assert pytest.approx(result.values[0]['g'], 0.001) == -0.04174282
     assert pytest.approx(result.values[0]['r'], 0.001) == 0.6075282
+
+
+def test_to_timeseries(parquet_data):
+    """
+    Test that ensemble.to_timeseries() runs and assigns the correct metadata
+    """
+    ens = parquet_data
+    ts = ens.to_timeseries('88480000290704349')
+
+    assert ts.meta['id'] == '88480000290704349'
 
 
 def test_build_index():
