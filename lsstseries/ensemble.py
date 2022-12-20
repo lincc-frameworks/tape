@@ -46,7 +46,7 @@ class ensemble:
         sort: `bool`, optional
             Indicates whether the resulting counts should be sorted on counts
         ascending: `bool`, optional
-            When sorting, indicates whether the result is ordering is ascending
+            When sorting, use ascending (lowest counts first) or descending (highest counts first)
             or descending
 
         Returns
