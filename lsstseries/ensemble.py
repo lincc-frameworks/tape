@@ -60,13 +60,14 @@ class ensemble:
         else:
             return counts
 
-    def dropna(self, threshold):
+    def dropna(self, threshold=1):
         """wrapper for dask.dataframe.dropna
 
         Parameters
         ----------
-        threshold: `int`
-            The minimum number of nans present in a row needed to drop the row
+        threshold: `int`, optional
+            The minimum number of nans present in a row needed to drop the row.
+            Default is 1.
 
         Returns
         ----------
@@ -77,23 +78,28 @@ class ensemble:
         self.data = self.data[self.data.isnull().sum(axis=1) < threshold]
         return self
 
-    def prune(self, threshold):
+    def prune(self, threshold=50, col_name='num_obs'):
         """remove objects with less observations than a given threshold
 
         Parameters
         ----------
-        threshold: `int`
-            The minimum number of observations needed to retain an object
+        threshold: `int`, optional
+            The minimum number of observations needed to retain an object.
+            Default is 50.
+        col_name: `str`, optional
+            The name of the output counts column. If already exists, directly
+            uses the column to prune the ensemble.
 
         Returns
         ----------
         ensemble: `lsstseries.ensemble.ensemble`
             The ensemble object with pruned rows removed
         """
-        counts = self.data.groupby(self._id_col).count()
-        counts = counts.rename(columns={self._time_col: "num_obs"})[['num_obs']]
-        self.data = self.data.join(counts, how='left')
-        self.data = self.data[self.data['num_obs'] >= threshold]
+        if col_name not in self.data.columns:
+            counts = self.data.groupby(self._id_col).count()
+            counts = counts.rename(columns={self._time_col: col_name})[[col_name]]
+            self.data = self.data.join(counts, how='left')
+        self.data = self.data[self.data[col_name] >= threshold]
         return self
 
     def batch(self, func, *args, **kwargs):
@@ -112,8 +118,8 @@ class ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.ensemble`
-            The ensemble object with pruned rows removed
+        result: `Dask.Series`
+            Series of function results
 
         Example
         ----------
@@ -150,7 +156,7 @@ class ensemble:
         flux_col: 'str', optional
             Identifies which column contains the flux/magnitude information
         err_col: 'str', optional
-            Identifies which column contains the error information
+            Identifies which column contains the flux/mag error information
         band_col: 'str', optional
             Identifies which column contains the band information
         additional_cols: 'bool', optional
@@ -166,8 +172,8 @@ class ensemble:
 
         Returns
         ----------
-        result: `Dask.Series of function results`
-            Results of the batched function run
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with parquet data loaded
         """
 
         # Track critical column changes
@@ -183,16 +189,16 @@ class ensemble:
             self._band_col = band_col
 
         if additional_cols:
-            columns = None
+            columns = None  # None will prompt read_parquet to read in all cols
         else:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
         # Read in a parquet file
         self.data = dd.read_parquet(file, index=self._id_col, columns=columns, split_row_groups=True)
 
-        if npartitions is not None:
+        if npartitions and npartitions > 1:
             self.data = self.data.repartition(npartitions=npartitions)
-        elif partition_size is not None:
+        elif partition_size:
             self.data = self.data.repartition(partition_size=partition_size)
 
         return self
