@@ -61,7 +61,7 @@ class ensemble:
             return counts
 
     def dropna(self, threshold=1):
-        """wrapper for dask.dataframe.dropna
+        """Removes rows with a >=`threshold` nan values.
 
         Parameters
         ----------
