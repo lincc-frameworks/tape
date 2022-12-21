@@ -1,2 +1,2 @@
-from .stetsonj import *
-from .structurefunction2 import *
+from .stetsonj import *  # noqa
+from .structurefunction2 import *  # noqa

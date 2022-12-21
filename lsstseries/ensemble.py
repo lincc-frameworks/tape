@@ -1,4 +1,6 @@
 import pandas as pd
+import dask.dataframe as dd
+from dask.distributed import Client
 import pyvo as vo
 from .timeseries import timeseries
 import time
@@ -7,17 +9,204 @@ import time
 class ensemble:
     """ensemble object is a collection of light curve ids"""
 
-    def __init__(self, token=None):
+    def __init__(self, token=None, **kwargs):
         self.result = None  # holds the latest query
         self.token = token
+        self.data = None
 
-        self._time_col = "midPointTai"
-        self._flux_col = "psFlux"
-        self._err_col = "psFluxErr"
+        # Assign Default Values for critical column quantities
+        self._id_col = 'object_id'
+        self._time_col = 'midPointTai'
+        self._flux_col = 'psFlux'
+        self._err_col = 'psFluxErr'
+        self._band_col = 'band'
+
+        # Setup Dask Distributed Client
+        self.client = Client(**kwargs)  # arguments passed along to Client
+
+    def client_info(self):
+        """Calls the Dask Client, which returns cluster information
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        ----------
+        self.client: `distributed.client.Client`
+            Dask Client information
+        """
+        return self.client  # Prints Dask dashboard to screen
+
+    def count(self, sort=True, ascending=False):
+        """Return the number of available rows/measurements for each lightcurve
+
+        Parameters
+        ----------
+        sort: `bool`, optional
+            Indicates whether the resulting counts should be sorted on counts
+        ascending: `bool`, optional
+            When sorting, use ascending (lowest counts first) or descending (highest counts first)
+            or descending
+
+        Returns
+        ----------
+        counts: `pandas.series`
+            A series of counts by object
+        """
+        counts = self.data.groupby(self._id_col)[self._time_col].count().compute()
+        if sort:
+            return counts.sort_values(ascending=ascending)
+        else:
+            return counts
+
+    def dropna(self, threshold=1):
+        """Removes rows with a >=`threshold` nan values.
+
+        Parameters
+        ----------
+        threshold: `int`, optional
+            The minimum number of nans present in a row needed to drop the row.
+            Default is 1.
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with nans removed according to the threshold
+            scheme
+        """
+        self.data = self.data[self.data.isnull().sum(axis=1) < threshold]
+        return self
+
+    def prune(self, threshold=50, col_name='num_obs'):
+        """remove objects with less observations than a given threshold
+
+        Parameters
+        ----------
+        threshold: `int`, optional
+            The minimum number of observations needed to retain an object.
+            Default is 50.
+        col_name: `str`, optional
+            The name of the output counts column. If already exists, directly
+            uses the column to prune the ensemble.
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with pruned rows removed
+        """
+        if col_name not in self.data.columns:
+            counts = self.data.groupby(self._id_col).count()
+            counts = counts.rename(columns={self._time_col: col_name})[[col_name]]
+            self.data = self.data.join(counts, how='left')
+        self.data = self.data[self.data[col_name] >= threshold]
+        return self
+
+    def batch(self, func, *args, **kwargs):
+        """Run a function from lsstseries.timeseries on the available ids
+
+        Parameters
+        ----------
+        func : `function`
+            A function to apply to all objects in the ensemble
+        *args:
+            Denotes the ensemble columns to use as inputs for a function,
+            order must be correct for function. If passing a lsstseries
+            function, these are populated automatically.
+        **kwargs:
+            Additional optional parameters passed for the selected function
+
+        Returns
+        ----------
+        result: `Dask.Series`
+            Series of function results
+
+        Example
+        ----------
+        `
+        from lsstseries.analysis.stetsonj import calc_stetson_J
+        ensemble.batch(calc_stetson_J, band_to_calc='i')
+        `
+        """
+        known_cols = {'calc_stetson_J': [self._flux_col, self._err_col, self._band_col]}
+        if func.__name__ in known_cols:
+            args = known_cols[func.__name__]
+
+        batch = self.data.groupby(self._id_col).apply(lambda x: func(*[x[arg] for arg in args],
+                                                                     **kwargs),
+                                                      meta=(self._id_col, type(self._id_col)))
+
+        result = batch.compute()
+        return result
+
+    def from_parquet(self, file, id_col=None, time_col=None, flux_col=None,
+                     err_col=None, band_col=None, additional_cols=True,
+                     npartitions=None, partition_size=None):
+        """ Read in parquet file(s) into an ensemble object
+
+        Parameters
+        ----------
+        file: 'str'
+            Path to a parquet file, or multiple parquet files to be read into
+            the ensemble
+        id_col: 'str', optional
+            Identifies which column contains the Object IDs
+        time_col: 'str', optional
+            Identifies which column contains the time information
+        flux_col: 'str', optional
+            Identifies which column contains the flux/magnitude information
+        err_col: 'str', optional
+            Identifies which column contains the flux/mag error information
+        band_col: 'str', optional
+            Identifies which column contains the band information
+        additional_cols: 'bool', optional
+            Boolean to indicate whether to carry in columns beyond the
+            critical columns, true will, while false will only load the columns
+            containing the critical quantities (id,time,flux,err,band)
+        npartitions: `int`, optional
+            If specified, attempts to repartition the ensemble to the specified
+            number of partitions
+        partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.ensemble`
+            The ensemble object with parquet data loaded
+        """
+
+        # Track critical column changes
+        if id_col is not None:
+            self._id_col = id_col
+        if time_col is not None:
+            self._time_col = time_col
+        if flux_col is not None:
+            self._flux_col = flux_col
+        if err_col is not None:
+            self._err_col = err_col
+        if band_col is not None:
+            self._band_col = band_col
+
+        if additional_cols:
+            columns = None  # None will prompt read_parquet to read in all cols
+        else:
+            columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
+
+        # Read in a parquet file
+        self.data = dd.read_parquet(file, index=self._id_col, columns=columns, split_row_groups=True)
+
+        if npartitions and npartitions > 1:
+            self.data = self.data.repartition(npartitions=npartitions)
+        elif partition_size:
+            self.data = self.data.repartition(partition_size=partition_size)
+
+        return self
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
-        Read here for information on TAP access: https://data.lsst.cloud/api-aspect
+        Read here for information on TAP access:
+        https://data.lsst.cloud/api-aspect
 
         Parameters
         ----------
@@ -33,7 +222,7 @@ class ensemble:
         ----------
         query : `str`
             Query is an ADQL formatted string
-        maxrec: `int`
+        maxrec: `int`, optional
             Max number of results returned
 
         Returns
@@ -137,41 +326,52 @@ class ensemble:
 
         return result
 
-    def to_timeseries(
-        self, dataframe, target, time_col=None, flux_col=None, err_col=None
-    ):
-        """Construct a timeseries object from one target object_id, assumes that the result
-        is a collection of lightcurves (output from query_ids)
+    def to_timeseries(self, target, id_col=None, time_col=None,
+                      flux_col=None, err_col=None, band_col=None):
+        """Construct a timeseries object from one target object_id, assumes
+        that the result is a collection of lightcurves (output from query_ids)
 
         Parameters
         ----------
-        dataframe: `pd.df`
-            Ensemble object
         target: `int`
             Id of a source to be extracted
+        id_col: 'str', optional
+            Identifies which column contains the Object IDs
+        time_col: 'str', optional
+            Identifies which column contains the time information
+        flux_col: 'str', optional
+            Identifies which column contains the flux/magnitude information
+        err_col: 'str', optional
+            Identifies which column contains the error information
+        band_col: 'str', optional
+            Identifies which column contains the band information
 
         Returns
         ----------
         ts: `timeseries`
             Timeseries for a single object
+
+        Note
+        ----
+        All _col parameters when not specified will use the appropriate columns
+        determined on data ingest as critical columns.
         """
 
-        # Without a specified column, use defaults (which are updated via query_id)
+        # Without a specified column, use defaults
+        if id_col is None:
+            id_col = self._id_col
         if time_col is None:
             time_col = self._time_col
         if flux_col is None:
             flux_col = self._flux_col
         if err_col is None:
             err_col = self._err_col
+        if band_col is None:
+            band_col = self._band_col
 
-        df = dataframe.xs(target)
-        ts = timeseries()._from_ensemble(
-            data=df,
-            object_id=target,
-            time_label=time_col,
-            flux_label=flux_col,
-            err_label=err_col,
-        )
+        df = self.data.loc[target].compute()
+        ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
+                                         flux_label=flux_col, err_label=err_col, band_label=band_col)
         return ts
 
     def flux_to_mag(self, cols):
