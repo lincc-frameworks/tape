@@ -1,12 +1,16 @@
 from scipy.stats import binned_statistic
 import numpy as np
+import pandas as pd
 
 
-def calc_sf2(time, flux, err, bins, band, band_to_calc=None):
+def calc_sf2(lc_id, time, flux, err, bins, band,
+             band_to_calc=None, combine=False):
     """Compute structure function squared on one or many bands
 
     Parameters
     ----------
+    lc_id : 'numpy.ndarray' (N,)
+        Array of lightcurve ids per data point.
     time : `numpy.ndarray` (N,)
         Array of times when measurements were taken.
     flux : `numpy.ndarray` (N,)
@@ -25,7 +29,7 @@ def calc_sf2(time, flux, err, bins, band, band_to_calc=None):
     -------
     sf2 : `dict`
         Structure function squared for each of input bands.
-         
+
     Notes
     ----------
     In case that no value for `band_to_calc` is passed, the function is
@@ -33,6 +37,7 @@ def calc_sf2(time, flux, err, bins, band, band_to_calc=None):
     """
 
     unq_band = np.unique(band)
+    unq_ids = np.unique(lc_id)
 
     if band_to_calc is None:
         band_to_calc = unq_band
@@ -41,20 +46,48 @@ def calc_sf2(time, flux, err, bins, band, band_to_calc=None):
 
     assert hasattr(band_to_calc, "__iter__") is True
 
-    sf2 = {}
+    first = True
     for b in band_to_calc:
         if b in unq_band:
-            mask = band == b
-            times = time[mask]
-            fluxes = flux[mask]
-            errors = err[mask]
-            sf2[b] = _sf2_single(times, fluxes, errors, bins)
-        else:
-            sf2[b] = np.nan
-    return sf2
+            band_mask = band == b
+
+            # Mask on band
+            times = np.array(time)[band_mask]
+            fluxes = np.array(flux)[band_mask]
+            errors = np.array(err)[band_mask]
+            lc_ids = np.array(lc_id)[band_mask]
+
+            # Create stacks of critical quantities, indexed by id
+            id_masks = [lc_ids == lc for lc in unq_ids]
+            times_2d = [times[mask] for mask in id_masks]
+            fluxes_2d = [fluxes[mask] for mask in id_masks]
+            errors_2d = [errors[mask] for mask in id_masks]
+
+            res = _sf2_single(times_2d, fluxes_2d, errors_2d, bins, combine=combine)
+
+            # handle empty results (where band contains no lc data)
+            res = _patch_empty(res)
+
+            # lightcurve id array will contain each id repeated nbins times
+            if combine:
+                df_ids = np.repeat(['combined'], len(bins)-1)
+            else:
+                df_ids = np.repeat(unq_ids, len(bins)-1)
+            band_df = pd.DataFrame({"lc_id": df_ids, "dt": np.hstack(res[0]), f'sf_{b}': np.hstack(res[1])})
+
+            if first:
+                sf2_df = band_df
+                first = False
+            else:
+                sf2_df = pd.merge(sf2_df, band_df, how='left',
+                                  left_on=['lc_id', 'dt'],
+                                  right_on=['lc_id', 'dt'])
+
+    sf2_df = sf2_df.set_index('lc_id')
+    return sf2_df
 
 
-def _sf2_single(times, fluxes, errors, bins):
+def _sf2_single(times, fluxes, errors, bins, combine=False):
     """Calculate structure function squared
 
     Calculate structure function squared from the available data. This is
@@ -88,30 +121,76 @@ def _sf2_single(times, fluxes, errors, bins):
     - allow for different definitions of SF2
     """
 
-    times = times.values
-    fluxes = fluxes.values
-    errors = errors.values
+    d_times_all = []
+    cor_flux2_all = []
+    for lc_idx in range(len(times)):
+        lc_times = times[lc_idx]
+        lc_fluxes = fluxes[lc_idx]
+        lc_errors = errors[lc_idx]
 
-    # compute d_times (difference of times) and
-    # d_fluxes (difference of magnitudes, i.e., fluxes) for all gaps
-    # d_times - difference of times
-    dt_matrix = times.reshape((1, times.size)) - times.reshape((times.size, 1))
-    d_times = dt_matrix[dt_matrix > 0].flatten().astype(np.float16)
+        # compute d_times (difference of times) and
+        # d_fluxes (difference of magnitudes, i.e., fluxes) for all gaps
+        # d_times - difference of times
+        dt_matrix = lc_times.reshape((1, lc_times.size)) - lc_times.reshape((lc_times.size, 1))
+        d_times = dt_matrix[dt_matrix > 0].flatten()
 
-    # d_fluxes - difference of fluxes
-    df_matrix = fluxes.reshape((1, fluxes.size)) - fluxes.reshape((fluxes.size, 1))
-    d_fluxes = df_matrix[dt_matrix > 0].flatten().astype(np.float16)
+        # d_fluxes - difference of fluxes
+        df_matrix = lc_fluxes.reshape((1, lc_fluxes.size)) - lc_fluxes.reshape((lc_fluxes.size, 1))
+        d_fluxes = df_matrix[dt_matrix > 0].flatten()
 
-    # err^2 - errors squared
-    err2_matrix = errors.reshape((1, errors.size))**2 \
-        + errors.reshape((errors.size, 1))**2
-    err2s = err2_matrix[dt_matrix > 0].flatten().astype(np.float16)
+        # err^2 - errors squared
+        err2_matrix = lc_errors.reshape((1, lc_errors.size))**2 \
+            + lc_errors.reshape((lc_errors.size, 1))**2
+        err2s = err2_matrix[dt_matrix > 0].flatten()
 
-    # corrected each pair of observations
-    cor_flux2 = d_fluxes**2 - err2s
+        # corrected each pair of observations
+        cor_flux2 = d_fluxes**2 - err2s
 
-    # structure function at specific dt
-    # the line below will throw error if the bins are not covering the whole range
-    sfs, bin_edgs, _ = binned_statistic(d_times, cor_flux2, 'mean', bins)
+        # build stack of times and fluxes
+        d_times_all.append(d_times)
+        cor_flux2_all.append(cor_flux2)
 
-    return (bin_edgs[0:-1] + bin_edgs[1:])/2, sfs
+    # combining treats all lightcurves as one when calculating the structure function
+    if combine:
+        d_times_all = np.hstack(np.array(d_times_all, dtype='object'))
+        cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype='object'))
+
+        # structure function at specific dt
+        # the line below will throw error if the bins are not covering the whole range
+        sfs, bin_edgs, _ = binned_statistic(d_times_all, cor_flux2_all, 'mean', bins)
+        return [(bin_edgs[0:-1] + bin_edgs[1:])/2], [sfs]
+    # Not combining calculates structure function for each light curve independently
+    else:
+        sfs_all = []
+        t_all = []
+        for lc_idx in range(len(d_times_all)):
+            if len(d_times_all[lc_idx]) > 1:
+                sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], 'mean', bins)
+                sfs_all.append(sfs)
+                t_all.append((bin_edgs[0:-1] + bin_edgs[1:])/2)
+            else:
+                sfs_all.append(np.array([]))
+                t_all.append(np.array([]))
+        return t_all, sfs_all
+
+
+def _patch_empty(res):
+    """Patches empty result with appropriate dt_bins and sf nans arrays"""
+
+    # first look for populated bins to use as truth array
+    not_found = True
+    i = 0
+    while not_found:
+        if len(res[0][i]) > 0:
+            dt_bins = res[0][i]
+            not_found = False
+        else:
+            i += 1
+
+    # find indices of empty results and patch in the bins/nans
+    missing = np.where(np.array([len(tbins) for tbins in res[0]]) == 0)[0]
+    for idx in missing:
+        res[0][idx] = dt_bins
+        res[1][idx] = np.array([np.nan]*len(dt_bins))
+
+    return res
