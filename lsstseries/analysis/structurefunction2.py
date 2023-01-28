@@ -46,7 +46,10 @@ def calc_sf2(lc_id, time, flux, err, bins, band,
 
     assert hasattr(band_to_calc, "__iter__") is True
 
-    first = True
+    ids = []
+    dts = []
+    bands = []
+    sf2s = []
     for b in band_to_calc:
         if b in unq_band:
             band_mask = band == b
@@ -65,24 +68,16 @@ def calc_sf2(lc_id, time, flux, err, bins, band,
 
             res = _sf2_single(times_2d, fluxes_2d, errors_2d, bins, combine=combine)
 
-            # handle empty results (where band contains no lc data)
-            res = _patch_empty(res)
+            res_ids = [[str(unq_ids[i])]*len(arr) for i, arr in enumerate(res[0])]
+            res_bands = [[b]*len(arr) for arr in res[0]]
 
-            # lightcurve id array will contain each id repeated nbins times
-            if combine:
-                df_ids = np.repeat(['combined'], len(bins)-1)
-            else:
-                df_ids = np.repeat(unq_ids, len(bins)-1)
-            band_df = pd.DataFrame({"lc_id": df_ids, "dt": np.hstack(res[0]), f'sf_{b}': np.hstack(res[1])})
+            ids.append(np.hstack(res_ids))
+            bands.append(np.hstack(res_bands))
+            dts.append(np.hstack(res[0]))
+            sf2s.append(np.hstack(res[1]))
 
-            if first:
-                sf2_df = band_df
-                first = False
-            else:
-                sf2_df = pd.merge(sf2_df, band_df, how='left',
-                                  left_on=['lc_id', 'dt'],
-                                  right_on=['lc_id', 'dt'])
-
+    sf2_df = pd.DataFrame({"lc_id": np.hstack(ids), "band": np.hstack(bands),
+                           "dt": np.hstack(dts), "sf2": np.hstack(sf2s)})
     sf2_df = sf2_df.set_index('lc_id')
     return sf2_df
 
