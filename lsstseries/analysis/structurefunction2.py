@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 
 
-def calc_sf2(lc_id, time, flux, err, bins, band,
-             band_to_calc=None, combine=False):
+def calc_sf2(lc_id, time, flux, err, band,
+             band_to_calc=None, combine=False, sthresh=100):
     """Compute structure function squared on one or many bands
 
     Parameters
@@ -17,13 +17,13 @@ def calc_sf2(lc_id, time, flux, err, bins, band,
         Array of flux/magnitude measurements.
     err : `numpy.ndarray` (N,)
         Array of associated flux/magnitude errors.
-    bins : `numpy.ndarray` (N,)
-        Array of time bins in which to calculate structure function
     band : `numpy.ndarray` (N,)
         Array of associated band labels,
     band_to_calc : `str` or `list` of `str`
         Bands to calculate structure function on. Single band descriptor,
         or list of such descriptors.
+    sthresh : 'int'
+        Target number of samples per bin.
 
     Returns
     -------
@@ -66,7 +66,7 @@ def calc_sf2(lc_id, time, flux, err, bins, band,
             fluxes_2d = [fluxes[mask] for mask in id_masks]
             errors_2d = [errors[mask] for mask in id_masks]
 
-            res = _sf2_single(times_2d, fluxes_2d, errors_2d, bins, combine=combine)
+            res = _sf2_single(times_2d, fluxes_2d, errors_2d, sthresh, combine=combine)
 
             res_ids = [[str(unq_ids[i])]*len(arr) for i, arr in enumerate(res[0])]
             res_bands = [[b]*len(arr) for arr in res[0]]
@@ -82,7 +82,7 @@ def calc_sf2(lc_id, time, flux, err, bins, band,
     return sf2_df
 
 
-def _sf2_single(times, fluxes, errors, bins, combine=False):
+def _sf2_single(times, fluxes, errors, sthresh, combine=False):
     """Calculate structure function squared
 
     Calculate structure function squared from the available data. This is
@@ -97,8 +97,8 @@ def _sf2_single(times, fluxes, errors, bins, combine=False):
         Measurements values
     yerr : `np.array` [`float`]
         Measurements errors.
-    bins :  `np.array` [`float`]:
-        Edges of time bin in which data is grouped together.
+    sthresh : `int`
+        Target number of samples per bin.
 
     Returns
     ----------
@@ -150,6 +150,10 @@ def _sf2_single(times, fluxes, errors, bins, combine=False):
         d_times_all = np.hstack(np.array(d_times_all, dtype='object'))
         cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype='object'))
 
+        # binning
+        quantiles = int(np.ceil(len(d_times_all)/sthresh))
+        _, bins = pd.qcut(d_times_all, q=quantiles, retbins=True, duplicates='drop')
+
         # structure function at specific dt
         # the line below will throw error if the bins are not covering the whole range
         sfs, bin_edgs, _ = binned_statistic(d_times_all, cor_flux2_all, 'mean', bins)
@@ -160,6 +164,11 @@ def _sf2_single(times, fluxes, errors, bins, combine=False):
         t_all = []
         for lc_idx in range(len(d_times_all)):
             if len(d_times_all[lc_idx]) > 1:
+
+                # binning
+                quantiles = int(np.ceil(len(d_times_all[lc_idx])/sthresh))
+                _, bins = pd.qcut(d_times_all[lc_idx], q=quantiles, retbins=True, duplicates='drop')
+
                 sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], 'mean', bins)
                 sfs_all.append(sfs)
                 t_all.append((bin_edgs[0:-1] + bin_edgs[1:])/2)
