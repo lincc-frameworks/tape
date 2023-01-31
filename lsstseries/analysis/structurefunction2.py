@@ -143,6 +143,16 @@ def _sf2_single(times, fluxes, errors,
         lc_fluxes = fluxes[lc_idx]
         lc_errors = errors[lc_idx]
 
+        # mask out any nan values
+        t_mask = np.isnan(lc_times)
+        f_mask = np.isnan(lc_fluxes)
+        e_mask = np.isnan(lc_errors)  # always mask out nan errors?
+        lc_mask = np.logical_or(t_mask, f_mask, e_mask)
+
+        lc_times = lc_times[~lc_mask]
+        lc_fluxes = lc_fluxes[~lc_mask]
+        lc_errors = lc_errors[~lc_mask]
+
         # compute d_times (difference of times) and
         # d_fluxes (difference of magnitudes, i.e., fluxes) for all gaps
         # d_times - difference of times
