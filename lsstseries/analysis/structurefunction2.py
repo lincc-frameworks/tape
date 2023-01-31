@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def calc_sf2(lc_id, time, flux, err, band,
-             band_to_calc=None, combine=False, sthresh=100):
+             band_to_calc=None, combine=False, method='size', sthresh=100):
     """Compute structure function squared on one or many bands
 
     Parameters
@@ -22,6 +22,15 @@ def calc_sf2(lc_id, time, flux, err, band,
     band_to_calc : `str` or `list` of `str`
         Bands to calculate structure function on. Single band descriptor,
         or list of such descriptors.
+    combine : 'bool'
+        Boolean to determine whether structure function is computed for each
+        light curve independently (combine=False), or computed for all light
+        curves together (combine=True).
+    method : 'str'
+        The binning method to apply, choices of 'size'; which seeks an even
+        distribution of samples per bin using quantiles, 'length'; which
+        creates bins of equal length in time and 'loglength'; which creates
+        bins of equal length in log time.
     sthresh : 'int'
         Target number of samples per bin.
 
@@ -66,7 +75,8 @@ def calc_sf2(lc_id, time, flux, err, band,
             fluxes_2d = [fluxes[mask] for mask in id_masks]
             errors_2d = [errors[mask] for mask in id_masks]
 
-            res = _sf2_single(times_2d, fluxes_2d, errors_2d, sthresh, combine=combine)
+            res = _sf2_single(times_2d, fluxes_2d, errors_2d, combine=combine,
+                              method=method, sthresh=sthresh)
 
             res_ids = [[str(unq_ids[i])]*len(arr) for i, arr in enumerate(res[0])]
             res_bands = [[b]*len(arr) for arr in res[0]]
@@ -82,7 +92,8 @@ def calc_sf2(lc_id, time, flux, err, band,
     return sf2_df
 
 
-def _sf2_single(times, fluxes, errors, sthresh, combine=False):
+def _sf2_single(times, fluxes, errors,
+                combine=False, method='size', sthresh=100):
     """Calculate structure function squared
 
     Calculate structure function squared from the available data. This is
@@ -97,6 +108,15 @@ def _sf2_single(times, fluxes, errors, sthresh, combine=False):
         Measurements values
     yerr : `np.array` [`float`]
         Measurements errors.
+    combine : 'bool'
+        Boolean to determine whether structure function is computed for each
+        light curve independently (combine=False), or computed for all light
+        curves together (combine=True).
+    method : 'str'
+        The binning method to apply, choices of 'size'; which seeks an even
+        distribution of samples per bin using quantiles, 'length'; which
+        creates bins of equal length in time and 'loglength'; which creates
+        bins of equal length in log time.
     sthresh : `int`
         Target number of samples per bin.
 
@@ -151,8 +171,7 @@ def _sf2_single(times, fluxes, errors, sthresh, combine=False):
         cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype='object'))
 
         # binning
-        quantiles = int(np.ceil(len(d_times_all)/sthresh))
-        _, bins = pd.qcut(d_times_all, q=quantiles, retbins=True, duplicates='drop')
+        bins = _bin_dts(d_times_all, method=method, sthresh=sthresh)
 
         # structure function at specific dt
         # the line below will throw error if the bins are not covering the whole range
@@ -166,8 +185,7 @@ def _sf2_single(times, fluxes, errors, sthresh, combine=False):
             if len(d_times_all[lc_idx]) > 1:
 
                 # binning
-                quantiles = int(np.ceil(len(d_times_all[lc_idx])/sthresh))
-                _, bins = pd.qcut(d_times_all[lc_idx], q=quantiles, retbins=True, duplicates='drop')
+                bins = _bin_dts(d_times_all[lc_idx], method=method, sthresh=sthresh)
 
                 sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], 'mean', bins)
                 sfs_all.append(sfs)
@@ -178,23 +196,42 @@ def _sf2_single(times, fluxes, errors, sthresh, combine=False):
         return t_all, sfs_all
 
 
-def _patch_empty(res):
-    """Patches empty result with appropriate dt_bins and sf nans arrays"""
+def _bin_dts(dts, method='size', sthresh=100):
+    """Bin an input array of delta times (dt). Supports several binning
+    schemes.
 
-    # first look for populated bins to use as truth array
-    not_found = True
-    i = 0
-    while not_found:
-        if len(res[0][i]) > 0:
-            dt_bins = res[0][i]
-            not_found = False
-        else:
-            i += 1
+    Parameters
+    ----------
+    dts : 'numpy.ndarray' (N,)
+        1-d array of delta times to bin
+    method : 'str'
+        The binning method to apply, choices of 'size'; which seeks an even
+        distribution of samples per bin using quantiles, 'length'; which
+        creates bins of equal length in time and 'loglength'; which creates
+        bins of equal length in log time.
+    sthresh : 'int'
+        Target number of samples per bin.
 
-    # find indices of empty results and patch in the bins/nans
-    missing = np.where(np.array([len(tbins) for tbins in res[0]]) == 0)[0]
-    for idx in missing:
-        res[0][idx] = dt_bins
-        res[1][idx] = np.array([np.nan]*len(dt_bins))
+    Returns
+    -------
+    bins : 'numpy.ndarray' (N,)
+        The returned bins array.
+    """
 
-    return res
+    if method == 'size':
+        quantiles = int(np.ceil(len(dts)/sthresh))
+        _, bins = pd.qcut(dts, q=quantiles, retbins=True, duplicates='drop')
+        return bins
+
+    elif method == 'length':
+        nbins = int(np.ceil(len(dts)/sthresh))
+        _, bins = pd.cut(dts, bins=nbins, retbins=True, duplicates='drop')
+        return bins
+
+    elif method == 'loglength':
+        nbins = int(np.ceil(len(dts)/sthresh))
+        _, bins = pd.cut(np.log(dts), bins=nbins, retbins=True, duplicates='drop')
+        return np.exp(bins)
+
+    else:
+        raise ValueError(f"Method '{method}' not recognized")
