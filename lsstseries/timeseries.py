@@ -144,12 +144,12 @@ class timeseries:
         """
         return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
 
-    def sf2(self, band=None, method='size', sthresh=100):
+    def sf2(self, band_to_calc=None, method='size', sthresh=100):
         """Compute the structure function squared statistic on data
 
         Parameters
         ----------
-        band : `str` or `list` of `str`
+        band_to_calc : `str` or `list` of `str`
             Single band descriptor, or list of such descriptors.
         method : 'str'
             The binning method to apply, choices of 'size'; which seeks an even
@@ -166,9 +166,9 @@ class timeseries:
 
         Notes
         ----------
-        In case that no value for band is passed, the function is executed
+        In case that no value for band_to_calc is passed, the function is executed
         on all available bands.
         """
         lc_id = [self.meta['id']]*len(self.time)
         return calc_sf2(lc_id, self.time, self.flux, self.flux_err, self.band,
-                        band_to_calc=band, method=method, sthresh=sthresh)
+                        band_to_calc=band_to_calc, method=method, sthresh=sthresh, combine=False)

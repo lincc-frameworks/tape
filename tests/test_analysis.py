@@ -48,6 +48,9 @@ def test_sf2_timeseries():
 
 
 def test_dt_bins():
+    """
+    Test that the binning routines return the expected properties
+    """
     np.random.seed(1)
     dts = np.random.random_sample(1000)*5 + np.logspace(1, 2, 1000)
 
