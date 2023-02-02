@@ -36,7 +36,7 @@ def calc_sf2(lc_id, time, flux, err, band,
 
     Returns
     -------
-    sf2 : `dict`
+    sf2 : `pandas.DataFrame`
         Structure function squared for each of input bands.
 
     Notes
@@ -86,9 +86,12 @@ def calc_sf2(lc_id, time, flux, err, band,
             dts.append(np.hstack(res[0]))
             sf2s.append(np.hstack(res[1]))
 
-    sf2_df = pd.DataFrame({"lc_id": np.hstack(ids), "band": np.hstack(bands),
+    if combine:
+        idstack = ["combined"] * len(np.hstack(ids))
+    else:
+        idstack = np.hstack(ids)
+    sf2_df = pd.DataFrame({"lc_id": idstack, "band": np.hstack(bands),
                            "dt": np.hstack(dts), "sf2": np.hstack(sf2s)})
-    sf2_df = sf2_df.set_index('lc_id')
     return sf2_df
 
 
@@ -176,7 +179,7 @@ def _sf2_single(times, fluxes, errors,
         cor_flux2_all.append(cor_flux2)
 
     # combining treats all lightcurves as one when calculating the structure function
-    if combine:
+    if combine and len(times) > 1:
         d_times_all = np.hstack(np.array(d_times_all, dtype='object'))
         cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype='object'))
 
@@ -189,6 +192,7 @@ def _sf2_single(times, fluxes, errors,
         return [(bin_edgs[0:-1] + bin_edgs[1:])/2], [sfs]
     # Not combining calculates structure function for each light curve independently
     else:
+        # may want to raise warning if len(times) <=1 and combine was set true
         sfs_all = []
         t_all = []
         for lc_idx in range(len(d_times_all)):
@@ -196,7 +200,6 @@ def _sf2_single(times, fluxes, errors,
 
                 # binning
                 bins = _bin_dts(d_times_all[lc_idx], method=method, sthresh=sthresh)
-
                 sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], 'mean', bins)
                 sfs_all.append(sfs)
                 t_all.append((bin_edgs[0:-1] + bin_edgs[1:])/2)

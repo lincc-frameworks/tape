@@ -1,7 +1,8 @@
 """Test timeseries analysis functions"""
 
-from lsstseries import timeseries
+from lsstseries import timeseries, analysis
 import pytest
+import numpy as np
 
 
 def test_stetsonj():
@@ -22,7 +23,7 @@ def test_stetsonj():
     assert test_ts.stetson_J()["r"] == 0.8
 
 
-def test_sf2_from_timeseries():
+def test_sf2_timeseries():
     """
     Test of structure function squared function for a known return value
     """
@@ -44,3 +45,21 @@ def test_sf2_from_timeseries():
 
     assert res['dt'][0] == pytest.approx(3.705, rel=0.001)
     assert res['sf2'][0] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_dt_bins():
+    np.random.seed(1)
+    dts = np.random.random_sample(1000)*5 + np.logspace(1, 2, 1000)
+
+    # test size method
+    bins = analysis.structurefunction2._bin_dts(dts, method="size")
+    binsizes = np.histogram(dts, bins=bins)[0]
+    assert len(bins) == 11
+    assert len(np.unique(binsizes)) == 1  # Check that all bins are the same size
+
+    # test length method
+    bins = analysis.structurefunction2._bin_dts(dts, method="length")
+    assert len(bins) == 11
+
+    bins = analysis.structurefunction2._bin_dts(dts, method="loglength")
+    assert len(bins) == 11
