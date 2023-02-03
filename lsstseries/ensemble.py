@@ -111,9 +111,9 @@ class ensemble:
         func : `function`
             A function to apply to all objects in the ensemble
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
-            Dask's meta parameter, which lays down the expected structure of 
+            Dask's meta parameter, which lays down the expected structure of
             the results. Overridden by lsstseries for lsstseries
-            functions. If none, attempts to coerce the result to a 
+            functions. If none, attempts to coerce the result to a
             pandas.series.
         *args:
             Denotes the ensemble columns to use as inputs for a function,
