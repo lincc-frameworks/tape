@@ -23,7 +23,8 @@ def test_stetsonj():
     assert test_ts.stetson_J()["r"] == 0.8
 
 
-def test_sf2_timeseries():
+@pytest.mark.parametrize("lc_id", [None, 1])
+def test_sf2_timeseries(lc_id):
     """
     Test of structure function squared function for a known return value
     """
@@ -39,7 +40,7 @@ def test_sf2_timeseries():
         "band": ["r"] * len(test_y),
     }
     ts = timeseries()
-    ts.meta['id'] = 1
+    ts.meta['id'] = lc_id
     test_ts = ts.from_dict(data_dict=test_dict)
     res = test_ts.sf2(sthresh=100)
 

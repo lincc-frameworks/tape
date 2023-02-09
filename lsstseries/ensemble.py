@@ -453,12 +453,15 @@ class ensemble:
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
 
-    def sf2(self, band_to_calc=None, combine=False,
+    def sf2(self, bins=None, band_to_calc=None, combine=False,
             method="size", sthresh=100):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
         Parameters
         ----------
+        bins : `np.array` or `list`
+        Manually provided bins, if not provided then bins are computed using
+        the `method` kwarg
         band_to_calc : `str` or `list` of `str`
             Bands to calculate structure function on. Single band descriptor,
             or list of such descriptors.
@@ -488,11 +491,11 @@ class ensemble:
         if combine:
             result = calc_sf2(self.data.index, self.data[self._time_col],
                               self.data[self._flux_col], self.data[self._err_col],
-                              self.data[self._band_col], band_to_calc=band_to_calc,
+                              self.data[self._band_col], bins=bins, band_to_calc=band_to_calc,
                               combine=combine, method=method, sthresh=sthresh)
             return result
         else:
-            result = self.batch(calc_sf2, band_to_calc=band_to_calc, combine=False,
+            result = self.batch(calc_sf2, bins=bins, band_to_calc=band_to_calc, combine=False,
                                 method=method, sthresh=sthresh)
 
             return result

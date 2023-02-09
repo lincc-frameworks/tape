@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 
-def calc_sf2(lc_id, time, flux, err, band,
+def calc_sf2(lc_id, time, flux, err, band, bins=None,
              band_to_calc=None, combine=False, method='size', sthresh=100):
     """Compute structure function squared on one or many bands
 
@@ -19,6 +19,9 @@ def calc_sf2(lc_id, time, flux, err, band,
         Array of associated flux/magnitude errors.
     band : `numpy.ndarray` (N,)
         Array of associated band labels,
+    bins : `numpy.ndarray`
+        Manually provided bins, if not provided then bins are computed using
+        the `method` kwarg
     band_to_calc : `str` or `list` of `str`
         Bands to calculate structure function on. Single band descriptor,
         or list of such descriptors.
@@ -75,8 +78,8 @@ def calc_sf2(lc_id, time, flux, err, band,
             fluxes_2d = [fluxes[mask] for mask in id_masks]
             errors_2d = [errors[mask] for mask in id_masks]
 
-            res = _sf2_single(times_2d, fluxes_2d, errors_2d, combine=combine,
-                              method=method, sthresh=sthresh)
+            res = _sf2_single(times_2d, fluxes_2d, errors_2d, bins=bins,
+                              combine=combine, method=method, sthresh=sthresh)
 
             res_ids = [[str(unq_ids[i])]*len(arr) for i, arr in enumerate(res[0])]
             res_bands = [[b]*len(arr) for arr in res[0]]
@@ -95,7 +98,7 @@ def calc_sf2(lc_id, time, flux, err, band,
     return sf2_df
 
 
-def _sf2_single(times, fluxes, errors,
+def _sf2_single(times, fluxes, errors, bins=None,
                 combine=False, method='size', sthresh=100):
     """Calculate structure function squared
 
@@ -105,12 +108,15 @@ def _sf2_single(times, fluxes, errors,
 
     Parameters
     ----------
-    time : `np.array` [`float`]
+    times : `np.array` [`float`]
         Times at which the measurements were conducted.
-    y : `np.array` [`float`]
+    fluxes : `np.array` [`float`]
         Measurements values
-    yerr : `np.array` [`float`]
+    errors : `np.array` [`float`]
         Measurements errors.
+    bins : `np.array` [`float`]
+        Manually provided bins, if not provided then bins are computed using
+        the `method` kwarg
     combine : 'bool'
         Boolean to determine whether structure function is computed for each
         light curve independently (combine=False), or computed for all light
@@ -184,7 +190,8 @@ def _sf2_single(times, fluxes, errors,
         cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype='object'))
 
         # binning
-        bins = _bin_dts(d_times_all, method=method, sthresh=sthresh)
+        if bins is None:
+            bins = _bin_dts(d_times_all, method=method, sthresh=sthresh)
 
         # structure function at specific dt
         # the line below will throw error if the bins are not covering the whole range
