@@ -81,6 +81,7 @@ def test_build_index():
     result = list(ens._build_index(obj_ids, bands).get_level_values(2))
     target = [0, 1, 2, 0, 0, 0, 1]
     assert result == target
+    ens.client.close()
 
 
 @pytest.mark.parametrize("method", ["size", "length", "loglength"])
