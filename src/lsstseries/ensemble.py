@@ -1,10 +1,12 @@
-import pandas as pd
-import dask.dataframe as dd
-from dask.distributed import Client
-import pyvo as vo
-from .timeseries import timeseries
-from .analysis.structurefunction2 import calc_sf2
 import time
+
+import dask.dataframe as dd
+import pandas as pd
+import pyvo as vo
+from dask.distributed import Client
+
+from .analysis.structurefunction2 import calc_sf2
+from .timeseries import timeseries
 
 
 class ensemble:
