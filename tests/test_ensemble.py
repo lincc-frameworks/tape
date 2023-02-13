@@ -11,7 +11,8 @@ def parquet_data():
     ens.from_parquet("tests/data/test_subset.parquet", id_col='ps1_objid', band_col='filterName',
                      flux_col='psFlux', err_col='psFluxErr')
 
-    return ens
+    yield ens
+    ens.client.close()
 
 
 def test_from_parquet(parquet_data):
