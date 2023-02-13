@@ -9,3 +9,6 @@ eggs/
 # vscode
 .vscode/
 .coverage
+
+# dask
+dask-worker-space/
