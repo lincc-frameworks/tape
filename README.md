@@ -18,12 +18,13 @@ This is LINCC project - find more information about LINCC [here](https://www.lss
 Download code and install dependencies in a conda environment. Run unit tests at the end as a verification that the packages are properly installed.
 
 ```
-$ conda create -n seriesenv
+$ conda create -n seriesenv python=3.10
 $ conda activate seriesenv
 
 $ git clone https://github.com/lincc-frameworks/lsstseries
 $ cd lsstseries/
 $ pip install .
 
+$ pip install pytest
 $ pytest
 ```
