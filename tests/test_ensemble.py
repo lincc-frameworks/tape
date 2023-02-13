@@ -2,6 +2,7 @@
 import pytest
 from lsstseries import ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
+from lsstseries.analysis.structurefunction2 import calc_sf2
 
 
 @pytest.fixture
@@ -79,3 +80,22 @@ def test_build_index():
     result = list(ens._build_index(obj_ids, bands).get_level_values(2))
     target = [0, 1, 2, 0, 0, 0, 1]
     assert result == target
+
+
+@pytest.mark.parametrize("method", ["size", "length", "loglength"])
+@pytest.mark.parametrize("combine", [True, False])
+@pytest.mark.parametrize("sthresh", [50, 100])
+def test_sf2(parquet_data, method, combine, sthresh):
+    """
+    Test calling sf2 from the ensemble
+    """
+
+    ens = parquet_data
+
+    res_sf2 = ens.sf2(combine=combine, method=method, sthresh=sthresh)
+    res_batch = ens.batch(calc_sf2, combine=combine, method=method, sthresh=sthresh)
+
+    if combine:
+        assert not res_sf2.equals(res_batch)  # output should be different
+    else:
+        assert res_sf2.equals(res_batch)  # output should be identical

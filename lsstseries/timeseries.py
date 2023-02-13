@@ -144,16 +144,23 @@ class timeseries:
         """
         return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
 
-    def sf2(self, bins=None, band=None):
+    def sf2(self, bins=None, band_to_calc=None, method='size', sthresh=100):
         """Compute the structure function squared statistic on data
 
         Parameters
         ----------
-        bins : `np.array`
-            Times defining edges of time bins in which to compute
-            structure function
-        band : `str` or `list` of `str`
+        bins : `numpy.array` or `list`
+        Manually provided bins, if not provided then bins are computed using
+        the `method` kwarg
+        band_to_calc : `str` or `list` of `str`
             Single band descriptor, or list of such descriptors.
+        method : 'str'
+            The binning method to apply, choices of 'size'; which seeks an even
+            distribution of samples per bin using quantiles, 'length'; which
+            creates bins of equal length in time and 'loglength'; which creates
+            bins of equal length in log time.
+        sthresh : 'int'
+            Target number of samples per bin.
 
         Returns
         -------
@@ -162,7 +169,12 @@ class timeseries:
 
         Notes
         ----------
-        In case that no value for band is passed, the function is executed
+        In case that no value for band_to_calc is passed, the function is executed
         on all available bands.
         """
-        return calc_sf2(self.time, self.flux, self.flux_err, bins, self.band, band_to_calc=band)
+        if self.meta['id']:
+            lc_id = [self.meta['id']]*len(self.time)
+        else:
+            lc_id = [0]*len(self.time)
+        return calc_sf2(lc_id, self.time, self.flux, self.flux_err, self.band, bins=bins,
+                        band_to_calc=band_to_calc, method=method, sthresh=sthresh, combine=False)

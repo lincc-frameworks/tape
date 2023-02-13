@@ -3,6 +3,7 @@ import dask.dataframe as dd
 from dask.distributed import Client
 import pyvo as vo
 from .timeseries import timeseries
+from .analysis.structurefunction2 import calc_sf2
 import time
 
 
@@ -102,13 +103,18 @@ class ensemble:
         self.data = self.data[self.data[col_name] >= threshold]
         return self
 
-    def batch(self, func, *args, **kwargs):
+    def batch(self, func, meta=None, *args, **kwargs):
         """Run a function from lsstseries.timeseries on the available ids
 
         Parameters
         ----------
         func : `function`
             A function to apply to all objects in the ensemble
+        meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
+            Dask's meta parameter, which lays down the expected structure of
+            the results. Overridden by lsstseries for lsstseries
+            functions. If none, attempts to coerce the result to a
+            pandas.series.
         *args:
             Denotes the ensemble columns to use as inputs for a function,
             order must be correct for function. If passing a lsstseries
@@ -128,13 +134,25 @@ class ensemble:
         ensemble.batch(calc_stetson_J, band_to_calc='i')
         `
         """
-        known_cols = {'calc_stetson_J': [self._flux_col, self._err_col, self._band_col]}
+        known_cols = {'calc_stetson_J': [self._flux_col, self._err_col, self._band_col],
+                      'calc_sf2': [self._id_col, self._time_col, self._flux_col,
+                                   self._err_col, self._band_col]}
+
+        known_meta = {'calc_sf2': {'lc_id': 'int', 'band': 'str', 'dt': 'float', 'sf2': 'float'}}
         if func.__name__ in known_cols:
             args = known_cols[func.__name__]
+        if func.__name__ in known_meta:
+            meta = known_meta[func.__name__]
 
-        batch = self.data.groupby(self._id_col).apply(lambda x: func(*[x[arg] for arg in args],
-                                                                     **kwargs),
-                                                      meta=(self._id_col, type(self._id_col)))
+        if meta is None:
+            meta = (self._id_col, type(self._id_col))  # return a series of ids
+
+        id_col = self._id_col  # pre-compute needed for dask in lambda function
+
+        batch = self.data.groupby(self._id_col).apply(lambda x: func(*[x[arg]
+                                                      if arg != id_col else x.index
+                                                      for arg in args], **kwargs),
+                                                      meta=meta)
 
         result = batch.compute()
         return result
@@ -434,3 +452,50 @@ class ensemble:
         tuples = zip(obj_id, band, idx)
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
+
+    def sf2(self, bins=None, band_to_calc=None, combine=False,
+            method="size", sthresh=100):
+        """Wrapper interface for calling structurefunction2 on the ensemble
+
+        Parameters
+        ----------
+        bins : `np.array` or `list`
+        Manually provided bins, if not provided then bins are computed using
+        the `method` kwarg
+        band_to_calc : `str` or `list` of `str`
+            Bands to calculate structure function on. Single band descriptor,
+            or list of such descriptors.
+        combine : 'bool'
+            Boolean to determine whether structure function is computed for each
+            light curve independently (combine=False), or computed for all light
+            curves together (combine=True).
+        method : 'str'
+            The binning method to apply, choices of 'size'; which seeks an even
+            distribution of samples per bin using quantiles, 'length'; which
+            creates bins of equal length in time and 'loglength'; which creates
+            bins of equal length in log time.
+        sthresh : 'int'
+            Target number of samples per bin.
+
+        Returns
+        ----------
+        result : `pandas.DataFrame`
+            Structure function squared for each of input bands.
+
+        Notes
+        ----------
+        In case that no value for `band_to_calc` is passed, the function is
+        executed on all available bands in `band`.
+        """
+
+        if combine:
+            result = calc_sf2(self.data.index, self.data[self._time_col],
+                              self.data[self._flux_col], self.data[self._err_col],
+                              self.data[self._band_col], bins=bins, band_to_calc=band_to_calc,
+                              combine=combine, method=method, sthresh=sthresh)
+            return result
+        else:
+            result = self.batch(calc_sf2, bins=bins, band_to_calc=band_to_calc, combine=False,
+                                method=method, sthresh=sthresh)
+
+            return result
