@@ -11,7 +11,8 @@ def parquet_data():
     ens.from_parquet("tests/data/test_subset.parquet", id_col='ps1_objid', band_col='filterName',
                      flux_col='psFlux', err_col='psFluxErr')
 
-    return ens
+    yield ens
+    ens.client.close()
 
 
 def test_from_parquet(parquet_data):
@@ -80,6 +81,7 @@ def test_build_index():
     result = list(ens._build_index(obj_ids, bands).get_level_values(2))
     target = [0, 1, 2, 0, 0, 0, 1]
     assert result == target
+    ens.client.close()
 
 
 @pytest.mark.parametrize("method", ["size", "length", "loglength"])
