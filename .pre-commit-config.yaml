@@ -48,19 +48,19 @@ repos:
         types: [python]
         files: ^(src|tests)/
 
-  - repo: local
-    hooks:
-      - id: pylint
-        name: pylint (python files in src/ and tests/)
-        entry: pylint
-        language: system
-        types: [python]
-        files: ^(src|tests)/
-        args:
-          [
-            "-rn", # Only display messages
-            "-sn", # Don't display the score
-          ]
+  # - repo: local
+  #   hooks:
+  #     - id: pylint
+  #       name: pylint (python files in src/ and tests/)
+  #       entry: pylint
+  #       language: system
+  #       types: [python]
+  #       files: ^(src|tests)/
+  #       args:
+  #         [
+  #           "-rn", # Only display messages
+  #           "-sn", # Don't display the score
+  #         ]
 
   - repo: local
     hooks:
