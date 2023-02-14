@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.abspath('../src/'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'lsstseries'
-copyright = '2023, Doug Branton'
-author = 'Doug Branton'
+copyright = '2023, Doug Branton, Neven Caplar'
+author = 'Doug Branton, Neven Caplar'
 release = 'v0.1'
 
 # -- General configuration ---------------------------------------------------
