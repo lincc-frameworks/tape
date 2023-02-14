@@ -1,0 +1,7 @@
+# Changes here will be overwritten by Copier
+_commit: v1.1.0
+_src_path: gh:lincc-frameworks/python-project-template
+author_email: brantd@uw.edu
+author_name: Doug Branton
+module_name: lsstseries
+project_name: lsstseries

@@ -1,8 +1,9 @@
 """Test timeseries analysis functions"""
 
-from lsstseries import timeseries, analysis
-import pytest
 import numpy as np
+import pytest
+
+from lsstseries import analysis, timeseries
 
 
 def test_stetsonj():

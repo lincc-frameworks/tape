@@ -1,6 +1,6 @@
-from scipy.stats import binned_statistic
 import numpy as np
 import pandas as pd
+from scipy.stats import binned_statistic
 
 
 def calc_sf2(lc_id, time, flux, err, band, bins=None,

@@ -1,5 +1,6 @@
 """Test ensemble manipulations"""
 import pytest
+
 from lsstseries import ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
 from lsstseries.analysis.structurefunction2 import calc_sf2
@@ -8,7 +9,7 @@ from lsstseries.analysis.structurefunction2 import calc_sf2
 @pytest.fixture
 def parquet_data():
     ens = ensemble()
-    ens.from_parquet("tests/data/test_subset.parquet", id_col='ps1_objid', band_col='filterName',
+    ens.from_parquet("tests/lsstseries_tests/data/test_subset.parquet", id_col='ps1_objid', band_col='filterName',
                      flux_col='psFlux', err_col='psFluxErr')
 
     yield ens
