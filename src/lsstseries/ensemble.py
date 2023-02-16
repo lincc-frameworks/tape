@@ -12,20 +12,23 @@ from .timeseries import timeseries
 class ensemble:
     """ensemble object is a collection of light curve ids"""
 
-    def __init__(self, token=None, **kwargs):
+    def __init__(self, token=None, client=None, **kwargs):
         self.result = None  # holds the latest query
         self.token = token
         self.data = None
 
         # Assign Default Values for critical column quantities
-        self._id_col = 'object_id'
-        self._time_col = 'midPointTai'
-        self._flux_col = 'psFlux'
-        self._err_col = 'psFluxErr'
-        self._band_col = 'band'
+        self._id_col = "object_id"
+        self._time_col = "midPointTai"
+        self._flux_col = "psFlux"
+        self._err_col = "psFluxErr"
+        self._band_col = "band"
 
         # Setup Dask Distributed Client
-        self.client = Client(**kwargs)  # arguments passed along to Client
+        if client:
+            self.client = client
+        else:
+            self.client = Client(**kwargs)  # arguments passed along to Client
 
     def client_info(self):
         """Calls the Dask Client, which returns cluster information
@@ -81,7 +84,7 @@ class ensemble:
         self.data = self.data[self.data.isnull().sum(axis=1) < threshold]
         return self
 
-    def prune(self, threshold=50, col_name='num_obs'):
+    def prune(self, threshold=50, col_name="num_obs"):
         """remove objects with less observations than a given threshold
 
         Parameters
@@ -101,7 +104,7 @@ class ensemble:
         if col_name not in self.data.columns:
             counts = self.data.groupby(self._id_col).count()
             counts = counts.rename(columns={self._time_col: col_name})[[col_name]]
-            self.data = self.data.join(counts, how='left')
+            self.data = self.data.join(counts, how="left")
         self.data = self.data[self.data[col_name] >= threshold]
         return self
 
@@ -136,11 +139,20 @@ class ensemble:
         ensemble.batch(calc_stetson_J, band_to_calc='i')
         `
         """
-        known_cols = {'calc_stetson_J': [self._flux_col, self._err_col, self._band_col],
-                      'calc_sf2': [self._id_col, self._time_col, self._flux_col,
-                                   self._err_col, self._band_col]}
+        known_cols = {
+            "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
+            "calc_sf2": [
+                self._id_col,
+                self._time_col,
+                self._flux_col,
+                self._err_col,
+                self._band_col,
+            ],
+        }
 
-        known_meta = {'calc_sf2': {'lc_id': 'int', 'band': 'str', 'dt': 'float', 'sf2': 'float'}}
+        known_meta = {
+            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"}
+        }
         if func.__name__ in known_cols:
             args = known_cols[func.__name__]
         if func.__name__ in known_meta:
@@ -151,18 +163,29 @@ class ensemble:
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
-        batch = self.data.groupby(self._id_col).apply(lambda x: func(*[x[arg]
-                                                      if arg != id_col else x.index
-                                                      for arg in args], **kwargs),
-                                                      meta=meta)
+        batch = self.data.groupby(self._id_col).apply(
+            lambda x: func(
+                *[x[arg] if arg != id_col else x.index for arg in args], **kwargs
+            ),
+            meta=meta,
+        )
 
         result = batch.compute()
         return result
 
-    def from_parquet(self, file, id_col=None, time_col=None, flux_col=None,
-                     err_col=None, band_col=None, additional_cols=True,
-                     npartitions=None, partition_size=None):
-        """ Read in parquet file(s) into an ensemble object
+    def from_parquet(
+        self,
+        file,
+        id_col=None,
+        time_col=None,
+        flux_col=None,
+        err_col=None,
+        band_col=None,
+        additional_cols=True,
+        npartitions=None,
+        partition_size=None,
+    ):
+        """Read in parquet file(s) into an ensemble object
 
         Parameters
         ----------
@@ -214,7 +237,9 @@ class ensemble:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
         # Read in a parquet file
-        self.data = dd.read_parquet(file, index=self._id_col, columns=columns, split_row_groups=True)
+        self.data = dd.read_parquet(
+            file, index=self._id_col, columns=columns, split_row_groups=True
+        )
 
         if npartitions and npartitions > 1:
             self.data = self.data.repartition(npartitions=npartitions)
@@ -346,8 +371,15 @@ class ensemble:
 
         return result
 
-    def to_timeseries(self, target, id_col=None, time_col=None,
-                      flux_col=None, err_col=None, band_col=None):
+    def to_timeseries(
+        self,
+        target,
+        id_col=None,
+        time_col=None,
+        flux_col=None,
+        err_col=None,
+        band_col=None,
+    ):
         """Construct a timeseries object from one target object_id, assumes
         that the result is a collection of lightcurves (output from query_ids)
 
@@ -390,8 +422,14 @@ class ensemble:
             band_col = self._band_col
 
         df = self.data.loc[target].compute()
-        ts = timeseries()._from_ensemble(data=df, object_id=target, time_label=time_col,
-                                         flux_label=flux_col, err_label=err_col, band_label=band_col)
+        ts = timeseries()._from_ensemble(
+            data=df,
+            object_id=target,
+            time_label=time_col,
+            flux_label=flux_col,
+            err_label=err_col,
+            band_label=band_col,
+        )
         return ts
 
     def flux_to_mag(self, cols):
@@ -418,7 +456,7 @@ class ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:
@@ -455,8 +493,9 @@ class ensemble:
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
 
-    def sf2(self, bins=None, band_to_calc=None, combine=False,
-            method="size", sthresh=100):
+    def sf2(
+        self, bins=None, band_to_calc=None, combine=False, method="size", sthresh=100
+    ):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
         Parameters
@@ -491,13 +530,27 @@ class ensemble:
         """
 
         if combine:
-            result = calc_sf2(self.data.index, self.data[self._time_col],
-                              self.data[self._flux_col], self.data[self._err_col],
-                              self.data[self._band_col], bins=bins, band_to_calc=band_to_calc,
-                              combine=combine, method=method, sthresh=sthresh)
+            result = calc_sf2(
+                self.data.index,
+                self.data[self._time_col],
+                self.data[self._flux_col],
+                self.data[self._err_col],
+                self.data[self._band_col],
+                bins=bins,
+                band_to_calc=band_to_calc,
+                combine=combine,
+                method=method,
+                sthresh=sthresh,
+            )
             return result
         else:
-            result = self.batch(calc_sf2, bins=bins, band_to_calc=band_to_calc, combine=False,
-                                method=method, sthresh=sthresh)
+            result = self.batch(
+                calc_sf2,
+                bins=bins,
+                band_to_calc=band_to_calc,
+                combine=False,
+                method=method,
+                sthresh=sthresh,
+            )
 
             return result
