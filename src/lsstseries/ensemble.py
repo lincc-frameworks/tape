@@ -12,8 +12,6 @@ from .timeseries import timeseries
 class ensemble:
     """ensemble object is a collection of light curve ids"""
 
-    client = None
-
     def __init__(self, token=None, client=None, **kwargs):
         self.result = None  # holds the latest query
         self.token = token
@@ -26,18 +24,26 @@ class ensemble:
         self._err_col = "psFluxErr"
         self._band_col = "band"
 
+        self.client = None
+        self.cleanup_client = False
         # Setup Dask Distributed Client
         if client:
             self.client = client
-        elif not self.client:
+        else:
             self.client = Client(**kwargs)  # arguments passed along to Client
+            self.cleanup_client = True
 
     def __enter__(self):
-        self.client = Client()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.client.close()
+        if self.cleanup_client:
+            self.client.close()
+        return self
+    
+    def __del__(self):
+        if self.cleanup_client:
+            self.client.close()
         return self
 
     def client_info(self):
