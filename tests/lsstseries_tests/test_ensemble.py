@@ -5,7 +5,19 @@ from lsstseries import ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
 from lsstseries.analysis.structurefunction2 import calc_sf2
 
+
 # pylint: disable=protected-access
+def test_with():
+    """Test that we open and close a client on enter and exit."""
+    with ensemble() as ens:
+        ens.from_parquet(
+            "tests/lsstseries_tests/data/test_subset.parquet",
+            id_col="ps1_objid",
+            band_col="filterName",
+            flux_col="psFlux",
+            err_col="psFluxErr",
+        )
+        assert ens.data is not None
 
 
 def test_from_parquet(parquet_ensemble):
@@ -14,7 +26,7 @@ def test_from_parquet(parquet_ensemble):
     """
     # Check to make sure the data property was actually set
     assert parquet_ensemble.data is not None
-     
+
     parquet_ensemble.data = parquet_ensemble.data.compute()
     for col in [
         parquet_ensemble._time_col,
@@ -59,9 +71,9 @@ def test_to_timeseries(parquet_ensemble):
     """
     Test that ensemble.to_timeseries() runs and assigns the correct metadata
     """
-    timeseries = parquet_ensemble.to_timeseries(88480000290704349)
+    ts = parquet_ensemble.to_timeseries(88480000290704349)
 
-    assert timeseries.meta["id"] == 88480000290704349
+    assert ts.meta["id"] == 88480000290704349
 
 
 def test_build_index(dask_client):
