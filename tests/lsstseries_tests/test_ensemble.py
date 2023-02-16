@@ -65,9 +65,9 @@ def test_to_timeseries(parquet_data):
     Test that ensemble.to_timeseries() runs and assigns the correct metadata
     """
     ens = parquet_data
-    ts = ens.to_timeseries('88480000290704349')
+    ts = ens.to_timeseries(88480000290704349)
 
-    assert ts.meta['id'] == '88480000290704349'
+    assert ts.meta['id'] == 88480000290704349
 
 
 def test_build_index():
