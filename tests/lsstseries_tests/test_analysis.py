@@ -5,6 +5,8 @@ import pytest
 
 from lsstseries import analysis, timeseries
 
+# pylint: disable=protected-access
+
 
 def test_stetsonj():
     """
@@ -18,8 +20,8 @@ def test_stetsonj():
         "flux_err": [1] * len(flux_list),
         "band": ["r"] * len(flux_list),
     }
-    ts = timeseries()
-    test_ts = ts.from_dict(data_dict=test_dict)
+    timseries = timeseries()
+    test_ts = timseries.from_dict(data_dict=test_dict)
     print("test StetsonJ value is: " + str(test_ts.stetson_J()["r"]))
     assert test_ts.stetson_J()["r"] == 0.8
 
@@ -40,13 +42,13 @@ def test_sf2_timeseries(lc_id):
         "flux_err": test_yerr,
         "band": ["r"] * len(test_y),
     }
-    ts = timeseries()
-    ts.meta['id'] = lc_id
-    test_ts = ts.from_dict(data_dict=test_dict)
-    res = test_ts.sf2(sthresh=100)
+    timseries = timeseries()
+    timseries.meta["id"] = lc_id
+    test_series = timseries.from_dict(data_dict=test_dict)
+    res = test_series.sf2(sthresh=100)
 
-    assert res['dt'][0] == pytest.approx(3.705, rel=0.001)
-    assert res['sf2'][0] == pytest.approx(0.005365, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
 def test_dt_bins():
@@ -54,7 +56,7 @@ def test_dt_bins():
     Test that the binning routines return the expected properties
     """
     np.random.seed(1)
-    dts = np.random.random_sample(1000)*5 + np.logspace(1, 2, 1000)
+    dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
 
     # test size method
     bins = analysis.structurefunction2._bin_dts(dts, method="size")
