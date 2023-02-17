@@ -1,9 +1,9 @@
-"""Test timeseries analysis functions"""
+"""Test TimeSeries analysis functions"""
 
 import numpy as np
 import pytest
 
-from lsstseries import analysis, timeseries
+from lsstseries import analysis, TimeSeries
 
 # pylint: disable=protected-access
 
@@ -20,7 +20,7 @@ def test_stetsonj():
         "flux_err": [1] * len(flux_list),
         "band": ["r"] * len(flux_list),
     }
-    timseries = timeseries()
+    timseries = TimeSeries()
     test_ts = timseries.from_dict(data_dict=test_dict)
     print("test StetsonJ value is: " + str(test_ts.stetson_J()["r"]))
     assert test_ts.stetson_J()["r"] == 0.8
@@ -42,7 +42,7 @@ def test_sf2_timeseries(lc_id):
         "flux_err": test_yerr,
         "band": ["r"] * len(test_y),
     }
-    timseries = timeseries()
+    timseries = TimeSeries()
     timseries.meta["id"] = lc_id
     test_series = timseries.from_dict(data_dict=test_dict)
     res = test_series.sf2(sthresh=100)
