@@ -1,7 +1,7 @@
 """Test ensemble manipulations"""
 import pytest
 
-from lsstseries import ensemble
+from lsstseries import Ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
 from lsstseries.analysis.structurefunction2 import calc_sf2
 
@@ -9,7 +9,7 @@ from lsstseries.analysis.structurefunction2 import calc_sf2
 # pylint: disable=protected-access
 def test_with():
     """Test that we open and close a client on enter and exit."""
-    with ensemble() as ens:
+    with Ensemble() as ens:
         ens.from_parquet(
             "tests/lsstseries_tests/data/test_subset.parquet",
             id_col="ps1_objid",
@@ -84,7 +84,7 @@ def test_build_index(dask_client):
     obj_ids = [1, 1, 1, 2, 1, 2, 2]
     bands = ["u", "u", "u", "g", "g", "u", "u"]
 
-    ens = ensemble(client=dask_client)
+    ens = Ensemble(client=dask_client)
     result = list(ens._build_index(obj_ids, bands).get_level_values(2))
     target = [0, 1, 2, 0, 0, 0, 1]
     assert result == target

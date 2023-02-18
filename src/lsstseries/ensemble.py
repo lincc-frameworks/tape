@@ -6,11 +6,11 @@ import pyvo as vo
 from dask.distributed import Client
 
 from .analysis.structurefunction2 import calc_sf2
-from .timeseries import timeseries
+from .timeseries import TimeSeries
 
 
-class ensemble:
-    """ensemble object is a collection of light curve ids"""
+class Ensemble:
+    """Ensemble object is a collection of light curve ids"""
 
     def __init__(self, token=None, client=None, **kwargs):
         self.result = None  # holds the latest query
@@ -93,7 +93,7 @@ class ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.ensemble`
+        ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with nans removed according to the threshold
             scheme
         """
@@ -114,7 +114,7 @@ class ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.ensemble`
+        ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with pruned rows removed
         """
         if col_name not in self.data.columns:
@@ -125,7 +125,7 @@ class ensemble:
         return self
 
     def batch(self, func, meta=None, *args, **kwargs):
-        """Run a function from lsstseries.timeseries on the available ids
+        """Run a function from lsstseries.TimeSeries on the available ids
 
         Parameters
         ----------
@@ -231,7 +231,7 @@ class ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.ensemble`
+        ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with parquet data loaded
         """
 
@@ -416,7 +416,7 @@ class ensemble:
 
         Returns
         ----------
-        ts: `timeseries`
+        ts: `TimeSeries`
             Timeseries for a single object
 
         Note
@@ -438,7 +438,7 @@ class ensemble:
             band_col = self._band_col
 
         df = self.data.loc[target].compute()
-        ts = timeseries()._from_ensemble(
+        ts = TimeSeries()._from_ensemble(
             data=df,
             object_id=target,
             time_label=time_col,
