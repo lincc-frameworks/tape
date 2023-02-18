@@ -4,7 +4,7 @@ from lsstseries.analysis.stetsonj import calc_stetson_J
 from lsstseries.analysis.structurefunction2 import calc_sf2
 
 
-class timeseries:
+class Timeseries:
     """represent and analyze Rubin timeseries data"""
 
     def __init__(self, data=None):

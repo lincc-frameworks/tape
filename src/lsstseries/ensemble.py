@@ -6,10 +6,10 @@ import pyvo as vo
 from dask.distributed import Client
 
 from .analysis.structurefunction2 import calc_sf2
-from .timeseries import timeseries
+from .timeseries import Timeseries
 
 
-class ensemble:
+class Ensemble:
     """ensemble object is a collection of light curve ids"""
 
     def __init__(self, token=None, client=None, **kwargs):
@@ -40,7 +40,7 @@ class ensemble:
         if self.cleanup_client:
             self.client.close()
         return self
-    
+
     def __del__(self):
         if self.cleanup_client:
             self.client.close()
@@ -438,7 +438,7 @@ class ensemble:
             band_col = self._band_col
 
         df = self.data.loc[target].compute()
-        ts = timeseries()._from_ensemble(
+        ts = Timeseries()._from_ensemble(
             data=df,
             object_id=target,
             time_label=time_col,
@@ -472,7 +472,7 @@ class ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:

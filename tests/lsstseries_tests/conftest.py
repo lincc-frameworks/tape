@@ -2,7 +2,7 @@
 import pytest
 from dask.distributed import Client
 
-from lsstseries import ensemble
+from lsstseries import Ensemble
 
 
 @pytest.fixture(scope="package", name="dask_client")
@@ -17,7 +17,7 @@ def dask_client():
 @pytest.fixture
 def parquet_ensemble(dask_client):
     """Create an ensemble from parquet data."""
-    ens = ensemble(client=dask_client)
+    ens = Ensemble(client=dask_client)
     ens.from_parquet(
         "tests/lsstseries_tests/data/test_subset.parquet",
         id_col="ps1_objid",
