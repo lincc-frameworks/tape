@@ -43,6 +43,7 @@ def test_core_wrappers(parquet_ensemble):
     Test that the core wrapper functions execute without errors
     """
     # Just test if these execute successfully
+    parquet_ensemble.client_info()
     parquet_ensemble.info()
     parquet_ensemble.columns()
     parquet_ensemble.head(5)
