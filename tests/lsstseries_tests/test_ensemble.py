@@ -17,7 +17,7 @@ def test_with():
             flux_col="psFlux",
             err_col="psFluxErr",
         )
-        assert ens.data is not None
+        assert ens._data is not None
 
 
 def test_from_parquet(parquet_ensemble):
@@ -25,9 +25,9 @@ def test_from_parquet(parquet_ensemble):
     Test that ensemble.from_parquet() successfully loads a parquet file
     """
     # Check to make sure the data property was actually set
-    assert parquet_ensemble.data is not None
+    assert parquet_ensemble._data is not None
 
-    parquet_ensemble.data = parquet_ensemble.data.compute()
+    parquet_ensemble._data = parquet_ensemble.compute()
     for col in [
         parquet_ensemble._time_col,
         parquet_ensemble._flux_col,
@@ -35,7 +35,20 @@ def test_from_parquet(parquet_ensemble):
         parquet_ensemble._band_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
-        assert parquet_ensemble.data[col] is not None
+        assert parquet_ensemble._data[col] is not None
+
+
+def test_core_wrappers(parquet_ensemble):
+    """
+    Test that the core wrapper functions execute without errors
+    """
+    # Just test if these execute successfully
+    parquet_ensemble.client_info()
+    parquet_ensemble.info()
+    parquet_ensemble.columns()
+    parquet_ensemble.head(5)
+    parquet_ensemble.tail(5)
+    parquet_ensemble.compute()
 
 
 def test_counts(parquet_ensemble):
