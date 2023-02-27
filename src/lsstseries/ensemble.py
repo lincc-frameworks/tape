@@ -208,11 +208,11 @@ class Ensemble:
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
-            batch = self._data.map_partitions(lambda x: x.groupby(id_col).apply(
+            batch = self._data.map_partitions(lambda x: x.groupby(id_col, group_keys=False).apply(
                 lambda y: func(*[y[arg] if arg != id_col else y.index for arg in args],
                                **kwargs)), meta=meta)
         else:  # use groupby
-            batch = self._data.groupby(self._id_col).apply(
+            batch = self._data.groupby(self._id_col, group_keys=False).apply(
                 lambda x: func(
                     *[x[arg] if arg != id_col else x.index for arg in args], **kwargs
                 ),
