@@ -68,12 +68,13 @@ def test_prune(parquet_ensemble):
     assert parquet_ensemble.count(ascending=False).values[0] >= threshold
 
 
-def test_batch(parquet_ensemble):
+@pytest.mark.parametrize("use_map", [True, False])
+def test_batch(parquet_ensemble, use_map):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
     result = (
-        parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, band_to_calc=None)
+        parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, band_to_calc=None)
     )
 
     assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
@@ -106,14 +107,14 @@ def test_build_index(dask_client):
 @pytest.mark.parametrize("method", ["size", "length", "loglength"])
 @pytest.mark.parametrize("combine", [True, False])
 @pytest.mark.parametrize("sthresh", [50, 100])
-def test_sf2(parquet_ensemble, method, combine, sthresh):
+def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
     """
     Test calling sf2 from the ensemble
     """
 
-    res_sf2 = parquet_ensemble.sf2(combine=combine, method=method, sthresh=sthresh)
+    res_sf2 = parquet_ensemble.sf2(combine=combine, method=method, sthresh=sthresh, use_map=use_map)
     res_batch = parquet_ensemble.batch(
-        calc_sf2, combine=combine, method=method, sthresh=sthresh
+        calc_sf2, use_map=False, combine=combine, method=method, sthresh=sthresh
     )
 
     if combine:
