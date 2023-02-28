@@ -146,7 +146,7 @@ class Ensemble:
         self._data = self._data[self._data[col_name] >= threshold]
         return self
 
-    def batch(self, func, meta=None, *args, **kwargs):
+    def batch(self, func, meta=None, use_map=True, *args, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
 
         Parameters
@@ -158,6 +158,11 @@ class Ensemble:
             the results. Overridden by lsstseries for lsstseries
             functions. If none, attempts to coerce the result to a
             pandas.series.
+        use_map : `boolean`
+            Determines whether `dask.dataframe.DataFrame.map_partitions` is
+            used (True). Using map_partitions is generally more efficient, but
+            requires the data from each lightcurve is housed in a single
+            partition. If False, a groupby will be performed instead.
         *args:
             Denotes the ensemble columns to use as inputs for a function,
             order must be correct for function. If passing a lsstseries
@@ -201,12 +206,18 @@ class Ensemble:
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
-        batch = self._data.groupby(self._id_col).apply(
-            lambda x: func(
-                *[x[arg] if arg != id_col else x.index for arg in args], **kwargs
-            ),
-            meta=meta,
-        )
+        if use_map:  # use map_partitions
+            id_col = self._id_col  # need to grab this before mapping
+            batch = self._data.map_partitions(lambda x: x.groupby(id_col, group_keys=False).apply(
+                lambda y: func(*[y[arg] if arg != id_col else y.index for arg in args],
+                               **kwargs)), meta=meta)
+        else:  # use groupby
+            batch = self._data.groupby(self._id_col, group_keys=False).apply(
+                lambda x: func(
+                    *[x[arg] if arg != id_col else x.index for arg in args], **kwargs
+                ),
+                meta=meta,
+            )
 
         result = batch.compute()
         return result
@@ -532,7 +543,13 @@ class Ensemble:
         return index
 
     def sf2(
-        self, bins=None, band_to_calc=None, combine=False, method="size", sthresh=100
+        self,
+        bins=None,
+        band_to_calc=None,
+        combine=False,
+        method="size",
+        sthresh=100,
+        use_map=True
     ):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
@@ -555,6 +572,11 @@ class Ensemble:
             bins of equal length in log time.
         sthresh : 'int'
             Target number of samples per bin.
+        use_map : `boolean`
+            Determines whether `dask.dataframe.DataFrame.map_partitions` is
+            used (True). Using map_partitions is generally more efficient, but
+            requires the data from each lightcurve is housed in a single
+            partition. If False, a groupby will be performed instead.
 
         Returns
         ----------
@@ -589,6 +611,7 @@ class Ensemble:
                 combine=False,
                 method=method,
                 sthresh=sthresh,
+                use_map=use_map
             )
 
             return result
