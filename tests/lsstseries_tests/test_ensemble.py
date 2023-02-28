@@ -114,7 +114,7 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
 
     res_sf2 = parquet_ensemble.sf2(combine=combine, method=method, sthresh=sthresh, use_map=use_map)
     res_batch = parquet_ensemble.batch(
-        calc_sf2, use_map=False, combine=combine, method=method, sthresh=sthresh
+        calc_sf2, use_map=use_map, combine=combine, method=method, sthresh=sthresh
     )
 
     if combine:
