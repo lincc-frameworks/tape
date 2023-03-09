@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def calc_stetson_J(flux, err, band, band_to_calc=None):
+def calc_stetson_J(flux, err, band, band_to_calc=None, check_nans=True):
     """Compute the StetsonJ statistic on data from one or several bands
 
     Parameters
@@ -15,6 +15,8 @@ def calc_stetson_J(flux, err, band, band_to_calc=None):
     band_to_calc : `str` or `list` of `str`
         Bands to calculate StetsonJ on. Single band descriptor, or list
         of such descriptors.
+    check_nans : `bool`
+        Boolean to run a check for NaN values and filter them out.
 
     Returns
     -------
@@ -27,6 +29,16 @@ def calc_stetson_J(flux, err, band, band_to_calc=None):
     executed on all available bands in `band`.
     """
 
+    # NaN filtering
+    if check_nans:
+        f_mask = np.isnan(flux)
+        e_mask = np.isnan(err)  # always mask out nan errors?
+        nan_mask = np.logical_or(f_mask, e_mask)
+
+        flux = flux[~nan_mask]
+        err = err[~nan_mask]
+        band = band[~nan_mask]
+
     unq_band = np.unique(band)
 
     if band_to_calc is None:
@@ -37,7 +49,6 @@ def calc_stetson_J(flux, err, band, band_to_calc=None):
     assert hasattr(band_to_calc, "__iter__") is True
 
     stetsonJ = {}
-    # TODO: ability to remove nan values
     for b in band_to_calc:
         if b in unq_band:
             mask = band == b
