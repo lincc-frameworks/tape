@@ -1,7 +1,15 @@
 # Changes here will be overwritten by Copier
-_commit: v1.1.0
+_commit: v1.2.1-91-g675ca2a
 _src_path: gh:lincc-frameworks/python-project-template
-author_email: brantd@uw.edu
-author_name: Doug Branton
+author_email: Lincc-frameworks-team@lists.lsst.org
+author_name: LINCC Frameworks Team
+create_example_module: false
+custom_install: true
+include_notebooks: true
 module_name: lsstseries
+mypy_type_checking: basic
+preferred_linter: black
+project_license: MIT
 project_name: lsstseries
+use_gitlfs: none
+use_isort: true
