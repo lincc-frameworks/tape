@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.abspath('../src/'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "lsstseries"
-copyright = "2023, Doug Branton"
-author = "Doug Branton"
+copyright = "2023, LINCC Frameworks Team"
+author = "LINCC Frameworks Team"
 release = version("lsstseries")
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
