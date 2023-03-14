@@ -193,9 +193,7 @@ class Ensemble:
             ],
         }
 
-        known_meta = {
-            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"}
-        }
+        known_meta = {"calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"}}
         if func.__name__ in known_cols:
             args = known_cols[func.__name__]
         if func.__name__ in known_meta:
@@ -208,9 +206,15 @@ class Ensemble:
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
-            batch = self._data.map_partitions(lambda x: x.groupby(id_col, group_keys=False).apply(
-                lambda y: func(*[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
-                               **kwargs)), meta=meta)
+            batch = self._data.map_partitions(
+                lambda x: x.groupby(id_col, group_keys=False).apply(
+                    lambda y: func(
+                        *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
+                        **kwargs,
+                    )
+                ),
+                meta=meta,
+            )
         else:  # use groupby
             batch = self._data.groupby(self._id_col, group_keys=False).apply(
                 lambda x: func(
@@ -286,9 +290,7 @@ class Ensemble:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
         # Read in a parquet file
-        self._data = dd.read_parquet(
-            file, index=self._id_col, columns=columns, split_row_groups=True
-        )
+        self._data = dd.read_parquet(file, index=self._id_col, columns=columns, split_row_groups=True)
 
         if npartitions and npartitions > 1:
             self._data = self._data.repartition(npartitions=npartitions)
@@ -326,9 +328,7 @@ class Ensemble:
         """
         cred = vo.auth.CredentialStore()
         cred.set_password("x-oauth-basic", self.token)
-        service = vo.dal.TAPService(
-            "https://data.lsst.cloud/api/tap", cred.get("ivo://ivoa.net/sso#BasicAA")
-        )
+        service = vo.dal.TAPService("https://data.lsst.cloud/api/tap", cred.get("ivo://ivoa.net/sso#BasicAA"))
         time0 = time.time()
         results = service.search(query, maxrec=maxrec)
         time1 = time.time()
@@ -404,9 +404,7 @@ class Ensemble:
         id_list = "(" + ",".join(str_ids) + ")"
 
         result = self.query_tap(
-            f"SELECT {select_cols} "
-            f"FROM {catalog}.{table} "
-            f"WHERE {id_field} IN {id_list}",
+            f"SELECT {select_cols} " f"FROM {catalog}.{table} " f"WHERE {id_field} IN {id_list}",
             maxrec=maxrec,
         )
         index = self._build_index(result["diaObjectId"], result["filterName"])
@@ -505,7 +503,7 @@ class Ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:
@@ -521,9 +519,7 @@ class Ensemble:
                     )
                     cols_label.append(mag_str_err)
                 else:
-                    cols_mag.append(
-                        "scisql_nanojanskyToAbMag(" + flux_str + ") AS " + mag_str
-                    )
+                    cols_mag.append("scisql_nanojanskyToAbMag(" + flux_str + ") AS " + mag_str)
                     cols_label.append(mag_str)
         return cols_mag, cols_label
 
@@ -542,15 +538,7 @@ class Ensemble:
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
 
-    def sf2(
-        self,
-        bins=None,
-        band_to_calc=None,
-        combine=False,
-        method="size",
-        sthresh=100,
-        use_map=True
-    ):
+    def sf2(self, bins=None, band_to_calc=None, combine=False, method="size", sthresh=100, use_map=True):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
         Parameters
@@ -611,7 +599,7 @@ class Ensemble:
                 combine=False,
                 method=method,
                 sthresh=sthresh,
-                use_map=use_map
+                use_map=use_map,
             )
 
             return result
