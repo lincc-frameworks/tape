@@ -3,8 +3,9 @@ import pandas as pd
 from scipy.stats import binned_statistic
 
 
-def calc_sf2(lc_id, time, flux, err, band, bins=None,
-             band_to_calc=None, combine=False, method='size', sthresh=100):
+def calc_sf2(
+    lc_id, time, flux, err, band, bins=None, band_to_calc=None, combine=False, method="size", sthresh=100
+):
     """Compute structure function squared on one or many bands
 
     Parameters
@@ -78,11 +79,12 @@ def calc_sf2(lc_id, time, flux, err, band, bins=None,
             fluxes_2d = [fluxes[mask] for mask in id_masks]
             errors_2d = [errors[mask] for mask in id_masks]
 
-            res = _sf2_single(times_2d, fluxes_2d, errors_2d, bins=bins,
-                              combine=combine, method=method, sthresh=sthresh)
+            res = _sf2_single(
+                times_2d, fluxes_2d, errors_2d, bins=bins, combine=combine, method=method, sthresh=sthresh
+            )
 
-            res_ids = [[str(unq_ids[i])]*len(arr) for i, arr in enumerate(res[0])]
-            res_bands = [[b]*len(arr) for arr in res[0]]
+            res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res[0])]
+            res_bands = [[b] * len(arr) for arr in res[0]]
 
             ids.append(np.hstack(res_ids))
             bands.append(np.hstack(res_bands))
@@ -93,13 +95,13 @@ def calc_sf2(lc_id, time, flux, err, band, bins=None,
         idstack = ["combined"] * len(np.hstack(ids))
     else:
         idstack = np.hstack(ids)
-    sf2_df = pd.DataFrame({"lc_id": idstack, "band": np.hstack(bands),
-                           "dt": np.hstack(dts), "sf2": np.hstack(sf2s)})
+    sf2_df = pd.DataFrame(
+        {"lc_id": idstack, "band": np.hstack(bands), "dt": np.hstack(dts), "sf2": np.hstack(sf2s)}
+    )
     return sf2_df
 
 
-def _sf2_single(times, fluxes, errors, bins=None,
-                combine=False, method='size', sthresh=100):
+def _sf2_single(times, fluxes, errors, bins=None, combine=False, method="size", sthresh=100):
     """Calculate structure function squared
 
     Calculate structure function squared from the available data. This is
@@ -173,8 +175,9 @@ def _sf2_single(times, fluxes, errors, bins=None,
         d_fluxes = df_matrix[dt_matrix > 0].flatten()
 
         # err^2 - errors squared
-        err2_matrix = lc_errors.reshape((1, lc_errors.size))**2 \
-            + lc_errors.reshape((lc_errors.size, 1))**2
+        err2_matrix = (
+            lc_errors.reshape((1, lc_errors.size)) ** 2 + lc_errors.reshape((lc_errors.size, 1)) ** 2
+        )
         err2s = err2_matrix[dt_matrix > 0].flatten()
 
         # corrected each pair of observations
@@ -186,8 +189,8 @@ def _sf2_single(times, fluxes, errors, bins=None,
 
     # combining treats all lightcurves as one when calculating the structure function
     if combine and len(times) > 1:
-        d_times_all = np.hstack(np.array(d_times_all, dtype='object'))
-        cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype='object'))
+        d_times_all = np.hstack(np.array(d_times_all, dtype="object"))
+        cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype="object"))
 
         # binning
         if bins is None:
@@ -195,8 +198,8 @@ def _sf2_single(times, fluxes, errors, bins=None,
 
         # structure function at specific dt
         # the line below will throw error if the bins are not covering the whole range
-        sfs, bin_edgs, _ = binned_statistic(d_times_all, cor_flux2_all, 'mean', bins)
-        return [(bin_edgs[0:-1] + bin_edgs[1:])/2], [sfs]
+        sfs, bin_edgs, _ = binned_statistic(d_times_all, cor_flux2_all, "mean", bins)
+        return [(bin_edgs[0:-1] + bin_edgs[1:]) / 2], [sfs]
     # Not combining calculates structure function for each light curve independently
     else:
         # may want to raise warning if len(times) <=1 and combine was set true
@@ -204,19 +207,18 @@ def _sf2_single(times, fluxes, errors, bins=None,
         t_all = []
         for lc_idx in range(len(d_times_all)):
             if len(d_times_all[lc_idx]) > 1:
-
                 # binning
                 bins = _bin_dts(d_times_all[lc_idx], method=method, sthresh=sthresh)
-                sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], 'mean', bins)
+                sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], "mean", bins)
                 sfs_all.append(sfs)
-                t_all.append((bin_edgs[0:-1] + bin_edgs[1:])/2)
+                t_all.append((bin_edgs[0:-1] + bin_edgs[1:]) / 2)
             else:
                 sfs_all.append(np.array([]))
                 t_all.append(np.array([]))
         return t_all, sfs_all
 
 
-def _bin_dts(dts, method='size', sthresh=100):
+def _bin_dts(dts, method="size", sthresh=100):
     """Bin an input array of delta times (dt). Supports several binning
     schemes.
 
@@ -238,19 +240,19 @@ def _bin_dts(dts, method='size', sthresh=100):
         The returned bins array.
     """
 
-    if method == 'size':
-        quantiles = int(np.ceil(len(dts)/sthresh))
-        _, bins = pd.qcut(dts, q=quantiles, retbins=True, duplicates='drop')
+    if method == "size":
+        quantiles = int(np.ceil(len(dts) / sthresh))
+        _, bins = pd.qcut(dts, q=quantiles, retbins=True, duplicates="drop")
         return bins
 
-    elif method == 'length':
-        nbins = int(np.ceil(len(dts)/sthresh))
-        _, bins = pd.cut(dts, bins=nbins, retbins=True, duplicates='drop')
+    elif method == "length":
+        nbins = int(np.ceil(len(dts) / sthresh))
+        _, bins = pd.cut(dts, bins=nbins, retbins=True, duplicates="drop")
         return bins
 
-    elif method == 'loglength':
-        nbins = int(np.ceil(len(dts)/sthresh))
-        _, bins = pd.cut(np.log(dts), bins=nbins, retbins=True, duplicates='drop')
+    elif method == "loglength":
+        nbins = int(np.ceil(len(dts) / sthresh))
+        _, bins = pd.cut(np.log(dts), bins=nbins, retbins=True, duplicates="drop")
         return np.exp(bins)
 
     else:

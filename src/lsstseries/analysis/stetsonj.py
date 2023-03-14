@@ -98,9 +98,7 @@ def _stetson_J_single(fluxes, errors):
     return np.mean(np.sign(p_k) * np.sqrt(np.fabs(p_k)))
 
 
-def _stetson_J_mean(
-    values, errors, mean=None, alpha=2.0, beta=2.0, n_iter=20, tol=1e-6
-):
+def _stetson_J_mean(values, errors, mean=None, alpha=2.0, beta=2.0, n_iter=20, tol=1e-6):
     """Compute the stetson mean of the fluxes which down-weights outliers.
 
     Weighted biased on an error weighted difference scaled by a constant

@@ -41,16 +41,13 @@ class TimeSeries:
         try:
             data_dict[band_label]
         except KeyError as exc:
-            raise KeyError(
-                f"The indicated label '{band_label}' was not found."
-            ) from exc
+            raise KeyError(f"The indicated label '{band_label}' was not found.") from exc
         index = self._build_index(data_dict[band_label])
         data_dict = {key: data_dict[key] for key in data_dict if key != band_label}
         self.data = pd.DataFrame(data=data_dict, index=index).sort_index()
 
         labels = [time_label, flux_label, err_label]
         for label, quantity in zip(labels, list(self.colmap.keys())):
-
             if (quantity == "flux_err") and (label is None):  # flux_err is optional
                 continue
 
@@ -66,8 +63,9 @@ class TimeSeries:
         self.data = self.data.dropna(**kwargs)
         return self
 
-    def _from_ensemble(self, data, object_id, time_label='time', flux_label='flux',
-                       err_label='flux_err', band_label='band'):
+    def _from_ensemble(
+        self, data, object_id, time_label="time", flux_label="flux", err_label="flux_err", band_label="band"
+    ):
         """Loader function for inputing data from an ensemble"""
         self.data = data
         self.meta["id"] = object_id
@@ -77,7 +75,6 @@ class TimeSeries:
 
         labels = [time_label, flux_label, err_label]
         for label, quantity in zip(labels, list(self.colmap.keys())):
-
             if (quantity == "flux_err") and (label is None):  # flux_err is optional
                 continue
 
@@ -145,7 +142,7 @@ class TimeSeries:
         """
         return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
 
-    def sf2(self, bins=None, band_to_calc=None, method='size', sthresh=100):
+    def sf2(self, bins=None, band_to_calc=None, method="size", sthresh=100):
         """Compute the structure function squared statistic on data
 
         Parameters
@@ -173,9 +170,19 @@ class TimeSeries:
         In case that no value for band_to_calc is passed, the function is executed
         on all available bands.
         """
-        if self.meta['id']:
-            lc_id = [self.meta['id']]*len(self.time)
+        if self.meta["id"]:
+            lc_id = [self.meta["id"]] * len(self.time)
         else:
-            lc_id = [0]*len(self.time)
-        return calc_sf2(lc_id, self.time, self.flux, self.flux_err, self.band, bins=bins,
-                        band_to_calc=band_to_calc, method=method, sthresh=sthresh, combine=False)
+            lc_id = [0] * len(self.time)
+        return calc_sf2(
+            lc_id,
+            self.time,
+            self.flux,
+            self.flux_err,
+            self.band,
+            bins=bins,
+            band_to_calc=band_to_calc,
+            method=method,
+            sthresh=sthresh,
+            combine=False,
+        )
