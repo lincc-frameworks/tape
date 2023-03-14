@@ -73,9 +73,7 @@ def test_batch(parquet_ensemble, use_map):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
-    result = (
-        parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, band_to_calc=None)
-    )
+    result = parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, band_to_calc=None)
 
     assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
     assert pytest.approx(result.values[0]["r"], 0.001) == 0.6075282

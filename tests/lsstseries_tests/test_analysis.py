@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from lsstseries import analysis, TimeSeries
+from lsstseries import TimeSeries, analysis
 
 # pylint: disable=protected-access
 
