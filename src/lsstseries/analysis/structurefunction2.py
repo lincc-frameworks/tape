@@ -207,7 +207,6 @@ def _sf2_single(times, fluxes, errors, bins=None, combine=False, method="size", 
         t_all = []
         for lc_idx in range(len(d_times_all)):
             if len(d_times_all[lc_idx]) > 1:
-
                 # binning
                 bins = _bin_dts(d_times_all[lc_idx], method=method, sthresh=sthresh)
                 sfs, bin_edgs, _ = binned_statistic(d_times_all[lc_idx], cor_flux2_all[lc_idx], "mean", bins)

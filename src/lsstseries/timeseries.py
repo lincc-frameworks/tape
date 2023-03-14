@@ -48,7 +48,6 @@ class TimeSeries:
 
         labels = [time_label, flux_label, err_label]
         for label, quantity in zip(labels, list(self.colmap.keys())):
-
             if (quantity == "flux_err") and (label is None):  # flux_err is optional
                 continue
 
@@ -76,7 +75,6 @@ class TimeSeries:
 
         labels = [time_label, flux_label, err_label]
         for label, quantity in zip(labels, list(self.colmap.keys())):
-
             if (quantity == "flux_err") and (label is None):  # flux_err is optional
                 continue
 
