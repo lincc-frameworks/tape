@@ -16,7 +16,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
 ]
-dynamic = ["version"]
+
 dependencies = [
     'pandas',
     'numpy',
