@@ -146,7 +146,7 @@ class Ensemble:
         self._data = self._data[self._data[col_name] >= threshold]
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=False, **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
 
         Parameters
