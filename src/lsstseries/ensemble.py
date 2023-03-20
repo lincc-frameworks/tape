@@ -146,13 +146,17 @@ class Ensemble:
         self._data = self._data[self._data[col_name] >= threshold]
         return self
 
-    def batch(self, func, meta=None, use_map=True, *args, **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
 
         Parameters
         ----------
         func : `function`
             A function to apply to all objects in the ensemble
+        *args:
+            Denotes the ensemble columns to use as inputs for a function,
+            order must be correct for function. If passing a lsstseries
+            function, these are populated automatically.
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
             Dask's meta parameter, which lays down the expected structure of
             the results. Overridden by lsstseries for lsstseries
@@ -163,10 +167,9 @@ class Ensemble:
             used (True). Using map_partitions is generally more efficient, but
             requires the data from each lightcurve is housed in a single
             partition. If False, a groupby will be performed instead.
-        *args:
-            Denotes the ensemble columns to use as inputs for a function,
-            order must be correct for function. If passing a lsstseries
-            function, these are populated automatically.
+        compute: `boolean`
+            Determines whether to compute the result immediately or hold for a
+            later compute call.
         **kwargs:
             Additional optional parameters passed for the selected function
 
@@ -223,8 +226,10 @@ class Ensemble:
                 meta=meta,
             )
 
-        result = batch.compute()
-        return result
+        if compute:
+            return batch.compute()
+        else:
+            return batch
 
     def from_parquet(
         self,
