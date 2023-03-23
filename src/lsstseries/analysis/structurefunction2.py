@@ -240,19 +240,38 @@ def _bin_dts(dts, method="size", sthresh=100):
         The returned bins array.
     """
 
+    num_bins = int(np.ceil(len(dts) / sthresh))
+    dts_unique = np.unique(dts)
     if method == "size":
-        quantiles = int(np.ceil(len(dts) / sthresh))
-        _, bins = pd.qcut(dts, q=quantiles, retbins=True, duplicates="drop")
+        quantiles = np.linspace(0.0, 1.0, num_bins + 1)
+        bins = np.quantile(dts_unique, quantiles)
         return bins
 
     elif method == "length":
-        nbins = int(np.ceil(len(dts) / sthresh))
-        _, bins = pd.cut(dts, bins=nbins, retbins=True, duplicates="drop")
+        # Compute num_bins equally spaced bins.
+        min_val = dts_unique.min()
+        max_val = dts_unique.max()
+        bins = np.linspace(min_val, max_val, num_bins + 1)
+
+        # Extend the start of the first bin by 0.1% of the range to
+        # include the first element. Note this is also done to match
+        # Panda's cut function.
+        bins[0] -= 0.001 * (max_val - min_val)
         return bins
 
     elif method == "loglength":
-        nbins = int(np.ceil(len(dts) / sthresh))
-        _, bins = pd.cut(np.log(dts), bins=nbins, retbins=True, duplicates="drop")
+        log_vals = np.log(dts_unique)
+
+        # Compute num_bins equally spaced bins in log space.
+        min_val = log_vals.min()
+        max_val = log_vals.max()
+        bins = np.linspace(min_val, max_val, num_bins + 1)
+
+        # Extend the start of the first bin by 0.1% of the range to
+        # include the first element. Note this is also done to match
+        # Panda's cut function.
+        bins[0] -= 0.001 * (max_val - min_val)
+
         return np.exp(bins)
 
     else:
