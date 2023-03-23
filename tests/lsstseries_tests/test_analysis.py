@@ -55,6 +55,19 @@ def test_dt_bins():
     """
     Test that the binning routines return the expected properties
     """
+    # Test on some known data.
+    dts = np.array([(201.0 - i) for i in range(200)])
+
+    bins = analysis.structurefunction2._bin_dts(dts, method="size")
+    np.testing.assert_allclose(bins, [2.0, 101.5, 201.0])
+
+    bins = analysis.structurefunction2._bin_dts(dts, method="length")
+    np.testing.assert_allclose(bins, [1.801, 101.5, 201.0])
+
+    bins = analysis.structurefunction2._bin_dts(dts, method="loglength")
+    np.testing.assert_allclose(bins, [1.99080091, 20.04993766, 201.0], rtol=1e-5)
+
+    # Test on large randomized data (with a constant seed).
     np.random.seed(1)
     dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
 
