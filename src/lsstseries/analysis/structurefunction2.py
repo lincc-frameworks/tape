@@ -241,26 +241,26 @@ def _bin_dts(dts, method="size", sthresh=100):
     """
 
     num_bins = int(np.ceil(len(dts) / sthresh))
+    dts_unique = np.unique(dts)
     if method == "size":
         quantiles = np.linspace(0.0, 1.0, num_bins + 1)
-        bins = np.quantile(dts, quantiles)
+        bins = np.quantile(dts_unique, quantiles)
         return bins
 
     elif method == "length":
         # Compute num_bins equally spaced bins.
-        min_val = dts.min()
-        max_val = dts.max()
+        min_val = dts_unique.min()
+        max_val = dts_unique.max()
         bins = np.linspace(min_val, max_val, num_bins + 1)
 
         # Extend the start of the first bin by 0.1% of the range to
         # include the first element. Note this is also done to match
         # Panda's cut function.
         bins[0] -= 0.001 * (max_val - min_val)
-
         return bins
 
     elif method == "loglength":
-        log_vals = np.log(dts)
+        log_vals = np.log(dts_unique)
 
         # Compute num_bins equally spaced bins in log space.
         min_val = log_vals.min()
