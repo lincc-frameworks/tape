@@ -97,9 +97,18 @@ def test_build_index(dask_client):
     bands = ["u", "u", "u", "g", "g", "u", "u"]
 
     ens = Ensemble(client=dask_client)
-    result = list(ens._build_index(obj_ids, bands).get_level_values(2))
+    result = ens._build_index(obj_ids, bands)
+    assert len(result.levels) == 3
+
+    result_ids = list(result.get_level_values(0))
+    assert result_ids == obj_ids
+
+    result_bands = list(result.get_level_values(1))
+    assert result_bands == bands
+
+    result_ids = list(result.get_level_values(2))
     target = [0, 1, 2, 0, 0, 0, 1]
-    assert result == target
+    assert result_ids == target
 
 
 @pytest.mark.parametrize("method", ["size", "length", "loglength"])

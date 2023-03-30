@@ -529,16 +529,27 @@ class Ensemble:
         return cols_mag, cols_label
 
     def _build_index(self, obj_id, band):
-        """Build pandas multiindex from object_ids and bands"""
+        """Build pandas multiindex from object_ids and bands
+
+        Parameters
+        ----------
+        obj_id : `np.array` or `list`
+            A list of object id for each row in the data.
+        band : `np.array` or `list`
+            A list of the band for each row in the data.
+
+        Returns
+        -------
+        index : `pd.MultiIndex`
+        """
         count_dict = {}
         idx = []
         for o, b in zip(obj_id, band):
-            if f"{o},{b}" in count_dict:
-                idx.append(count_dict[f"{o},{b}"])
-                count_dict[f"{o},{b}"] += 1
-            else:
-                idx.append(0)
-                count_dict[f"{o},{b}"] = 1
+            count = count_dict.get((o, b), 0)
+            idx.append(count)
+
+            # Increment count for obs_id + band or insert 1 there wasn't an ongoing count.
+            count_dict[(o, b)] = count + 1
         tuples = zip(obj_id, band, idx)
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
