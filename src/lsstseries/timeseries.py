@@ -112,12 +112,11 @@ class TimeSeries:
         count_dict = {}
         idx = []
         for b in band:
-            if f"{b}" in count_dict:
-                idx.append(count_dict[f"{b}"])
-                count_dict[f"{b}"] += 1
-            else:
-                idx.append(0)
-                count_dict[f"{b}"] = 1
+            count = count_dict.get(b, 0)
+            idx.append(count)
+
+            # Increment count for this band or insert 1 there wasn't an ongoing count.
+            count_dict[b] = count + 1
         tuples = zip(band, idx)
         index = pd.MultiIndex.from_tuples(tuples, names=["band", "index"])
         return index
