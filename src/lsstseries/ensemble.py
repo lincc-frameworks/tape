@@ -45,7 +45,7 @@ class Ensemble:
         if self.cleanup_client:
             self.client.close()
         return self
-    
+
     def insert(self, obj_ids, bands, timestamps, fluxes, flux_errs=None, **kwargs):
         """Manually insert sources into the ensemble.
 
