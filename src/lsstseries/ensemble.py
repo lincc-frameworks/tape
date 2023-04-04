@@ -15,7 +15,11 @@ class Ensemble:
     def __init__(self, token=None, client=None, **kwargs):
         self.result = None  # holds the latest query
         self.token = token
-        self._data = None
+
+        self._source = None  # Source Table
+        self._object = None  # Object Table
+
+        self.dirty = False  # Dirty Flag
 
         # Assign Default Values for critical column quantities
         self._id_col = "object_id"
@@ -62,7 +66,7 @@ class Ensemble:
 
     def info(self, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.info()"""
-        return self._data.info(**kwargs)
+        return (self._source.info(**kwargs), self._object.info(**kwargs))
 
     def compute(self, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()"""
@@ -233,7 +237,8 @@ class Ensemble:
 
     def from_parquet(
         self,
-        file,
+        source_file,
+        object_file=None,
         id_col=None,
         time_col=None,
         flux_col=None,
@@ -247,9 +252,13 @@ class Ensemble:
 
         Parameters
         ----------
-        file: 'str'
-            Path to a parquet file, or multiple parquet files to be read into
-            the ensemble
+        source_file: 'str'
+            Path to a parquet file, or multiple parquet files that contain
+            source information to be read into the ensemble
+        object_file: 'str'
+            Path to a parquet file, or multiple parquet files that contain
+            object information. If not specified, it is generated from the
+            source table
         id_col: 'str', optional
             Identifies which column contains the Object IDs
         time_col: 'str', optional
@@ -294,15 +303,39 @@ class Ensemble:
         else:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
-        # Read in a parquet file
-        self._data = dd.read_parquet(file, index=self._id_col, columns=columns, split_row_groups=True)
+        # Read in the source parquet file(s)
+        self._source = dd.read_parquet(source_file,
+                                       index=self._id_col,
+                                       columns=columns,
+                                       split_row_groups=True)
 
         if npartitions and npartitions > 1:
-            self._data = self._data.repartition(npartitions=npartitions)
+            self._source = self._source.repartition(npartitions=npartitions)
         elif partition_size:
-            self._data = self._data.repartition(partition_size=partition_size)
+            self._source = self._source.repartition(partition_size=partition_size)
+
+        if object_file:  # read from parquet files
+            self._object = dd.read_parquet(object_file,
+                                           index=self._id_col,
+                                           split_row_groups=True)
+        else:  # generate object table from source
+            self._object = self._generate_object_table()
 
         return self
+
+    def _generate_object_table(self):
+        """Generate the object table from the source table.
+        """
+        counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate('count')
+        res = counts.to_frame().reset_index().categorize(columns=[self._band_col]
+                                                         ).pivot_table(values=self._time_col,
+                                                                       index=self._id_col,
+                                                                       columns=self._band_col,
+                                                                       aggfunc='sum')
+
+        res['n_obs_total'] = counts.groupby(self._id_col).agg('sum')
+
+        return res
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
@@ -508,7 +541,7 @@ class Ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:
