@@ -22,11 +22,16 @@ class Ensemble:
         self.dirty = False  # Dirty Flag
 
         # Assign Default Values for critical column quantities
+        # Source
         self._id_col = "object_id"
         self._time_col = "midPointTai"
         self._flux_col = "psFlux"
         self._err_col = "psFluxErr"
         self._band_col = "band"
+
+        # Object, _id_col is shared
+        self._nobs_col = "n_obs_total"
+        self._nobs_bands = []
 
         self.client = None
         self.cleanup_client = False
@@ -64,27 +69,66 @@ class Ensemble:
         """
         return self.client  # Prints Dask dashboard to screen
 
-    def info(self, **kwargs):
-        """Wrapper for dask.dataframe.DataFrame.info()"""
-        return (self._source.info(**kwargs), self._object.info(**kwargs))
+    def info(self, verbose=True, memory_usage=True, **kwargs):
+        """Wrapper for dask.dataframe.DataFrame.info()
 
-    def compute(self, **kwargs):
+        Parameters
+        ----------
+        verbose: `bool`, optional
+            Whether to print the whole summary
+        memory_usage: `bool`, optional
+            Specifies whether total memory usage of the DataFrame elements
+            (including the index) should be displayed.
+        Returns
+        ----------
+        counts: `pandas.series`
+            A series of counts by object
+        """
+        print("Object Table")
+        self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
+        print("Source Table")
+        self._source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
+        print(f"Tables in-sync: {not self.dirty}")
+
+    def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()"""
-        return self._data.compute(**kwargs)
 
-    def columns(self):
+        if table:
+            if table == "object":
+                return self._object.compute(**kwargs)
+            elif table == "source":
+                return self._source.compute(**kwargs)
+        else:
+            return (self._object.compute(**kwargs), self._source.compute(**kwargs))
+
+    def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
-        return self._data.columns
+        if table == "object":
+            return self._object.columns
+        elif table == "source":
+            return self._source.columns
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
 
-    def head(self, n=5, **kwargs):
+    def head(self, table="object", n=5, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.head()"""
 
-        return self._data.head(n=n, **kwargs)
+        if table == "object":
+            return self._object.head(n=n, **kwargs)
+        elif table == "source":
+            return self._source.head(n=n, **kwargs)
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
 
-    def tail(self, n=5, **kwargs):
-        """Wrapper for dask.dataframe.DataFrame.head()"""
+    def tail(self, table="object", n=5, **kwargs):
+        """Wrapper for dask.dataframe.DataFrame.tail()"""
 
-        return self._data.tail(n=n, **kwargs)
+        if table == "object":
+            return self._object.tail(n=n, **kwargs)
+        elif table == "source":
+            return self._source.tail(n=n, **kwargs)
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
 
     def count(self, sort=True, ascending=False):
         """Return the number of available rows/measurements for each lightcurve
@@ -102,7 +146,7 @@ class Ensemble:
         counts: `pandas.series`
             A series of counts by object
         """
-        counts = self._data.groupby(self._id_col)[self._time_col].count().compute()
+        counts = self._source.groupby(self._id_col)[self._time_col].count().compute()
         if sort:
             return counts.sort_values(ascending=ascending)
         else:
@@ -123,10 +167,14 @@ class Ensemble:
             The ensemble object with nans removed according to the threshold
             scheme
         """
-        self._data = self._data[self._data.isnull().sum(axis=1) < threshold]
+        self._source = self._source[self._source.isnull().sum(axis=1) < threshold]
+        self.dirty = True  # This operation modifies the source table
         return self
 
-    def prune(self, threshold=50, col_name="num_obs"):
+    def filter(self, on, criteria, table="object"):
+        pass
+
+    def prune(self, threshold=50, col_name=None):
         """remove objects with less observations than a given threshold
 
         Parameters
@@ -135,19 +183,39 @@ class Ensemble:
             The minimum number of observations needed to retain an object.
             Default is 50.
         col_name: `str`, optional
-            The name of the output counts column. If already exists, directly
-            uses the column to prune the ensemble.
+            The name of the column to assess the threshold
 
         Returns
         ----------
         ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with pruned rows removed
         """
+        """
         if col_name not in self._data.columns:
             counts = self._data.groupby(self._id_col).count()
             counts = counts.rename(columns={self._time_col: col_name})[[col_name]]
             self._data = self._data.join(counts, how="left")
+
         self._data = self._data[self._data[col_name] >= threshold]
+        return self
+        """
+        if not col_name:
+            col_name = self._nobs_col
+
+        # Sync Required
+        if self.dirty:
+            # self._sync_tables
+            pass
+
+        # Mask on object table
+        mask = self._object[col_name] >= threshold
+        self._object = self._object[mask]
+
+        # Join object to source; joins may not be ideal here, have to drop cols
+        self._source = self._source.join(self._object, on=self._id_col,
+                                         how='right', lsuffix="obj", rsuffix="sor")
+        self._source = self._source.drop(list(self._object.columns), axis=1)
+
         return self
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, **kwargs):
@@ -213,7 +281,7 @@ class Ensemble:
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
-            batch = self._data.map_partitions(
+            batch = self._source.map_partitions(
                 lambda x: x.groupby(id_col, group_keys=False).apply(
                     lambda y: func(
                         *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
@@ -223,7 +291,7 @@ class Ensemble:
                 meta=meta,
             )
         else:  # use groupby
-            batch = self._data.groupby(self._id_col, group_keys=False).apply(
+            batch = self._source.groupby(self._id_col, group_keys=False).apply(
                 lambda x: func(
                     *[x[arg].to_numpy() if arg != id_col else x.index.to_numpy() for arg in args], **kwargs
                 ),
@@ -304,10 +372,9 @@ class Ensemble:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
         # Read in the source parquet file(s)
-        self._source = dd.read_parquet(source_file,
-                                       index=self._id_col,
-                                       columns=columns,
-                                       split_row_groups=True)
+        self._source = dd.read_parquet(
+            source_file, index=self._id_col, columns=columns, split_row_groups=True
+        )
 
         if npartitions and npartitions > 1:
             self._source = self._source.repartition(npartitions=npartitions)
@@ -315,27 +382,29 @@ class Ensemble:
             self._source = self._source.repartition(partition_size=partition_size)
 
         if object_file:  # read from parquet files
-            self._object = dd.read_parquet(object_file,
-                                           index=self._id_col,
-                                           split_row_groups=True)
+            self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
         else:  # generate object table from source
             self._object = self._generate_object_table()
 
         return self
 
     def _generate_object_table(self):
-        """Generate the object table from the source table.
-        """
-        counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate('count')
-        res = counts.to_frame().reset_index().categorize(columns=[self._band_col]
-                                                         ).pivot_table(values=self._time_col,
-                                                                       index=self._id_col,
-                                                                       columns=self._band_col,
-                                                                       aggfunc='sum')
+        """Generate the object table from the source table."""
+        counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
+        res = (
+            counts.to_frame()
+            .reset_index()
+            .categorize(columns=[self._band_col])
+            .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
+        )
 
-        res['n_obs_total'] = counts.groupby(self._id_col).agg('sum')
+        res[self._nobs_col] = counts.groupby(self._id_col).agg("sum")
 
         return res
+
+    def _sync_tables(self, table1, table2):
+        """Sync operation to align both tables"""
+        self.dirty = False
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
@@ -541,7 +610,7 @@ class Ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux"):]
+                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:
