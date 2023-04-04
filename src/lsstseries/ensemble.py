@@ -19,7 +19,8 @@ class Ensemble:
         self._source = None  # Source Table
         self._object = None  # Object Table
 
-        self.dirty = False  # Dirty Flag
+        self._sor_dirty = False  # Source Dirty Flag
+        self._obj_dirty = False  # Object Dirty Flag
 
         # Assign Default Values for critical column quantities
         # Source
@@ -84,31 +85,42 @@ class Ensemble:
         counts: `pandas.series`
             A series of counts by object
         """
+        # Sync tables if user wants to retrieve their information
+        if self._sor_dirty or self._obj_dirty:
+            self = self._sync_tables
+
         print("Object Table")
         self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
         print("Source Table")
         self._source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
-        print(f"Tables in-sync: {not self.dirty}")
 
     def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()"""
 
-        if self.dirty:
-            self = self._sync_tables()
-
         if table:
             if table == "object":
+                if self._sor_dirty:  # object table should be updated
+                    self = self._sync_tables()
                 return self._object.compute(**kwargs)
             elif table == "source":
+                if self._obj_dirty:  # source table should be updated
+                    self = self._sync_tables()
                 return self._source.compute(**kwargs)
         else:
+            if self._sor_dirty or self._obj_dirty:
+                self = self._sync_tables()
+
             return (self._object.compute(**kwargs), self._source.compute(**kwargs))
 
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
         if table == "object":
+            if self._sor_dirty:  # object table should be updated
+                self = self._sync_tables()
             return self._object.columns
         elif table == "source":
+            if self._obj_dirty:  # source table should be updated
+                self = self._sync_tables()
             return self._source.columns
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -117,8 +129,12 @@ class Ensemble:
         """Wrapper for dask.dataframe.DataFrame.head()"""
 
         if table == "object":
+            if self._sor_dirty:  # object table should be updated
+                self = self._sync_tables()
             return self._object.head(n=n, **kwargs)
         elif table == "source":
+            if self._obj_dirty:  # source table should be updated
+                self = self._sync_tables()
             return self._source.head(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -127,8 +143,12 @@ class Ensemble:
         """Wrapper for dask.dataframe.DataFrame.tail()"""
 
         if table == "object":
+            if self._sor_dirty:  # object table should be updated
+                self = self._sync_tables()
             return self._object.tail(n=n, **kwargs)
         elif table == "source":
+            if self._obj_dirty:  # source table should be updated
+                self = self._sync_tables()
             return self._source.tail(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -149,7 +169,7 @@ class Ensemble:
             scheme
         """
         self._source = self._source[self._source.isnull().sum(axis=1) < threshold]
-        self.dirty = True  # This operation modifies the source table
+        self._sor_dirty = True  # This operation modifies the source table
         return self
 
     def filter(self, on, criteria, table="object"):
@@ -183,8 +203,8 @@ class Ensemble:
         if not col_name:
             col_name = self._nobs_col
 
-        # Sync Required
-        if self.dirty:
+        # Sync Required if source is dirty
+        if self._sor_dirty:
             self = self._sync_tables
 
         # Mask on object table
@@ -196,7 +216,7 @@ class Ensemble:
         #                                 how='right', lsuffix="obj", rsuffix="sor")
         #  self._source = self._source.drop(list(self._object.columns), axis=1)
 
-        self.dirty = True  # Source Table is now out of sync
+        self._obj_dirty = True  # Object Table is now dirty
 
         return self
 
@@ -239,6 +259,11 @@ class Ensemble:
         ensemble.batch(calc_stetson_J, band_to_calc='i')
         `
         """
+
+        # Needs tables to be in sync
+        if self._sor_dirty or self._obj_dirty:
+            self = self._sync_tables()
+
         known_cols = {
             "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
             "calc_sf2": [
@@ -387,21 +412,25 @@ class Ensemble:
     def _sync_tables(self):
         """Sync operation to align both tables"""
 
-        # Sync Object to Source; remove any missing objects from source
-        self._source = self._source.join(self._object, on=self._id_col,
-                                         how='right', lsuffix="obj", rsuffix="sor")
-        self._source = self._source.drop(list(self._object.columns), axis=1)
+        if self._obj_dirty:
+            # Sync Object to Source; remove any missing objects from source
+            self._source = self._source.join(self._object, on=self._id_col,
+                                             how='right', lsuffix="obj", rsuffix="sor")
+            self._source = self._source.drop(list(self._object.columns), axis=1)
 
-        # Generate a new object table; updates n_obs, removes missing ids
-        new_obj = self._generate_object_table()
+        if self._sor_dirty:  # not elif
+            # Generate a new object table; updates n_obs, removes missing ids
+            new_obj = self._generate_object_table()
 
-        # Join old obj to new obj; pulls in other existing obj columns
-        self._object = new_obj.join(self._object, on=self._id_col,
-                                    how="left", lsuffix="", rsuffix="_old")
-        old_cols = [col for col in list(self._object.columns) if "_old" in col]
-        self._object = self._object.drop(old_cols, axis=1)
+            # Join old obj to new obj; pulls in other existing obj columns
+            self._object = new_obj.join(self._object, on=self._id_col,
+                                        how="left", lsuffix="", rsuffix="_old")
+            old_cols = [col for col in list(self._object.columns) if "_old" in col]
+            self._object = self._object.drop(old_cols, axis=1)
 
-        self.dirty = False  # Now synced and clean
+        # Now synced and clean
+        self._sor_dirty = False
+        self._obj_dirty = False
         return self
 
     def tap_token(self, token):
