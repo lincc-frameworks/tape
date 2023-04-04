@@ -93,6 +93,9 @@ class Ensemble:
     def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()"""
 
+        if self.dirty:
+            self = self._sync_tables()
+
         if table:
             if table == "object":
                 return self._object.compute(**kwargs)
@@ -129,28 +132,6 @@ class Ensemble:
             return self._source.tail(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
-
-    def count(self, sort=True, ascending=False):
-        """Return the number of available rows/measurements for each lightcurve
-
-        Parameters
-        ----------
-        sort: `bool`, optional
-            Indicates whether the resulting counts should be sorted on counts
-        ascending: `bool`, optional
-            When sorting, use ascending (lowest counts first) or descending (highest counts first)
-            or descending
-
-        Returns
-        ----------
-        counts: `pandas.series`
-            A series of counts by object
-        """
-        counts = self._source.groupby(self._id_col)[self._time_col].count().compute()
-        if sort:
-            return counts.sort_values(ascending=ascending)
-        else:
-            return counts
 
     def dropna(self, threshold=1):
         """Removes rows with a >=`threshold` nan values.
@@ -204,17 +185,18 @@ class Ensemble:
 
         # Sync Required
         if self.dirty:
-            # self._sync_tables
-            pass
+            self = self._sync_tables
 
         # Mask on object table
         mask = self._object[col_name] >= threshold
         self._object = self._object[mask]
 
-        # Join object to source; joins may not be ideal here, have to drop cols
-        self._source = self._source.join(self._object, on=self._id_col,
-                                         how='right', lsuffix="obj", rsuffix="sor")
-        self._source = self._source.drop(list(self._object.columns), axis=1)
+        #  Join object to source; joins may not be ideal here, have to drop cols
+        #  self._source = self._source.join(self._object, on=self._id_col,
+        #                                 how='right', lsuffix="obj", rsuffix="sor")
+        #  self._source = self._source.drop(list(self._object.columns), axis=1)
+
+        self.dirty = True  # Source Table is now out of sync
 
         return self
 
@@ -402,9 +384,25 @@ class Ensemble:
 
         return res
 
-    def _sync_tables(self, table1, table2):
+    def _sync_tables(self):
         """Sync operation to align both tables"""
-        self.dirty = False
+
+        # Sync Object to Source; remove any missing objects from source
+        self._source = self._source.join(self._object, on=self._id_col,
+                                         how='right', lsuffix="obj", rsuffix="sor")
+        self._source = self._source.drop(list(self._object.columns), axis=1)
+
+        # Generate a new object table; updates n_obs, removes missing ids
+        new_obj = self._generate_object_table()
+
+        # Join old obj to new obj; pulls in other existing obj columns
+        self._object = new_obj.join(self._object, on=self._id_col,
+                                    how="left", lsuffix="", rsuffix="_old")
+        old_cols = [col for col in list(self._object.columns) if "_old" in col]
+        self._object = self._object.drop(old_cols, axis=1)
+
+        self.dirty = False  # Now synced and clean
+        return self
 
     def tap_token(self, token):
         """Add/update a TAP token to the class, enables querying
