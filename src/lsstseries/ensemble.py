@@ -31,7 +31,7 @@ class Ensemble:
         self._band_col = "band"
 
         # Object, _id_col is shared
-        self._nobs_col = "n_obs_total"
+        self._nobs_col = "nobs_total"
         self._nobs_bands = []
 
         self.client = None
@@ -389,9 +389,11 @@ class Ensemble:
             self._source = self._source.repartition(partition_size=partition_size)
 
         if object_file:  # read from parquet files
+            # may need to generate the object table and join in the info from parquet? To guarantee nobs cols
             self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
         else:  # generate object table from source
             self._object = self._generate_object_table()
+            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_col]
 
         return self
 
@@ -405,6 +407,11 @@ class Ensemble:
             .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
         )
 
+        # Rename bands to nobs_[band]
+        band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
+        res = res.rename(columns=band_cols)
+
+        # Add total nobs
         res[self._nobs_col] = counts.groupby(self._id_col).agg("sum")
 
         return res
@@ -637,7 +644,8 @@ class Ensemble:
                 cols_mag.append(col)
                 cols_label.append(col)
             else:
-                pre_var, post_var = col[:pos_flux], col[pos_flux + len("Flux") :]
+                i = pos_flux + len("Flux")
+                pre_var, post_var = col[:pos_flux], col[i:]
                 flux_str = pre_var + "Flux"
                 mag_str = pre_var + "AbMag"
                 if col.find("Err") != -1:
