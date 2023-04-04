@@ -27,7 +27,11 @@ def test_from_parquet(parquet_ensemble):
     # Check to make sure the data property was actually set
     assert parquet_ensemble._data is not None
 
+    # Check that the data is not empty.
     parquet_ensemble._data = parquet_ensemble.compute()
+    assert parquet_ensemble._data.size > 0
+
+    # Check the we loaded the correct columns.
     for col in [
         parquet_ensemble._time_col,
         parquet_ensemble._flux_col,
@@ -36,6 +40,66 @@ def test_from_parquet(parquet_ensemble):
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._data[col] is not None
+
+
+def test_insertn(parquet_ensemble):
+    num_partitions = parquet_ensemble._data.npartitions
+    old_data = parquet_ensemble.compute()
+    old_size = old_data.shape[0]
+
+    # Save the column names to shorter strings
+    id_col = parquet_ensemble._id_col
+    time_col = parquet_ensemble._time_col
+    flux_col = parquet_ensemble._flux_col
+    err_col = parquet_ensemble._err_col
+    band_col = parquet_ensemble._band_col
+
+    # Test an insertion of 5 observations.
+    new_inds = [2, 1, 100, 110, 111]
+    new_bands = ["g", "r", "sky_blue", "b", "r"]
+    new_times = [1.0, 1.1, 1.2, 1.3, 1.4]
+    new_fluxes = [2.0, 2.5, 3.0, 3.5, 4.0]
+    new_errs = [0.1, 0.05, 0.01, 0.05, 0.01]
+    parquet_ensemble.insert(new_inds, new_bands, new_times, new_fluxes, new_errs)
+
+    # Check we did not increase the number of partitions.
+    assert parquet_ensemble._data.npartitions == num_partitions
+
+    # Check that all the new data points are in there. The order may be different
+    # due to the repartitioning.
+    new_data = parquet_ensemble.compute()
+    assert new_data.shape[0] == old_size + 5
+    for i in range(5):
+        assert new_data.loc[new_inds[i]][time_col] == new_times[i]
+        assert new_data.loc[new_inds[i]][flux_col] == new_fluxes[i]
+        assert new_data.loc[new_inds[i]][err_col] == new_errs[i]
+        assert new_data.loc[new_inds[i]][band_col] == new_bands[i]
+
+    # Check that insertions still work on partitioned data.
+    parquet_ensemble._data.repartition(divisions=[0, 5000, 90000000000000000])
+
+    new_inds = [88472468910699997, 700, 88480001353815784]
+    new_bands = ["b", "r", "b"]
+    new_times = [1.0, 1.1, 1.2]
+    new_fluxes = [2.0, 2.5, 3.0]
+    new_errs = [0.1, 0.05, 0.01]
+    parquet_ensemble.insert(new_inds, new_bands, new_times, new_fluxes, new_errs)
+    assert parquet_ensemble._data.npartitions == 3
+
+    # Check that all the new data points are in there. The order may be different
+    # due to the repartitioning.
+    new_data = parquet_ensemble.compute()
+    assert new_data.shape[0] == old_size + 5 + 3
+    for i in range(3):
+        assert new_data.loc[new_inds[i]][time_col] == new_times[i]
+        assert new_data.loc[new_inds[i]][flux_col] == new_fluxes[i]
+        assert new_data.loc[new_inds[i]][err_col] == new_errs[i]
+        assert new_data.loc[new_inds[i]][band_col] == new_bands[i]
+
+    # Check that all of the old data is still in there.
+    obj_ids = old_data.index.unique()
+    for idx in obj_ids:
+        assert old_data.loc[idx].shape[0] == new_data.loc[idx].shape[0]
 
 
 def test_core_wrappers(parquet_ensemble):
