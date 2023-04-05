@@ -104,7 +104,7 @@ class Ensemble:
                 return self._object.compute(**kwargs)
             elif table == "source":
                 if self._obj_dirty:  # source table should be updated
-                    self = self._sync_tables()
+                    self._sync_tables()
                 return self._source.compute(**kwargs)
         else:
             if self._sor_dirty or self._obj_dirty:
