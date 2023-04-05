@@ -87,7 +87,7 @@ class Ensemble:
         """
         # Sync tables if user wants to retrieve their information
         if self._sor_dirty or self._obj_dirty:
-            self = self._sync_tables
+            self = self._sync_tables()
 
         print("Object Table")
         self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
@@ -205,7 +205,7 @@ class Ensemble:
 
         # Sync Required if source is dirty
         if self._sor_dirty:
-            self = self._sync_tables
+            self = self._sync_tables()
 
         # Mask on object table
         mask = self._object[col_name] >= threshold
