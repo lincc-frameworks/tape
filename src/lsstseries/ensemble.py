@@ -421,8 +421,11 @@ class Ensemble:
 
         if self._obj_dirty:
             # Sync Object to Source; remove any missing objects from source
-            self._source = self._source.join(self._object, on=self._id_col,
-                                             how='right', lsuffix="obj", rsuffix="sor")
+
+            # Try a merge instead?
+            self._source = self._source.merge(self._object, how="right", on=[self._id_col])
+            #self._source = self._source.join(self._object, on=self._id_col,
+            #                                 how='right', lsuffix="obj", rsuffix="sor")
             self._source = self._source.drop(list(self._object.columns), axis=1)
 
         if self._sor_dirty:  # not elif
