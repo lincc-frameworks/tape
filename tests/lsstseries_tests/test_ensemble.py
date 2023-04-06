@@ -52,6 +52,28 @@ def test_core_wrappers(parquet_ensemble):
     parquet_ensemble.compute()
 
 
+def test_sync_tables(parquet_ensemble):
+    """
+    Test that _table_sync works as expected
+    """
+
+    parquet_ensemble.prune(50, col_name='nobs_r').prune(50, col_name='nobs_g')
+    assert parquet_ensemble._obj_dirty  # Prune should set the object dirty flag
+
+    parquet_ensemble.dropna(1)
+    assert parquet_ensemble._sor_dirty  # Dropna should set the source dirty flag
+
+    parquet_ensemble._sync_tables()
+
+    # both tables should have the expected number of rows after a sync
+    assert len(parquet_ensemble.compute("object")) == 5
+    assert len(parquet_ensemble.compute("source")) == 1562
+
+    # dirty flags should be unset after sync
+    assert not parquet_ensemble._obj_dirty
+    assert not parquet_ensemble._sor_dirty
+
+
 def test_prune(parquet_ensemble):
     """
     Test that ensemble.prune() appropriately filters the dataframe
