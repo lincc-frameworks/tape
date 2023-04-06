@@ -1,6 +1,6 @@
 """Test ensemble manipulations"""
-import pytest
 import numpy as np
+import pytest
 
 from lsstseries import Ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
@@ -59,7 +59,7 @@ def test_prune(parquet_ensemble):
     threshold = 10
     parquet_ensemble.prune(threshold)
 
-    assert not np.any(parquet_ensemble._object['nobs_total'].values < threshold)
+    assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
 @pytest.mark.parametrize("use_map", [True, False])

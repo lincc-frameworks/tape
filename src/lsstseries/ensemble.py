@@ -430,8 +430,7 @@ class Ensemble:
             new_obj = self._generate_object_table()
 
             # Join old obj to new obj; pulls in other existing obj columns
-            self._object = new_obj.join(self._object, on=self._id_col,
-                                        how="left", lsuffix="", rsuffix="_old")
+            self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
             old_cols = [col for col in list(self._object.columns) if "_old" in col]
             self._object = self._object.drop(old_cols, axis=1)
 
