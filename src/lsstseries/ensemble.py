@@ -422,10 +422,7 @@ class Ensemble:
         if self._obj_dirty:
             # Sync Object to Source; remove any missing objects from source
 
-            # Try a merge instead?
             self._source = self._source.merge(self._object, how="right", on=[self._id_col])
-            #self._source = self._source.join(self._object, on=self._id_col,
-            #                                 how='right', lsuffix="obj", rsuffix="sor")
             self._source = self._source.drop(list(self._object.columns), axis=1)
 
         if self._sor_dirty:  # not elif
@@ -612,7 +609,7 @@ class Ensemble:
         if band_col is None:
             band_col = self._band_col
 
-        df = self._data.loc[target].compute()
+        df = self._source.loc[target].compute()
         ts = TimeSeries()._from_ensemble(
             data=df,
             object_id=target,
@@ -735,11 +732,11 @@ class Ensemble:
 
         if combine:
             result = calc_sf2(
-                self._data.index,
-                self._data[self._time_col],
-                self._data[self._flux_col],
-                self._data[self._err_col],
-                self._data[self._band_col],
+                self._source.index,
+                self._source[self._time_col],
+                self._source[self._flux_col],
+                self._source[self._err_col],
+                self._source[self._band_col],
                 bins=bins,
                 band_to_calc=band_to_calc,
                 combine=combine,
