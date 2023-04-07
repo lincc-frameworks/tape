@@ -389,8 +389,16 @@ class Ensemble:
             self._source = self._source.repartition(partition_size=partition_size)
 
         if object_file:  # read from parquet files
-            # may need to generate the object table and join in the info from parquet? To guarantee nobs cols
-            self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
+            # Read in the object file
+            file_table = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
+
+            # Generate an object table from the source table, then merge
+            generated = self._generate_object_table()
+            self._object = file_table.merge(generated, how="right", on=[self._id_col])
+            self._nobs_bands = [
+                col for col in list(self._object.columns) if (col != self._nobs_col) and ("nobs" in col)
+            ]
+
         else:  # generate object table from source
             self._object = self._generate_object_table()
             self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_col]
