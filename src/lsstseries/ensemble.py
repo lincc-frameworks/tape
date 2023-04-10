@@ -191,15 +191,6 @@ class Ensemble:
         ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with pruned rows removed
         """
-        """
-        if col_name not in self._data.columns:
-            counts = self._data.groupby(self._id_col).count()
-            counts = counts.rename(columns={self._time_col: col_name})[[col_name]]
-            self._data = self._data.join(counts, how="left")
-
-        self._data = self._data[self._data[col_name] >= threshold]
-        return self
-        """
         if not col_name:
             col_name = self._nobs_col
 
@@ -210,11 +201,6 @@ class Ensemble:
         # Mask on object table
         mask = self._object[col_name] >= threshold
         self._object = self._object[mask]
-
-        #  Join object to source; joins may not be ideal here, have to drop cols
-        #  self._source = self._source.join(self._object, on=self._id_col,
-        #                                 how='right', lsuffix="obj", rsuffix="sor")
-        #  self._source = self._source.drop(list(self._object.columns), axis=1)
 
         self._obj_dirty = True  # Object Table is now dirty
 
