@@ -1,4 +1,5 @@
 """Test ensemble manipulations"""
+import numpy as np
 import pytest
 
 from lsstseries import Ensemble
@@ -24,10 +25,10 @@ def test_from_parquet(parquet_ensemble):
     """
     Test that ensemble.from_parquet() successfully loads a parquet file
     """
-    # Check to make sure the data property was actually set
-    assert parquet_ensemble._data is not None
+    # Check to make sure the source and object tables were created
+    assert parquet_ensemble._source is not None
+    assert parquet_ensemble._object is not None
 
-    parquet_ensemble._data = parquet_ensemble.compute()
     for col in [
         parquet_ensemble._time_col,
         parquet_ensemble._flux_col,
@@ -35,7 +36,7 @@ def test_from_parquet(parquet_ensemble):
         parquet_ensemble._band_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
-        assert parquet_ensemble._data[col] is not None
+        assert parquet_ensemble._source[col] is not None
 
 
 def test_core_wrappers(parquet_ensemble):
@@ -46,17 +47,34 @@ def test_core_wrappers(parquet_ensemble):
     parquet_ensemble.client_info()
     parquet_ensemble.info()
     parquet_ensemble.columns()
-    parquet_ensemble.head(5)
-    parquet_ensemble.tail(5)
+    parquet_ensemble.head(n=5)
+    parquet_ensemble.tail(n=5)
     parquet_ensemble.compute()
 
 
-def test_counts(parquet_ensemble):
+def test_sync_tables(parquet_ensemble):
     """
-    Test that ensemble.count() runs and returns the first five values correctly
+    Test that _table_sync works as expected
     """
-    count = parquet_ensemble.count()
-    assert list(count.values[0:5]) == [499, 343, 337, 195, 188]
+
+    assert len(parquet_ensemble.compute("object")) == 15
+    assert len(parquet_ensemble.compute("source")) == 2000
+
+    parquet_ensemble.prune(50, col_name='nobs_r').prune(50, col_name='nobs_g')
+    assert parquet_ensemble._object_dirty  # Prune should set the object dirty flag
+
+    parquet_ensemble.dropna(1)
+    assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
+
+    parquet_ensemble._sync_tables()
+
+    # both tables should have the expected number of rows after a sync
+    assert len(parquet_ensemble.compute("object")) == 5
+    assert len(parquet_ensemble.compute("source")) == 1562
+
+    # dirty flags should be unset after sync
+    assert not parquet_ensemble._object_dirty
+    assert not parquet_ensemble._source_dirty
 
 
 def test_prune(parquet_ensemble):
@@ -65,7 +83,8 @@ def test_prune(parquet_ensemble):
     """
     threshold = 10
     parquet_ensemble.prune(threshold)
-    assert parquet_ensemble.count(ascending=False).values[0] >= threshold
+
+    assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
 @pytest.mark.parametrize("use_map", [True, False])
