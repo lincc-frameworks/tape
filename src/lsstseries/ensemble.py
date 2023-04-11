@@ -115,12 +115,8 @@ class Ensemble:
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
         if table == "object":
-            if self._source_dirty:  # object table should be updated
-                self = self._sync_tables()
             return self._object.columns
         elif table == "source":
-            if self._object_dirty:  # source table should be updated
-                self = self._sync_tables()
             return self._source.columns
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
