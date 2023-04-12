@@ -56,6 +56,84 @@ class Ensemble:
             self.client.close()
         return self
 
+    def insert_sources(
+        self, obj_ids, bands, timestamps, fluxes, flux_errs=None, force_repartition=False, **kwargs
+    ):
+        """Manually insert sources into the ensemble.
+
+        Requires, at a minimum, the object’s ID and the band, timestamp,
+        and flux of the observation.
+
+        Note
+        ----
+        This function is expensive and is provides mainly for testing purposes.
+        Care should be used when incorporating it into the core of an analysis.
+
+        Parameters
+        ----------
+        obj_ids: `list`
+            A list of the sources' object ID.
+        bands: `list`
+            A list of the bands of the observation.
+        timestamps: `list`
+            A list of the times the sources were observed.
+        fluxes: `list`
+            A list of the fluxes of the observations.
+        flux_errs: `list`, optional
+            A list of the errors in the flux.
+        force_repartition: `bool` optional
+            Do an immediate repartition of the dataframes.
+        """
+        # Check the lists are all the same sizes.
+        num_inserting: int = len(obj_ids)
+        if num_inserting != len(bands):
+            raise ValueError(f"Incorrect bands length during insert" f"{num_inserting} != {len(bands)}")
+        if num_inserting != len(timestamps):
+            raise ValueError(
+                f"Incorrect timestamps length during insert" f"{num_inserting} != {len(timestamps)}"
+            )
+        if num_inserting != len(fluxes):
+            raise ValueError(f"Incorrect fluxes length during insert" f"{num_inserting} != {len(fluxes)}")
+        if flux_errs is not None and num_inserting != len(flux_errs):
+            raise ValueError(
+                f"Incorrect flux_errs length during insert" f"{num_inserting} != {len(flux_errs)}"
+            )
+
+        # Create a dictionary with the new information.
+        rows = {
+            self._id_col: obj_ids,
+            self._band_col: bands,
+            self._time_col: timestamps,
+            self._flux_col: fluxes,
+        }
+        if flux_errs is not None:
+            rows[self._err_col] = flux_errs
+
+        # Add any other supplied columns to the dictionary.
+        for key, value in kwargs.items():
+            if key in self._data.columns:
+                rows[key] = value
+
+        # Create the new row and set the paritioning to match the original dataframe.
+        df2 = dd.DataFrame.from_dict(rows, npartitions=1)
+        df2 = df2.set_index(self._id_col, drop=True)
+
+        # Save the divisions and number of partitions.
+        prev_div = self._source.divisions
+        prev_num = self._source.npartitions
+
+        # Append the new rows to the correct divisions.
+        self._source = dd.concat([self._source, df2], axis=0, interleave_partitions=True)
+        self._source_dirty = True
+
+        # Do the repartitioning if requested. If the divisions were set, reuse them.
+        # Otherwise, use the same number of partitions.
+        if force_repartition:
+            if all(prev_div):
+                self._source = self._source.repartition(divisions=prev_div)
+            elif self._source.npartitions != prev_num:
+                self._source = self._source.repartition(npartitions=prev_num)
+
     def client_info(self):
         """Calls the Dask Client, which returns cluster information
 
