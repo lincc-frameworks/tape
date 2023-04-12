@@ -56,7 +56,9 @@ class Ensemble:
             self.client.close()
         return self
 
-    def insert(self, obj_ids, bands, timestamps, fluxes, flux_errs=None, **kwargs):
+    def insert_sources(
+        self, obj_ids, bands, timestamps, fluxes, flux_errs=None, force_repartition=False, **kwargs
+    ):
         """Manually insert sources into the ensemble.
 
         Requires, at a minimum, the object’s ID and the band, timestamp,
@@ -79,6 +81,8 @@ class Ensemble:
             A list of the fluxes of the observations.
         flux_errs: `list`, optional
             A list of the errors in the flux.
+        force_repartition: `bool` optional
+            Do an immediate repartition of the dataframes.
         """
         # Check the lists are all the same sizes.
         num_inserting: int = len(obj_ids)
@@ -115,18 +119,20 @@ class Ensemble:
         df2 = df2.set_index(self._id_col, drop=True)
 
         # Save the divisions and number of partitions.
-        prev_div = self._data.divisions
-        prev_num = self._data.npartitions
+        prev_div = self._source.divisions
+        prev_num = self._source.npartitions
 
         # Append the new rows to the correct divisions.
-        self._data = dd.concat([self._data, df2], axis=0, interleave_partitions=True)
+        self._source = dd.concat([self._source, df2], axis=0, interleave_partitions=True)
+        self._source_dirty = True
 
-        # If the divisions were set, reuse them. Otherwise, use the same
-        # number of partitions.
-        if all(prev_div):
-            self._data = self._data.repartition(divisions=prev_div)
-        elif self._data.npartitions != prev_num:
-            self._data = self._data.repartition(npartitions=prev_num)
+        # Do the repartitioning if requested. If the divisions were set, reuse them.
+        # Otherwise, use the same number of partitions.
+        if force_repartition:
+            if all(prev_div):
+                self._source = self._source.repartition(divisions=prev_div)
+            elif self._source.npartitions != prev_num:
+                self._source = self._source.repartition(npartitions=prev_num)
 
     def client_info(self):
         """Calls the Dask Client, which returns cluster information

@@ -32,8 +32,8 @@ def test_from_parquet(parquet_ensemble):
     assert parquet_ensemble._object is not None
 
     # Check that the data is not empty.
-    parquet_ensemble._data = parquet_ensemble.compute()
-    assert parquet_ensemble._data.size > 0
+    (_, parquet_ensemble._source) = parquet_ensemble.compute()
+    assert parquet_ensemble._source.size > 0
 
     # Check the we loaded the correct columns.
     for col in [
@@ -47,9 +47,9 @@ def test_from_parquet(parquet_ensemble):
 
 
 def test_insert(parquet_ensemble):
-    num_partitions = parquet_ensemble._data.npartitions
-    old_data = parquet_ensemble.compute()
-    old_size = old_data.shape[0]
+    num_partitions = parquet_ensemble._source.npartitions
+    (old_object, old_source) = parquet_ensemble.compute()
+    old_size = old_source.shape[0]
 
     # Save the column names to shorter strings
     id_col = parquet_ensemble._id_col
@@ -64,31 +64,48 @@ def test_insert(parquet_ensemble):
     new_times = [1.0, 1.1, 1.2, 1.3, 1.4]
     new_fluxes = [2.0, 2.5, 3.0, 3.5, 4.0]
     new_errs = [0.1, 0.05, 0.01, 0.05, 0.01]
-    parquet_ensemble.insert(new_inds, new_bands, new_times, new_fluxes, new_errs)
+    parquet_ensemble.insert_sources(
+        new_inds, new_bands, new_times, new_fluxes, new_errs, force_repartition=True
+    )
 
     # Check we did not increase the number of partitions.
-    assert parquet_ensemble._data.npartitions == num_partitions
+    assert parquet_ensemble._source.npartitions == num_partitions
 
     # Check that all the new data points are in there. The order may be different
     # due to the repartitioning.
-    new_data = parquet_ensemble.compute()
-    assert new_data.shape[0] == old_size + 5
+    (new_obj, new_source) = parquet_ensemble.compute()
+    assert new_source.shape[0] == old_size + 5
     for i in range(5):
-        assert new_data.loc[new_inds[i]][time_col] == new_times[i]
-        assert new_data.loc[new_inds[i]][flux_col] == new_fluxes[i]
-        assert new_data.loc[new_inds[i]][err_col] == new_errs[i]
-        assert new_data.loc[new_inds[i]][band_col] == new_bands[i]
+        assert new_source.loc[new_inds[i]][time_col] == new_times[i]
+        assert new_source.loc[new_inds[i]][flux_col] == new_fluxes[i]
+        assert new_source.loc[new_inds[i]][err_col] == new_errs[i]
+        assert new_source.loc[new_inds[i]][band_col] == new_bands[i]
 
     # Check that all of the old data is still in there.
-    obj_ids = old_data.index.unique()
+    obj_ids = old_source.index.unique()
     for idx in obj_ids:
-        assert old_data.loc[idx].shape[0] == new_data.loc[idx].shape[0]
+        assert old_source.loc[idx].shape[0] == new_source.loc[idx].shape[0]
+
+    # Insert a few more observations without repartitioning.
+    new_inds2 = [2, 1, 100, 110, 111]
+    new_bands2 = ["r", "g", "b", "r", "g"]
+    new_times2 = [10.0, 10.1, 10.2, 10.3, 10.4]
+    new_fluxes2 = [2.0, 2.5, 3.0, 3.5, 4.0]
+    new_errs2 = [0.1, 0.05, 0.01, 0.05, 0.01]
+    parquet_ensemble.insert_sources(
+        new_inds2, new_bands2, new_times2, new_fluxes2, new_errs2, force_repartition=False
+    )
+
+    # Check we *did* increase the number of partitions and the size increased.
+    assert parquet_ensemble._source.npartitions != num_partitions
+    (new_obj, new_source) = parquet_ensemble.compute()
+    assert new_source.shape[0] == old_size + 10
 
 
 def test_insert_paritioned(dask_client):
     ens = Ensemble(client=dask_client)
 
-    # Create all fake data with known divisions.
+    # Create all fake source data with known divisions.
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
     rows = {
@@ -108,7 +125,8 @@ def test_insert_paritioned(dask_client):
     assert old_data.shape[0] == num_points
 
     # Directly set the dask data set.
-    ens._data = ddf
+    ens._source = ddf
+    ens._object = ens._generate_object_table()
 
     # Test an insertion of 5 observations.
     new_inds = [8001, 8003, 8005, 9005, 9007]
@@ -116,39 +134,39 @@ def test_insert_paritioned(dask_client):
     new_times = [1.0, 1.1, 1.2, 1.3, 1.4]
     new_fluxes = [2.0, 2.5, 3.0, 3.5, 4.0]
     new_errs = [0.1, 0.05, 0.01, 0.05, 0.01]
-    ens.insert(new_inds, new_bands, new_times, new_fluxes, new_errs)
+    ens.insert_sources(new_inds, new_bands, new_times, new_fluxes, new_errs, force_repartition=True)
 
     # Check we did not increase the number of partitions and the points
     # were placed in the correct partitions.
-    assert ens._data.npartitions == 4
-    assert ens._data.divisions == old_div
-    assert len(ens._data.partitions[0]) == old_sizes[0] + 3
-    assert len(ens._data.partitions[1]) == old_sizes[1]
-    assert len(ens._data.partitions[2]) == old_sizes[2] + 2
-    assert len(ens._data.partitions[3]) == old_sizes[3]
+    assert ens._source.npartitions == 4
+    assert ens._source.divisions == old_div
+    assert len(ens._source.partitions[0]) == old_sizes[0] + 3
+    assert len(ens._source.partitions[1]) == old_sizes[1]
+    assert len(ens._source.partitions[2]) == old_sizes[2] + 2
+    assert len(ens._source.partitions[3]) == old_sizes[3]
 
     # Check that all the new data points are in there. The order may be different
     # due to the repartitioning.
-    new_data = ens.compute()
-    assert new_data.shape[0] == num_points + 5
+    (new_obj, new_source) = ens.compute()
+    assert new_source.shape[0] == num_points + 5
     for i in range(5):
-        assert new_data.loc[new_inds[i]][ens._time_col] == new_times[i]
-        assert new_data.loc[new_inds[i]][ens._flux_col] == new_fluxes[i]
-        assert new_data.loc[new_inds[i]][ens._err_col] == new_errs[i]
-        assert new_data.loc[new_inds[i]][ens._band_col] == new_bands[i]
+        assert new_source.loc[new_inds[i]][ens._time_col] == new_times[i]
+        assert new_source.loc[new_inds[i]][ens._flux_col] == new_fluxes[i]
+        assert new_source.loc[new_inds[i]][ens._err_col] == new_errs[i]
+        assert new_source.loc[new_inds[i]][ens._band_col] == new_bands[i]
 
     # Insert a bunch of points into the second partition.
-    new_inds = [8803, 8803, 8803, 8803, 8803]
-    ens.insert(new_inds, new_bands, new_times, new_fluxes, new_errs)
+    new_inds = [8804, 8804, 8804, 8804, 8804]
+    ens.insert_sources(new_inds, new_bands, new_times, new_fluxes, new_errs, force_repartition=True)
 
     # Check we did not increase the number of partitions and the points
     # were placed in the correct partitions.
-    assert ens._data.npartitions == 4
-    assert ens._data.divisions == old_div
-    assert len(ens._data.partitions[0]) == old_sizes[0] + 3
-    assert len(ens._data.partitions[1]) == old_sizes[1] + 5
-    assert len(ens._data.partitions[2]) == old_sizes[2] + 2
-    assert len(ens._data.partitions[3]) == old_sizes[3]
+    assert ens._source.npartitions == 4
+    assert ens._source.divisions == old_div
+    assert len(ens._source.partitions[0]) == old_sizes[0] + 3
+    assert len(ens._source.partitions[1]) == old_sizes[1] + 5
+    assert len(ens._source.partitions[2]) == old_sizes[2] + 2
+    assert len(ens._source.partitions[3]) == old_sizes[3]
 
 
 def test_core_wrappers(parquet_ensemble):
@@ -172,7 +190,7 @@ def test_sync_tables(parquet_ensemble):
     assert len(parquet_ensemble.compute("object")) == 15
     assert len(parquet_ensemble.compute("source")) == 2000
 
-    parquet_ensemble.prune(50, col_name='nobs_r').prune(50, col_name='nobs_g')
+    parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
     assert parquet_ensemble._object_dirty  # Prune should set the object dirty flag
 
     parquet_ensemble.dropna(1)
