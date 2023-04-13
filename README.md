@@ -13,7 +13,7 @@ In short term we are working on two main goals of the project:
   - Enable ease of access to TimeSeries objects in LSST
   - Enable efficient and scalable evaluation of algorithm on time-domain data
 
-This is a LINCC project - find more information about LINCC [here](https://www.lsstcorporation.org/lincc/frameworks)
+This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks)
 
 ## Getting started - for developers
 
@@ -30,3 +30,7 @@ $ pip install .
 $ pip install pytest
 $ pytest
 ```
+
+## Acknowledgements
+
+LINCC Frameworks is supported by Schmidt Futures, a philanthropic initiative founded by Eric and Wendy Schmidt, as part of the Virtual Institute of Astrophysics (VIA).
