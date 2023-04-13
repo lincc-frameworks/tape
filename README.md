@@ -15,6 +15,8 @@ In short term we are working on two main goals of the project:
 
 This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks)
 
+To learn about the usage of the package, consult the [Documentation](https://lsstseries.readthedocs.io/en/latest/index.html).
+
 ## Getting started - for developers
 
 Download code and install dependencies in a conda environment. Run unit tests at the end as a verification that the packages are properly installed.
