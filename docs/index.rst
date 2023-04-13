@@ -16,6 +16,12 @@ at scale in a parallelized and/or distributed manner.
 Lsstseries is built on top of `Dask <https://www.dask.org/>`_, and leverages 
 its "lazy evaluation" to only load data and run computations when needed.
 
+API-level information about lsstseries is viewable in the 
+API Reference section.
+
+The Notebooks section features several tutorials that showcase the
+fundamental features of lsstseries.
+
 .. toctree::
    :hidden:
 
