@@ -1,6 +1,7 @@
 import time
 
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
@@ -483,16 +484,17 @@ class Ensemble:
 
         if keep_zero_entries:
             # Determine which object IDs are missing from the source table.
-            object_inds = ens._object.index.values.compute()
-            source_inds = ens._source.index.values.compute()
+            object_inds = self._object.index.values.compute()
+            source_inds = self._source.index.values.compute()
             missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
 
             # Create a dataframe of the missing IDs with zeros for all bands and counts.
-            rows = {ens._id_col: missing_inds}
+            rows = {self._id_col: missing_inds}
             for i in res.columns.values:
                 rows[i] = [0] * len(missing_inds)
-            zero_pdf = pd.DataFrame(rows, dtype=int).set_index(ens._id_col)
-            zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=res.npartitions)
+
+            zero_pdf = pd.DataFrame(rows, dtype=int).set_index(self._id_col)
+            zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=1)
 
             # Concatonate the zero dataframe onto the results.
             res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
@@ -501,13 +503,22 @@ class Ensemble:
         band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
         res = res.rename(columns=band_cols)
 
-        # Add total nobs
-        res[self._nobs_col] = counts.groupby(self._id_col).agg("sum")
+        # Add total nobs by summing across each band.
+        res[self._nobs_col] = res.sum(axis=1)
 
         return res
 
-    def _sync_tables(self):
-        """Sync operation to align both tables"""
+    def _sync_tables(self, keep_zero_entries=False):
+        """Sync operation to align both tables.
+
+        Filtered objects are always removed from the source. But filtered
+        sources may be kept in the object table.
+
+        Parameters
+        ----------
+        keep_zero_entries : `bool`
+            Keep object table entries for objects with entries in the source table.
+        """
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
@@ -516,7 +527,7 @@ class Ensemble:
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
-            new_obj = self._generate_object_table()
+            new_obj = self._generate_object_table(keep_zero_entries)
 
             # Join old obj to new obj; pulls in other existing obj columns
             self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
