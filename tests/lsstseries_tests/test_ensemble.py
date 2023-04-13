@@ -1,6 +1,7 @@
 """Test ensemble manipulations"""
 import copy
 import dask.dataframe as dd
+import pandas as pd
 import numpy as np
 import pytest
 
@@ -205,6 +206,29 @@ def test_sync_tables(parquet_ensemble):
     # dirty flags should be unset after sync
     assert not parquet_ensemble._object_dirty
     assert not parquet_ensemble._source_dirty
+
+
+def test_dropna(parquet_ensemble):
+    pdf = parquet_ensemble._source.compute()
+    parquet_length = len(pdf.index)
+
+    # Try dropping NaNs and confirm nothing is dropped (there are no NaNs).
+    parquet_ensemble.dropna(1)
+    assert len(parquet_ensemble._source.compute().index) == parquet_length
+
+    # Get a valid ID to use and count its occurrences.
+    valid_id = pdf.index.values[1]
+    occurrences = len(pdf.loc[valid_id].values)
+
+    # Set the psFlux values for one object to NaN so we can drop it.
+    # We do this on the instantiated object (pdf) and convert it back into a
+    # Dask DataFrame.
+    pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
+    parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+
+    # Try dropping NaNs and confirm that we did.
+    parquet_ensemble.dropna(1)
+    assert len(parquet_ensemble._source.compute().index) == parquet_length - occurrences
 
 
 def test_prune(parquet_ensemble):
