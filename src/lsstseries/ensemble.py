@@ -465,8 +465,14 @@ class Ensemble:
 
         return self
 
-    def _generate_object_table(self):
-        """Generate the object table from the source table."""
+    def _generate_object_table(self, keep_zero_entries=False):
+        """Generate the object table from the source table.
+
+        Parameters
+        ----------
+        keep_zero_entries : `bool`
+            Keep object table entries for objects with entries in the source table.
+        """
         counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
         res = (
             counts.to_frame()
@@ -474,6 +480,22 @@ class Ensemble:
             .categorize(columns=[self._band_col])
             .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
         )
+
+        if keep_zero_entries:
+            # Determine which object IDs are missing from the source table.
+            object_inds = ens._object.index.values.compute()
+            source_inds = ens._source.index.values.compute()
+            missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
+
+            # Create a dataframe of the missing IDs with zeros for all bands and counts.
+            rows = {ens._id_col: missing_inds}
+            for i in res.columns.values:
+                rows[i] = [0] * len(missing_inds)
+            zero_pdf = pd.DataFrame(rows, dtype=int).set_index(ens._id_col)
+            zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=res.npartitions)
+
+            # Concatonate the zero dataframe onto the results.
+            res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
 
         # Rename bands to nobs_[band]
         band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
@@ -489,7 +511,6 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-
             self._source = self._source.merge(self._object, how="right", on=[self._id_col])
             self._source = self._source.drop(list(self._object.columns), axis=1)
 
