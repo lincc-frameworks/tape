@@ -23,6 +23,9 @@ class Ensemble:
         self._source_dirty = False  # Source Dirty Flag
         self._object_dirty = False  # Object Dirty Flag
 
+        # Default to removing empty objects.
+        self.keep_empty_objects = kwargs.get("keep_empty_objects", False)
+
         # Assign Default Values for critical column quantities
         # Source
         self._id_col = "object_id"
@@ -466,14 +469,8 @@ class Ensemble:
 
         return self
 
-    def _generate_object_table(self, keep_zero_entries=False):
-        """Generate the object table from the source table.
-
-        Parameters
-        ----------
-        keep_zero_entries : `bool`
-            Keep object table entries for objects with entries in the source table.
-        """
+    def _generate_object_table(self):
+        """Generate the object table from the source table."""
         counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
         res = (
             counts.to_frame()
@@ -482,22 +479,26 @@ class Ensemble:
             .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
         )
 
-        if keep_zero_entries:
-            # Determine which object IDs are missing from the source table.
+        # If the ensemble's keep_empty_objects attribute is True and there are previous
+        # objects, then copy them into the res table with counts of zero.
+        if self.keep_empty_objects and self._object is not None:
+            # Check that there are existing object ids.
             object_inds = self._object.index.values.compute()
-            source_inds = self._source.index.values.compute()
-            missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
+            if len(object_inds) > 0:
+                # Determine which object IDs are missing from the source table.
+                source_inds = self._source.index.values.compute()
+                missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
 
-            # Create a dataframe of the missing IDs with zeros for all bands and counts.
-            rows = {self._id_col: missing_inds}
-            for i in res.columns.values:
-                rows[i] = [0] * len(missing_inds)
+                # Create a dataframe of the missing IDs with zeros for all bands and counts.
+                rows = {self._id_col: missing_inds}
+                for i in res.columns.values:
+                    rows[i] = [0] * len(missing_inds)
 
-            zero_pdf = pd.DataFrame(rows, dtype=int).set_index(self._id_col)
-            zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=1)
+                zero_pdf = pd.DataFrame(rows, dtype=int).set_index(self._id_col)
+                zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=1)
 
-            # Concatonate the zero dataframe onto the results.
-            res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
+                # Concatonate the zero dataframe onto the results.
+                res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
 
         # Rename bands to nobs_[band]
         band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
@@ -508,16 +509,12 @@ class Ensemble:
 
         return res
 
-    def _sync_tables(self, keep_zero_entries=False):
+    def _sync_tables(self):
         """Sync operation to align both tables.
 
         Filtered objects are always removed from the source. But filtered
-        sources may be kept in the object table.
-
-        Parameters
-        ----------
-        keep_zero_entries : `bool`
-            Keep object table entries for objects with entries in the source table.
+        sources may be kept in the object table is the Ensemble's
+        keep_empty_objects attribute is set to True.
         """
 
         if self._object_dirty:
@@ -527,7 +524,7 @@ class Ensemble:
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
-            new_obj = self._generate_object_table(keep_zero_entries)
+            new_obj = self._generate_object_table()
 
             # Join old obj to new obj; pulls in other existing obj columns
             self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")

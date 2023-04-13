@@ -232,7 +232,7 @@ def test_dropna(parquet_ensemble):
     assert len(parquet_ensemble._source.compute().index) == parquet_length - occurrences
 
     # Sync the table and check that the number of objects decreased.
-    parquet_ensemble._sync_tables(keep_zero_entries=False)
+    parquet_ensemble._sync_tables()
 
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index) - 1
@@ -248,6 +248,8 @@ def test_dropna(parquet_ensemble):
 
 def test_keep_zeros(parquet_ensemble):
     """Test that we can sync the tables and keep objects with zero sources."""
+    parquet_ensemble.keep_empty_objects = True
+
     old_objects_pdf = parquet_ensemble._object.compute()
     pdf = parquet_ensemble._source.compute()
 
@@ -260,7 +262,7 @@ def test_keep_zeros(parquet_ensemble):
 
     # Sync the table and check that the number of objects decreased.
     parquet_ensemble.dropna(1)
-    parquet_ensemble._sync_tables(keep_zero_entries=True)
+    parquet_ensemble._sync_tables()
 
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
