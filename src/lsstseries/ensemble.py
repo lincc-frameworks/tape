@@ -483,10 +483,10 @@ class Ensemble:
         # objects, then copy them into the res table with counts of zero.
         if self.keep_empty_objects and self._object is not None:
             # Check that there are existing object ids.
-            object_inds = self._object.index.values.compute()
+            object_inds = self._object.index.unique().values.compute()
             if len(object_inds) > 0:
                 # Determine which object IDs are missing from the source table.
-                source_inds = self._source.index.values.compute()
+                source_inds = self._source.index.unique().values.compute()
                 missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
 
                 # Create a dataframe of the missing IDs with zeros for all bands and counts.
