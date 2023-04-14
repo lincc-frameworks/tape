@@ -291,7 +291,7 @@ def test_prune(parquet_ensemble):
 
 
 @pytest.mark.parametrize("use_map", [True, False])
-@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"]])
+@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["nobs_total", "ps1_objid"]])
 def test_batch(parquet_ensemble, use_map, on):
     """
     Test that ensemble.batch() returns the correct values of the first result
