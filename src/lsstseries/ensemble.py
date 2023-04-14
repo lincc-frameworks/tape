@@ -354,11 +354,22 @@ class Ensemble:
         if on is None:
             on = self._id_col  # Default grouping is by id_col
 
+        # Handle object columns to group on
+        source_cols = list(self._source.columns)+[self._source.index.name]
+        object_cols = list(self._object.columns)+[self._object.index.name]
+        object_group_cols = [col for col in on if (col in object_cols) and (col not in source_cols)]
+
+        if len(object_group_cols) > 0:
+            object_col_dd = self._object[object_group_cols]
+            source_to_batch = self._source.merge(object_col_dd, how="left")
+        else:
+            source_to_batch = self._source  # Can directly use the source table
+
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
-            batch = self._source.map_partitions(
+            batch = source_to_batch.map_partitions(
                 lambda x: x.groupby(on, group_keys=False).apply(
                     lambda y: func(
                         *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
@@ -368,7 +379,7 @@ class Ensemble:
                 meta=meta,
             )
         else:  # use groupby
-            batch = self._source.groupby(on, group_keys=False).apply(
+            batch = source_to_batch.groupby(on, group_keys=False).apply(
                 lambda x: func(
                     *[x[arg].to_numpy() if arg != id_col else x.index.to_numpy() for arg in args], **kwargs
                 ),

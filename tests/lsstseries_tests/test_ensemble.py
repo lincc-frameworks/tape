@@ -303,9 +303,12 @@ def test_batch(parquet_ensemble, use_map, on):
     if on is None:
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
         assert pytest.approx(result.values[0]["r"], 0.001) == 0.6075282
-    else:  # In case where we group on id and band, the structure changes a bit
+    elif on is ["ps1_objid", "filterName"]:  # In case where we group on id and band, the structure changes
         assert pytest.approx(result.values[1]["r"], 0.001) == 0.6075282
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
+    elif on is ["nobs_total", "ps1_objid"]:
+        assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
+        assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
 
 def test_to_timeseries(parquet_ensemble):
