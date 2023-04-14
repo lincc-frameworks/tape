@@ -250,6 +250,7 @@ def test_keep_zeros(parquet_ensemble):
     """Test that we can sync the tables and keep objects with zero sources."""
     parquet_ensemble.keep_empty_objects = True
 
+    prev_npartitions = parquet_ensemble._object.npartitions
     old_objects_pdf = parquet_ensemble._object.compute()
     pdf = parquet_ensemble._source.compute()
 
@@ -266,6 +267,7 @@ def test_keep_zeros(parquet_ensemble):
 
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
+    assert parquet_ensemble._object.npartitions == prev_npartitions
 
     # Check that all counts have stayed the same except the filtered index,
     # which should now be all zeros.

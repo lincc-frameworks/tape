@@ -482,6 +482,8 @@ class Ensemble:
         # If the ensemble's keep_empty_objects attribute is True and there are previous
         # objects, then copy them into the res table with counts of zero.
         if self.keep_empty_objects and self._object is not None:
+            prev_partitions = self._object.npartitions
+
             # Check that there are existing object ids.
             object_inds = self._object.index.unique().values.compute()
             if len(object_inds) > 0:
@@ -499,6 +501,7 @@ class Ensemble:
 
                 # Concatonate the zero dataframe onto the results.
                 res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
+                res = res.repartition(npartitions=prev_partitions)
 
         # Rename bands to nobs_[band]
         band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
