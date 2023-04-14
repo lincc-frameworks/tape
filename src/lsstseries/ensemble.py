@@ -1,6 +1,7 @@
 import time
 
 import dask.dataframe as dd
+import numpy as np
 import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
@@ -21,6 +22,9 @@ class Ensemble:
 
         self._source_dirty = False  # Source Dirty Flag
         self._object_dirty = False  # Object Dirty Flag
+
+        # Default to removing empty objects.
+        self.keep_empty_objects = kwargs.get("keep_empty_objects", False)
 
         # Assign Default Values for critical column quantities
         # Source
@@ -475,21 +479,49 @@ class Ensemble:
             .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
         )
 
+        # If the ensemble's keep_empty_objects attribute is True and there are previous
+        # objects, then copy them into the res table with counts of zero.
+        if self.keep_empty_objects and self._object is not None:
+            prev_partitions = self._object.npartitions
+
+            # Check that there are existing object ids.
+            object_inds = self._object.index.unique().values.compute()
+            if len(object_inds) > 0:
+                # Determine which object IDs are missing from the source table.
+                source_inds = self._source.index.unique().values.compute()
+                missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
+
+                # Create a dataframe of the missing IDs with zeros for all bands and counts.
+                rows = {self._id_col: missing_inds}
+                for i in res.columns.values:
+                    rows[i] = [0] * len(missing_inds)
+
+                zero_pdf = pd.DataFrame(rows, dtype=int).set_index(self._id_col)
+                zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=1)
+
+                # Concatonate the zero dataframe onto the results.
+                res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
+                res = res.repartition(npartitions=prev_partitions)
+
         # Rename bands to nobs_[band]
         band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
         res = res.rename(columns=band_cols)
 
-        # Add total nobs
-        res[self._nobs_col] = counts.groupby(self._id_col).agg("sum")
+        # Add total nobs by summing across each band.
+        res[self._nobs_col] = res.sum(axis=1)
 
         return res
 
     def _sync_tables(self):
-        """Sync operation to align both tables"""
+        """Sync operation to align both tables.
+
+        Filtered objects are always removed from the source. But filtered
+        sources may be kept in the object table is the Ensemble's
+        keep_empty_objects attribute is set to True.
+        """
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-
             self._source = self._source.merge(self._object, how="right", on=[self._id_col])
             self._source = self._source.drop(list(self._object.columns), axis=1)
 

@@ -209,6 +209,7 @@ def test_sync_tables(parquet_ensemble):
 
 
 def test_dropna(parquet_ensemble):
+    old_objects_pdf = parquet_ensemble._object.compute()
     pdf = parquet_ensemble._source.compute()
     parquet_length = len(pdf.index)
 
@@ -229,6 +230,53 @@ def test_dropna(parquet_ensemble):
     # Try dropping NaNs and confirm that we did.
     parquet_ensemble.dropna(1)
     assert len(parquet_ensemble._source.compute().index) == parquet_length - occurrences
+
+    # Sync the table and check that the number of objects decreased.
+    parquet_ensemble._sync_tables()
+
+    new_objects_pdf = parquet_ensemble._object.compute()
+    assert len(new_objects_pdf.index) == len(old_objects_pdf.index) - 1
+
+    # Assert the filtered ID is no longer in the objects.
+    assert not valid_id in new_objects_pdf.index.values
+
+    # Check that none of the other counts have changed.
+    for i in new_objects_pdf.index.values:
+        for c in new_objects_pdf.columns.values:
+            assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
+
+
+def test_keep_zeros(parquet_ensemble):
+    """Test that we can sync the tables and keep objects with zero sources."""
+    parquet_ensemble.keep_empty_objects = True
+
+    prev_npartitions = parquet_ensemble._object.npartitions
+    old_objects_pdf = parquet_ensemble._object.compute()
+    pdf = parquet_ensemble._source.compute()
+
+    # Set the psFlux values for one object to NaN so we can drop it.
+    # We do this on the instantiated object (pdf) and convert it back into a
+    # Dask DataFrame.
+    valid_id = pdf.index.values[1]
+    pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
+    parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+
+    # Sync the table and check that the number of objects decreased.
+    parquet_ensemble.dropna(1)
+    parquet_ensemble._sync_tables()
+
+    new_objects_pdf = parquet_ensemble._object.compute()
+    assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
+    assert parquet_ensemble._object.npartitions == prev_npartitions
+
+    # Check that all counts have stayed the same except the filtered index,
+    # which should now be all zeros.
+    for i in old_objects_pdf.index.values:
+        for c in new_objects_pdf.columns.values:
+            if i == valid_id:
+                assert new_objects_pdf.loc[i, c] == 0
+            else:
+                assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
 
 
 def test_prune(parquet_ensemble):
