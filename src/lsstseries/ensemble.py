@@ -284,7 +284,7 @@ class Ensemble:
 
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=True, **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
 
         Parameters
@@ -308,6 +308,9 @@ class Ensemble:
         compute: `boolean`
             Determines whether to compute the result immediately or hold for a
             later compute call.
+        on: 'str' or 'list'
+            Designates which column(s) to groupby. Columns may be from the
+            source or object tables.
         **kwargs:
             Additional optional parameters passed for the selected function
 
@@ -348,12 +351,15 @@ class Ensemble:
         if meta is None:
             meta = (self._id_col, type(self._id_col))  # return a series of ids
 
+        if on is None:
+            on = self._id_col  # Default grouping is by id_col
+
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
             batch = self._source.map_partitions(
-                lambda x: x.groupby(id_col, group_keys=False).apply(
+                lambda x: x.groupby(on, group_keys=False).apply(
                     lambda y: func(
                         *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
                         **kwargs,
@@ -362,7 +368,7 @@ class Ensemble:
                 meta=meta,
             )
         else:  # use groupby
-            batch = self._source.groupby(self._id_col, group_keys=False).apply(
+            batch = self._source.groupby(on, group_keys=False).apply(
                 lambda x: func(
                     *[x[arg].to_numpy() if arg != id_col else x.index.to_numpy() for arg in args], **kwargs
                 ),
