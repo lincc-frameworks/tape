@@ -709,7 +709,7 @@ class Ensemble:
             band_col = self._band_col
 
         df = self._source.loc[target].compute()
-        ts = TimeSeries()._from_ensemble(
+        ts = TimeSeries().from_dataframe(
             data=df,
             object_id=target,
             time_label=time_col,

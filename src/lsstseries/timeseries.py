@@ -63,13 +63,31 @@ class TimeSeries:
         self.data = self.data.dropna(**kwargs)
         return self
 
-    def _from_ensemble(
+    def from_dataframe(
         self, data, object_id, time_label="time", flux_label="flux", err_label="flux_err", band_label="band"
     ):
-        """Loader function for inputing data from an ensemble"""
+        """Loader function for inputing data from a dataframe.
+
+        Parameters
+        ----------
+        data : `pandas.DataFrame`
+            The data for the time serires.
+        object_id : `str`
+            The ID of the current object.
+        time_label: `str`
+            Name for column containing time information.
+        flux_label: `str`
+            Name for column containing signal
+            (flux, magnitude, etc) information.
+        err_label: `str`
+            Name for column containing error information.
+        band_label: `str`
+            Name for column containing filter information.
+        """
         self.data = data
         self.meta["id"] = object_id
 
+        # Index the timeseries on band.
         index = self._build_index(self.data[band_label])
         self.data.index = index
 
