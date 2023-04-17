@@ -13,7 +13,8 @@ def calc_sf2(
     lc_id : 'numpy.ndarray' (N,)
         Array of lightcurve ids per data point.
     time : `numpy.ndarray` (N,)
-        Array of times when measurements were taken.
+        Array of times when measurements were taken. If all array values are
+        `None`, then equidistant times between measurements are assumed.
     flux : `numpy.ndarray` (N,)
         Array of flux/magnitude measurements.
     err : `numpy.ndarray` (N,)
@@ -69,6 +70,13 @@ def calc_sf2(
 
             # Mask on band
             times = np.array(time)[band_mask]
+
+            # if times are all `None`, we assume equidistant times between
+            # measurements. To do so, we'll create an array of integers
+            # from 0 to N where N is the number of flux values for this band.
+            if np.all(np.equal(times, None)):
+                times = np.arange(sum(band_mask), dtype=int)
+
             fluxes = np.array(flux)[band_mask]
             errors = np.array(err)[band_mask]
             lc_ids = np.array(lc_id)[band_mask]
