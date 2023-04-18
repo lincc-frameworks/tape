@@ -1,8 +1,9 @@
 """Test ensemble manipulations"""
 import copy
+
 import dask.dataframe as dd
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytest
 
 from lsstseries import Ensemble
@@ -290,14 +291,24 @@ def test_prune(parquet_ensemble):
 
 
 @pytest.mark.parametrize("use_map", [True, False])
-def test_batch(parquet_ensemble, use_map):
+@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["nobs_total", "ps1_objid"]])
+def test_batch(parquet_ensemble, use_map, on):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
-    result = parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, band_to_calc=None)
+    result = (
+        parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
+    )
 
-    assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
-    assert pytest.approx(result.values[0]["r"], 0.001) == 0.6075282
+    if on is None:
+        assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
+        assert pytest.approx(result.values[0]["r"], 0.001) == 0.6075282
+    elif on is ["ps1_objid", "filterName"]:  # In case where we group on id and band, the structure changes
+        assert pytest.approx(result.values[1]["r"], 0.001) == 0.6075282
+        assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
+    elif on is ["nobs_total", "ps1_objid"]:
+        assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
+        assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
 
 def test_to_timeseries(parquet_ensemble):
