@@ -18,8 +18,10 @@ def calc_sf2(
         measurements is assumed.
     flux : `numpy.ndarray` (N,)
         Array of flux/magnitude measurements.
-    err : `numpy.ndarray` (N,)
-        Array of associated flux/magnitude errors.
+    err : `numpy.ndarray` (N,), `float`, or `None`
+        Array of associated flux/magnitude errors. If a scalar value is provided
+        we assume that error for all measurements. If `None` is provided, we
+        assume all errors are 0.
     band : `numpy.ndarray` (N,)
         Array of associated band labels,
     bins : `numpy.ndarray`
@@ -87,8 +89,21 @@ def calc_sf2(
             if np.all(np.equal(times, None)):
                 times = np.arange(sum(band_mask), dtype=int)
 
+            errors = None
+            # assume all errors are 0 if `None` is provided
+            if err is None:
+                errors = np.zeros(sum(band_mask))
+
+            # assume the same error for all measurements if a scalar value is
+            # provided
+            elif np.isscalar(err):
+                errors = np.ones(sum(band_mask)) * err
+
+            # otherwise assume one error value per measurement
+            else:
+                errors = np.array(err)[band_mask]
+
             fluxes = np.array(flux)[band_mask]
-            errors = np.array(err)[band_mask]
             lc_ids = np.array(lc_id)[band_mask]
 
             # Create stacks of critical quantities, indexed by id
