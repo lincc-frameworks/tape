@@ -135,6 +135,19 @@ def test_dt_bins():
     assert len(bins) == 11
 
 
+def test_dt_bins_raises_exception():
+    """
+    Test _bin_dts to make sure it raises an exception for an unknown method.
+    """
+    # Test on some known data.
+    dts = np.array([(201.0 - i) for i in range(2)])
+    test_method = "not_a_real_method"
+
+    with pytest.raises(ValueError) as excinfo:
+        _ = analysis.structurefunction2._bin_dts(dts, method=test_method)
+    assert "Method 'not_a_real_method' not recognized"
+
+
 def test_sf2_base_case():
     """
     Base test case accessing calc_sf2 directly. Does not make use of TimeSeries
@@ -246,3 +259,59 @@ def test_sf2_base_case_string_for_band_to_calc():
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_sf2_base_case_error_as_scalar():
+    """
+    Base test case accessing calc_sf2 directly. Provides a scalar value for
+    error. Does not make use of TimeSeries or Ensemble.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = 0.1
+    test_band = np.array(["r"] * len(test_y))
+
+    res = analysis.calc_sf2(
+        lc_id=lc_id,
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        bins=None,
+        band_to_calc=None,
+        combine=False,
+        method="size",
+        sthresh=100,
+    )
+
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.152482, rel=0.001)
+
+
+def test_sf2_base_case_error_as_none():
+    """
+    Base test case accessing calc_sf2 directly. Provides `None` for error.
+    Does not make use of TimeSeries or Ensemble.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = None
+    test_band = np.array(["r"] * len(test_y))
+
+    res = analysis.calc_sf2(
+        lc_id=lc_id,
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        bins=None,
+        band_to_calc=None,
+        combine=False,
+        method="size",
+        sthresh=100,
+    )
+
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.172482, rel=0.001)
