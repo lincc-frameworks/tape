@@ -10,7 +10,7 @@ def calc_sf2(
 
     Parameters
     ----------
-    lc_id : 'numpy.ndarray' (N,)
+    lc_id : `numpy.ndarray` (N,)
         Array of lightcurve ids per data point.
     time : `numpy.ndarray` (N,) or `None`
         Array of times when measurements were taken. If all array values are
