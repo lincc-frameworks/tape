@@ -10,9 +10,9 @@ def calc_sf2(
 
     Parameters
     ----------
-    lc_id : 'numpy.ndarray' (N,)
+    lc_id : `numpy.ndarray` (N,)
         Array of lightcurve ids per data point.
-    time : `numpy.ndarray` (N,) or None
+    time : `numpy.ndarray` (N,) or `None`
         Array of times when measurements were taken. If all array values are
         `None` or if a scalar `None` is provided, then equidistant time between
         measurements is assumed.
@@ -22,22 +22,22 @@ def calc_sf2(
         Array of associated flux/magnitude errors.
     band : `numpy.ndarray` (N,)
         Array of associated band labels,
-    bins : `numpy.ndarray`
+    bins : `numpy.ndarray`, optional
         Manually provided bins, if not provided then bins are computed using
         the `method` kwarg
-    band_to_calc : `str` or `list` of `str`
+    band_to_calc : `str` or `list` of `str`, optional
         Bands to calculate structure function on. Single band descriptor,
-        or list of such descriptors.
-    combine : 'bool'
+        or list of such descriptors. See notes about using the default value.
+    combine : `bool`, optional
         Boolean to determine whether structure function is computed for each
-        light curve independently (combine=False), or computed for all light
-        curves together (combine=True).
-    method : 'str'
+        light curve independently (combine=False; the default), or computed for
+        all light curves together (combine=True).
+    method : {'size', 'length', 'loglength'}, optional
         The binning method to apply, choices of 'size'; which seeks an even
         distribution of samples per bin using quantiles, 'length'; which
         creates bins of equal length in time and 'loglength'; which creates
         bins of equal length in log time.
-    sthresh : 'int'
+    sthresh : `int`, optional
         Target number of samples per bin.
 
     Returns
@@ -134,19 +134,19 @@ def _sf2_single(times, fluxes, errors, bins=None, combine=False, method="size", 
         Measurements values
     errors : `np.array` [`float`]
         Measurements errors.
-    bins : `np.array` [`float`]
+    bins : `np.array` [`float`], optional
         Manually provided bins, if not provided then bins are computed using
         the `method` kwarg
-    combine : 'bool'
+    combine : `bool`, optional
         Boolean to determine whether structure function is computed for each
-        light curve independently (combine=False), or computed for all light
-        curves together (combine=True).
-    method : 'str'
+        light curve independently (combine=False; the default), or computed for
+        all light curves together (combine=True).
+    method : {'size', 'length', 'loglength'}, optional
         The binning method to apply, choices of 'size'; which seeks an even
         distribution of samples per bin using quantiles, 'length'; which
         creates bins of equal length in time and 'loglength'; which creates
         bins of equal length in log time.
-    sthresh : `int`
+    sthresh : `int`, optional
         Target number of samples per bin.
 
     Returns
@@ -242,19 +242,19 @@ def _bin_dts(dts, method="size", sthresh=100):
 
     Parameters
     ----------
-    dts : 'numpy.ndarray' (N,)
+    dts : `numpy.ndarray` (N,)
         1-d array of delta times to bin
-    method : 'str'
+    method : {'size', 'length', 'loglength'}, optional
         The binning method to apply, choices of 'size'; which seeks an even
         distribution of samples per bin using quantiles, 'length'; which
         creates bins of equal length in time and 'loglength'; which creates
         bins of equal length in log time.
-    sthresh : 'int'
+    sthresh : `int`, optional
         Target number of samples per bin.
 
     Returns
     -------
-    bins : 'numpy.ndarray' (N,)
+    bins : `numpy.ndarray` (N,)
         The returned bins array.
     """
 
