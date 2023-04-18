@@ -189,3 +189,60 @@ def test_sf2_base_case_time_as_none_array():
 
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_sf2_base_case_time_as_none_scalar():
+    """
+    Call calc_sf2 directly. Pass a scalar `None` for time.
+    Does not make use of TimeSeries or Ensemble.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = None
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
+    test_band = np.array(["r"] * len(test_y))
+
+    res = analysis.calc_sf2(
+        lc_id=lc_id,
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        bins=None,
+        band_to_calc=None,
+        combine=False,
+        method="size",
+        sthresh=100,
+    )
+
+    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_sf2_base_case_string_for_band_to_calc():
+    """
+    Base test case accessing calc_sf2 directly. Pass a string for band_to_calc.
+    Does not make use of TimeSeries or Ensemble.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
+    test_band = np.array(["r"] * len(test_y))
+    test_band_to_calc = "r"
+
+    res = analysis.calc_sf2(
+        lc_id=lc_id,
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        bins=None,
+        band_to_calc=test_band_to_calc,
+        combine=False,
+        method="size",
+        sthresh=100,
+    )
+
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
