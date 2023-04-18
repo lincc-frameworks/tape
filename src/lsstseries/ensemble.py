@@ -355,8 +355,8 @@ class Ensemble:
             on = self._id_col  # Default grouping is by id_col
 
         # Handle object columns to group on
-        source_cols = list(self._source.columns) + [self._source.index.name]
-        object_cols = list(self._object.columns) + [self._object.index.name]
+        source_cols = list(self._source.columns)
+        object_cols = list(self._object.columns)
         object_group_cols = [col for col in on if (col in object_cols) and (col not in source_cols)]
 
         if len(object_group_cols) > 0:
