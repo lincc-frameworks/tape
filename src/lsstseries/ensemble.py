@@ -1,5 +1,7 @@
 import time
 import warnings
+import os
+import glob
 
 import dask.dataframe as dd
 import numpy as np
@@ -540,6 +542,57 @@ class Ensemble:
             return batch.compute()
         else:
             return batch
+
+    def from_hipscat(
+        self,
+        dir,
+        id_col=None,
+        time_col=None,
+        flux_col=None,
+        err_col=None,
+        band_col=None,
+        additional_cols=True,
+    ):
+        """Read in parquet files from a hipscat-formatted directory structure
+        Parameters
+        ----------
+        dir: 'str'
+            Path to the directory structure
+        id_col: 'str', optional
+            Identifies which column contains the Object IDs
+        time_col: 'str', optional
+            Identifies which column contains the time information
+        flux_col: 'str', optional
+            Identifies which column contains the flux/magnitude information
+        err_col: 'str', optional
+            Identifies which column contains the flux/mag error information
+        band_col: 'str', optional
+            Identifies which column contains the band information
+        additional_cols: 'bool', optional
+            Boolean to indicate whether to carry in columns beyond the
+            critical columns, true will, while false will only load the columns
+            containing the critical quantities (id,time,flux,err,band)
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.Ensemble`
+            The ensemble object with parquet data loaded
+        """
+
+        object_path = os.path.join(dir, "/object")
+        source_path = os.path.join(dir, "/source")
+
+        object_files = glob.glob(os.path.join(object_path, "**", "*.parquet"), recursive=True)
+        source_files = glob.glob(os.path.join(source_path, "**", "*.parquet"), recursive=True)
+
+        return self.from_parquet(source_files,
+                                 object_files,
+                                 id_col=id_col,
+                                 time_col=time_col,
+                                 flux_col=flux_col,
+                                 err_col=err_col,
+                                 band_col=band_col,
+                                 additional_cols=additional_cols)
 
     def from_parquet(
         self,
