@@ -284,6 +284,63 @@ class Ensemble:
 
         return self
 
+    def bin_sources(self, time_window=1.0, additional_cols=None, use_map=True, **kwargs):
+        """Bin sources on within a given time range to improve the estimates.
+
+        Notes
+        -----
+        * This should only be used for slowly varying sources where we can
+        treat the source as constant within `time_window`.
+
+        * As a default the function only aggregates and keeps the id, band,
+        time, flux, and flux error columns. Additional columns can be preserved
+        by providing the mapping of column name to aggregation function with the
+        `additional_cols` parameter.
+
+        Parameters
+        ----------
+        time_window : `float` (optional)
+            The time range (in days) over which to consider observations in the same bin.
+        additional_cols : `dict` (optional)
+            A dictionary mapping column name to aggregation method.
+            Example: {"my_value_1": "mean", "my_value_2": "max"}
+        use_map : `boolean` (optional)
+            Determines whether `dask.dataframe.DataFrame.map_partitions` is
+            used (True). Using map_partitions is generally more efficient, but
+            requires the data from each lightcurve is housed in a single
+            partition. If False, a groupby will be performed instead.
+        """
+        # Bin the time and add it as a column.
+        tmp_time_col = "tmp_time_for_aggregation"
+        if tmp_time_col in self._source.columns:
+            raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
+        ens._source[tmp_time_col] = self._source[ens._time_col].apply(
+            lambda x: np.floor(x / time_window) * time_window, meta=pd.Series(dtype=float)
+        )
+
+        # Set up the aggregation functions for the time and flux columns.
+        aggr_funs = {self._time_col: "mean", self._flux_col: "mean"}
+
+        # If the source table has errors then add an aggregation function for it.
+        if self._err_col in self._source.columns:
+            aggr_funs[self._err_col] = dd.Aggregation(
+                name="err_agg",
+                chunk=lambda x: (x.count(), x.apply(lambda s: np.sum(np.power(s, 2)))),
+                agg=lambda c, s: (c.sum(), s.sum()),
+                finalize=lambda c, s: np.sqrt(s) / c,
+            )
+
+        # Add any additional aggregation functions
+        if additional_cols is not None:
+            for key in additional_cols:
+                aggr_funs[key] = additional_cols[key]
+
+        # Group the columns by id, band, and time bucket.
+        ens._source = ens._source.groupby([ens._id_col, ens._band_col, tmp_time_col])
+
+        # Fix the indices and remove the temporary column.
+        ens_.source = ens._source.reset_index().set_index(ens._id_col).drop(tmp_time_col, axis=1)
+
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
 
