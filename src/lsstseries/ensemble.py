@@ -284,18 +284,8 @@ class Ensemble:
 
         return self
 
-    def bin_sources(self, time_window=1.0, additional_cols=None, use_map=True, **kwargs):
+    def bin_sources(self, time_window=0.5, additional_cols=None, use_map=True, **kwargs):
         """Bin sources on within a given time range to improve the estimates.
-
-        Notes
-        -----
-        * This should only be used for slowly varying sources where we can
-        treat the source as constant within `time_window`.
-
-        * As a default the function only aggregates and keeps the id, band,
-        time, flux, and flux error columns. Additional columns can be preserved
-        by providing the mapping of column name to aggregation function with the
-        `additional_cols` parameter.
 
         Parameters
         ----------
@@ -309,6 +299,16 @@ class Ensemble:
             used (True). Using map_partitions is generally more efficient, but
             requires the data from each lightcurve is housed in a single
             partition. If False, a groupby will be performed instead.
+
+        Notes
+        -----
+        * This should only be used for slowly varying sources where we can
+        treat the source as constant within `time_window`.
+
+        * As a default the function only aggregates and keeps the id, band,
+        time, flux, and flux error columns. Additional columns can be preserved
+        by providing the mapping of column name to aggregation function with the
+        `additional_cols` parameter.
         """
         # Bin the time and add it as a column.
         tmp_time_col = "tmp_time_for_aggregation"
