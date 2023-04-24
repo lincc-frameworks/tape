@@ -1,26 +1,39 @@
 import numpy as np
-from lsstseries.analysis.structure_function_argument_containers.structure_function_argument_container import StructureFunctionArgumentContainer
 
-class StructureFunctionCalculator():
+from lsstseries.analysis.structure_function_argument_containers.structure_function_argument_container import (
+    StructureFunctionArgumentContainer,
+)
+
+
+class StructureFunctionCalculator:
     """This is the base class from which all other Structure Function calculators
     will inherit
     """
 
-    def __init__(self, time:list[float], flux:list[float], err: list[float], argument_container:StructureFunctionArgumentContainer):
+    def __init__(
+        self,
+        time: list[float],
+        flux: list[float],
+        err: list[float],
+        argument_container: StructureFunctionArgumentContainer,
+    ):
         # do the work here to initialize
+
+        self._time = time
+        self._flux = flux
+        self._err = err
+        self._argument_container = argument_container
 
         self._binning_method = argument_container.method
         self._sthresh = argument_container.sthresh
-        self._dts = None
+        self._dts = []
         return
 
     def calculate(self):
-        """Abstract method that must be implemented by the child class.
-        """
-        raise(NotImplementedError, "Must be implemented by the child class")
+        """Abstract method that must be implemented by the child class."""
+        raise (NotImplementedError, "Must be implemented by the child class")
 
-
-    def _bin_dts(self):
+    def _bin_dts(self, dts):
         """Bin an input array of delta times (dt). Supports several binning
         schemes.
 
@@ -35,8 +48,8 @@ class StructureFunctionCalculator():
             The returned bins array.
         """
 
-        num_bins = int(np.ceil(len(self._dts) / self._sthresh))
-        dts_unique = np.unique(self._dts)
+        num_bins = int(np.ceil(len(dts) / self._sthresh))
+        dts_unique = np.unique(dts)
         if self._binning_method == "size":
             quantiles = np.linspace(0.0, 1.0, num_bins + 1)
             self._bins = np.quantile(dts_unique, quantiles)
@@ -68,12 +81,10 @@ class StructureFunctionCalculator():
         else:
             raise ValueError(f"Method '{self._binning_method}' not recognized")
 
-
     @staticmethod
     def name_id():
-        raise(NotImplementedError, "Must be implemented as a static method by the child class")
+        raise (NotImplementedError, "Must be implemented as a static method by the child class")
 
     @staticmethod
     def expected_argument_container():
-        raise(NotImplementedError, "Must be implemented as a static method by the child class")
-
+        raise (NotImplementedError, "Must be implemented as a static method by the child class")
