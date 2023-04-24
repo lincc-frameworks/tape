@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Union
+from typing import List, Union
 
 
 @dataclass
 class StructureFunctionArgumentContainer:
-    band_to_calc: Union[str, list[str]] = field(default=None)
+    band_to_calc: Union[str, List[str]] = field(default=None)
     combine: bool = field(default=False)
     sf_calculator: str = field(default="basic")
-    bins: list[float] = field(default=None)
+    bins: List[float] = field(default=None)
     method: str = field(default="size")
     sthresh: int = field(default=100)
     use_timestamps: bool = field(default=True)
