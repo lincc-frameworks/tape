@@ -1,7 +1,6 @@
-import time
-import warnings
-import os
 import glob
+import os
+import time
 
 import dask.dataframe as dd
 import numpy as np
@@ -579,20 +578,22 @@ class Ensemble:
             The ensemble object with parquet data loaded
         """
 
-        object_path = os.path.join(dir, "/object")
-        source_path = os.path.join(dir, "/source")
+        object_path = os.path.join(dir, "object")
+        source_path = os.path.join(dir, "source")
 
         object_files = glob.glob(os.path.join(object_path, "**", "*.parquet"), recursive=True)
         source_files = glob.glob(os.path.join(source_path, "**", "*.parquet"), recursive=True)
 
-        return self.from_parquet(source_files,
-                                 object_files,
-                                 id_col=id_col,
-                                 time_col=time_col,
-                                 flux_col=flux_col,
-                                 err_col=err_col,
-                                 band_col=band_col,
-                                 additional_cols=additional_cols)
+        return self.from_parquet(
+            source_files,
+            object_files,
+            id_col=id_col,
+            time_col=time_col,
+            flux_col=flux_col,
+            err_col=err_col,
+            band_col=band_col,
+            additional_cols=additional_cols,
+        )
 
     def from_parquet(
         self,
