@@ -2,10 +2,47 @@ import numpy as np
 import pandas as pd
 from scipy.stats import binned_statistic
 
+from lsstseries.analysis.structure_function_calculators import SF_CALCULATORS
+
+
+def calc_sf2_v2(time, flux, err=None, band=None, id=None, argument_container=None, calculator_type="basic"):
+    """_summary_
+
+    Parameters
+    ----------
+    time : _type_
+        _description_
+    flux : _type_
+        _description_
+    err : _type_, optional
+        _description_, by default None
+    band : _type_, optional
+        _description_, by default None
+    id : _type_, optional
+        _description_, by default None
+    argument_container : _type_, optional
+        _description_, by default None
+    calculator_type : str, optional
+        _description_, by default "basic"
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+
+    if argument_container is None:
+        argument_container = SF_CALCULATORS[calculator_type].expected_argument_container()
+
+    sf_calculator = SF_CALCULATORS[argument_container.calculator_type]()
+
+    return sf_calculator.calculate()
+
 
 def calc_sf2(
     lc_id, time, flux, err, band, bins=None, band_to_calc=None, combine=False, method="size", sthresh=100
 ):
+
     """Compute structure function squared on one or many bands
 
     Parameters
