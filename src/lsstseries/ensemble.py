@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
+import warnings
 
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
@@ -341,6 +342,9 @@ class Ensemble:
         # Add any additional aggregation functions
         if custom_aggr is not None:
             for key in custom_aggr:
+                # Warn the user if they are overwriting a predefined aggregation function.
+                if key in aggr_funs:
+                    warnings.warn(f"Warning: Overwriting aggregation function for column {key}.")
                 aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.

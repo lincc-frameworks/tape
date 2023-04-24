@@ -290,7 +290,7 @@ def test_prune(parquet_ensemble):
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
-def test_insert_paritioned(dask_client):
+def test_bin_sources(dask_client):
     ens = Ensemble(client=dask_client)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
@@ -312,14 +312,17 @@ def test_insert_paritioned(dask_client):
     assert old_source.shape[0] == 9
 
     # Bin the sources and check that we now have 6 rows.
-    ens.bin_sources()
+    # This should throw a warning because we are overwriting the aggregation
+    # for the time column.
+    with pytest.warns():
+        ens.bin_sources(custom_aggr={ens._time_col: "min"})
     new_source = ens.compute("source")
     assert new_source.shape[0] == 6
 
     # Check the results.
     list_to_check = [(8001, 0), (8001, 1), (8001, 2), (8002, 0), (8002, 1), (8002, 2)]
     expected_flux = [1.5, 5.0, 3.0, 1.0, 2.5, 4.5]
-    expected_time = [10.15, 10.2, 11.1, 11.2, 11.35, 15.05]
+    expected_time = [10.1, 10.2, 11.1, 11.2, 11.3, 15.0]
     expected_band = ["g", "b", "g", "b", "g", "g"]
     expected_error = [1.118033988749895, 1.0, 3.0, 2.0, 2.5, 3.905124837953327]
 
