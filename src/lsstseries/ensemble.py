@@ -310,7 +310,8 @@ class Ensemble:
         by providing the mapping of column name to aggregation function with the
         `additional_cols` parameter.
         """
-        # Bin the time and add it as a column.
+        # Bin the time and add it as a column. We create a temporary column that
+        # truncates the time into increments of `time_window`.
         tmp_time_col = "tmp_time_for_aggregation"
         if tmp_time_col in self._source.columns:
             raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
