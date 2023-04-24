@@ -65,7 +65,7 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
             cor_flux2_all.append(cor_flux2)
 
         # combining treats all lightcurves as one when calculating the structure function
-        if self._argument_container.combine and len(self._times) > 1:
+        if self._argument_container.combine and len(self._time) > 1:
             self._dts = np.hstack(np.array(self._dts, dtype="object"))
             cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype="object"))
 

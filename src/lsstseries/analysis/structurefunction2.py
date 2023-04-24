@@ -44,13 +44,14 @@ def calc_sf2_v2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", 
     if lc_id is None:
         lc_id = argument_container.lc_id
 
-    if sf_method is "basic":
+    if sf_method == "basic":
         sf_method = argument_container.sf_method
 
     unq_band = np.unique(band)
     unq_ids = np.unique(lc_id)
 
-    if argument_container.band_to_calc is None:
+    band_to_calc = argument_container.band_to_calc
+    if band_to_calc is None:
         band_to_calc = unq_band
     if isinstance(band_to_calc, str):
         band_to_calc = [band_to_calc]

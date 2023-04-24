@@ -340,9 +340,19 @@ class Ensemble:
                 self._err_col,
                 self._band_col,
             ],
+            "calc_sf2_v2": [
+                self._time_col,
+                self._flux_col,
+                self._err_col,
+                self._band_col,
+                self._id_col,
+            ],
         }
 
-        known_meta = {"calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"}}
+        known_meta = {
+            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"},
+            "calc_sf2_v2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"},
+        }
         if func.__name__ in known_cols:
             args = known_cols[func.__name__]
         if func.__name__ in known_meta:
