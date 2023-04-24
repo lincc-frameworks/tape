@@ -290,6 +290,47 @@ def test_prune(parquet_ensemble):
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
+def test_insert_paritioned(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # and a few time steps.
+    rows = {
+        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    }
+    ddf = dd.DataFrame.from_dict(rows, npartitions=1)
+    ddf = ddf.set_index(ens._id_col, drop=True)
+    ens._source = ddf
+    ens._object = ens._generate_object_table()
+
+    # Check that the source table has 9 rows.
+    old_source = ens.compute("source")
+    assert old_source.shape[0] == 9
+
+    # Bin the sources and check that we now have 6 rows.
+    ens.bin_sources()
+    new_source = ens.compute("source")
+    assert new_source.shape[0] == 6
+
+    # Check the results.
+    list_to_check = [(8001, 0), (8001, 1), (8001, 2), (8002, 0), (8002, 1), (8002, 2)]
+    expected_flux = [1.5, 5.0, 3.0, 1.0, 2.5, 4.5]
+    expected_time = [10.15, 10.2, 11.1, 11.2, 11.35, 15.05]
+    expected_band = ["g", "b", "g", "b", "g", "g"]
+    expected_error = [1.118033988749895, 1.0, 3.0, 2.0, 2.5, 3.905124837953327]
+
+    for i in range(6):
+        res = new_source.loc[list_to_check[i][0]].iloc[list_to_check[i][1]]
+        assert abs(res[ens._flux_col] - expected_flux[i]) < 1e-6
+        assert abs(res[ens._time_col] - expected_time[i]) < 1e-6
+        assert abs(res[ens._err_col] - expected_error[i]) < 1e-6
+        assert res[ens._band_col] == expected_band[i]
+
+
 @pytest.mark.parametrize("use_map", [True, False])
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["nobs_total", "ps1_objid"]])
 def test_batch(parquet_ensemble, use_map, on):

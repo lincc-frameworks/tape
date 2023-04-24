@@ -314,7 +314,7 @@ class Ensemble:
         tmp_time_col = "tmp_time_for_aggregation"
         if tmp_time_col in self._source.columns:
             raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
-        ens._source[tmp_time_col] = self._source[ens._time_col].apply(
+        self._source[tmp_time_col] = self._source[self._time_col].apply(
             lambda x: np.floor(x / time_window) * time_window, meta=pd.Series(dtype=float)
         )
 
@@ -335,11 +335,14 @@ class Ensemble:
             for key in additional_cols:
                 aggr_funs[key] = additional_cols[key]
 
-        # Group the columns by id, band, and time bucket.
-        ens._source = ens._source.groupby([ens._id_col, ens._band_col, tmp_time_col])
+        # Group the columns by id, band, and time bucket and aggregate.
+        self._source = self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
 
         # Fix the indices and remove the temporary column.
-        ens_.source = ens._source.reset_index().set_index(ens._id_col).drop(tmp_time_col, axis=1)
+        self._source = self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1)
+
+        # Mark the source table as dirty.
+        self._source_dirty = True
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
