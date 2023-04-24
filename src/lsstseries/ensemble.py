@@ -486,6 +486,65 @@ class Ensemble:
 
         return self
 
+    def from_source_dict(
+        self,
+        source_dict,
+        id_col=None,
+        time_col=None,
+        flux_col=None,
+        err_col=None,
+        band_col=None,
+        npartitions=1,
+    ):
+        """Load the sources into an ensemble from a dictionary.
+
+        Parameters
+        ----------
+        source_dict: 'dict'
+            The dictionary containing the source information.
+        id_col: 'str', optional
+            Identifies which column contains the Object IDs
+        time_col: 'str', optional
+            Identifies which column contains the time information
+        flux_col: 'str', optional
+            Identifies which column contains the flux/magnitude information
+        err_col: 'str', optional
+            Identifies which column contains the flux/mag error information
+        band_col: 'str', optional
+            Identifies which column contains the band information
+        npartitions: `int`, optional
+            If specified, attempts to repartition the ensemble to the specified
+            number of partitions
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.Ensemble`
+            The ensemble object with dictionary data loaded
+        """
+        # Track any column name changes.
+        if id_col is not None:
+            self._id_col = id_col
+        if time_col is not None:
+            self._time_col = time_col
+        if flux_col is not None:
+            self._flux_col = flux_col
+        if err_col is not None:
+            self._err_col = err_col
+        if band_col is not None:
+            self._band_col = band_col
+
+        # Load in the source data.
+        self._source = dd.DataFrame.from_dict(source_dict, npartitions=npartitions)
+        self._source = self._source.set_index(self._id_col, drop=True)
+
+        # Generate the object table from the source.
+        self._object = self._generate_object_table()
+
+        # Now synced and clean
+        self._source_dirty = False
+        self._object_dirty = False
+        return self
+
     def _generate_object_table(self):
         """Generate the object table from the source table."""
         counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")

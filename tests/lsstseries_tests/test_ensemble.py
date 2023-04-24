@@ -48,6 +48,38 @@ def test_from_parquet(parquet_ensemble):
         assert parquet_ensemble._source[col] is not None
 
 
+def test_from_source_dict(dask_client):
+    """
+    Test that ensemble.from_source_dict() successfully creates data from a dictionary.
+    """
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # and a few time steps.
+    rows = {
+        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    }
+    ens.from_source_dict(rows)
+    (obj_table, src_table) = ens.compute()
+
+    # Check that the loaded source table is correct.
+    assert src_table.shape[0] == 9
+    for i in range(9):
+        assert src_table.iloc[i][ens._flux_col] == rows[ens._flux_col][i]
+        assert src_table.iloc[i][ens._time_col] == rows[ens._time_col][i]
+        assert src_table.iloc[i][ens._band_col] == rows[ens._band_col][i]
+        assert src_table.iloc[i][ens._err_col] == rows[ens._err_col][i]
+
+    # Check that the derived object table is correct.
+    assert obj_table.shape[0] == 2
+    assert obj_table.iloc[0][ens._nobs_col] == 4
+    assert obj_table.iloc[1][ens._nobs_col] == 5
+
+
 def test_insert(parquet_ensemble):
     num_partitions = parquet_ensemble._source.npartitions
     (old_object, old_source) = parquet_ensemble.compute()
@@ -116,19 +148,13 @@ def test_insert_paritioned(dask_client):
         ens._flux_col: [0.5 * float(i) for i in range(num_points)],
         ens._band_col: [all_bands[i % 4] for i in range(num_points)],
     }
-    ddf = dd.DataFrame.from_dict(rows, npartitions=4)
-    ddf = ddf.set_index(ens._id_col, drop=True)
-    assert ddf.known_divisions
+    ens.from_source_dict(rows, npartitions=4)
 
     # Save the old data for comparison.
-    old_data = ddf.compute()
-    old_div = copy.copy(ddf.divisions)
-    old_sizes = [len(ddf.partitions[i]) for i in range(4)]
+    old_data = ens.compute("source")
+    old_div = copy.copy(ens._source.divisions)
+    old_sizes = [len(ens._source.partitions[i]) for i in range(4)]
     assert old_data.shape[0] == num_points
-
-    # Directly set the dask data set.
-    ens._source = ddf
-    ens._object = ens._generate_object_table()
 
     # Test an insertion of 5 observations.
     new_inds = [8001, 8003, 8005, 9005, 9007]
