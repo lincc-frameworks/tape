@@ -17,7 +17,7 @@ def test_with():
     """Test that we open and close a client on enter and exit."""
     with Ensemble() as ens:
         ens.from_parquet(
-            "tests/lsstseries_tests/data/test_subset.parquet",
+            "tests/lsstseries_tests/data/source/test_source.parquet",
             id_col="ps1_objid",
             band_col="filterName",
             flux_col="psFlux",
@@ -26,17 +26,26 @@ def test_with():
         assert ens._data is not None
 
 
-def test_from_parquet(parquet_ensemble):
+@pytest.mark.parametrize("data_fixture", ["parquet_ensemble",
+                                          "parquet_ensemble_from_source",
+                                          "parquet_ensemble_from_hipscat"])
+def test_from_parquet(data_fixture, request):
     """
-    Test that ensemble.from_parquet() successfully loads a parquet file
+    Test that ensemble loader functions successfully load parquet files
     """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     # Check to make sure the source and object tables were created
     assert parquet_ensemble._source is not None
     assert parquet_ensemble._object is not None
 
     # Check that the data is not empty.
-    (_, parquet_ensemble._source) = parquet_ensemble.compute()
-    assert parquet_ensemble._source.size > 0
+    object, source = parquet_ensemble.compute()
+    assert len(source) == 2000
+    assert len(object) == 15
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(object.index))
 
     # Check the we loaded the correct columns.
     for col in [
@@ -272,7 +281,7 @@ def test_dropna(parquet_ensemble):
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index) - 1
 
     # Assert the filtered ID is no longer in the objects.
-    assert not valid_id in new_objects_pdf.index.values
+    assert valid_id not in new_objects_pdf.index.values
 
     # Check that none of the other counts have changed.
     for i in new_objects_pdf.index.values:
