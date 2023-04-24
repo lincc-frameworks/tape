@@ -679,7 +679,14 @@ class Ensemble:
 
             # Generate an object table from the source table, then merge
             generated = self._generate_object_table()
-            self._object = file_table.merge(generated, how="right", on=[self._id_col])
+            self._object = file_table.merge(
+                generated, how="right", on=[self._id_col], suffixes=("_original", None)
+            )
+
+            # Drop overwritten columns
+            overwritten_cols = [col for col in list(self._object.columns) if "_original" in col]
+            self._object = self._object.drop(overwritten_cols, axis=1)
+
             self._nobs_bands = [
                 col for col in list(self._object.columns) if (col != self._nobs_col) and ("nobs" in col)
             ]
