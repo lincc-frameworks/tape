@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 from scipy.stats import binned_statistic
 
@@ -12,9 +14,9 @@ from lsstseries.analysis.structure_function_calculators.structure_function_calcu
 class BasicStructureFunctionCalculator(StructureFunctionCalculator):
     def __init__(
         self,
-        time: list[float],
-        flux: list[float],
-        err: list[float],
+        time: List[float],
+        flux: List[float],
+        err: List[float],
         argument_container: StructureFunctionArgumentContainer,
     ):
         # Not sure if there's any addition data manipulation that will be

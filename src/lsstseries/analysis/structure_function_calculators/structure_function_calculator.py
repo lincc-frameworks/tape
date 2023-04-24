@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 
 from lsstseries.analysis.structure_function_argument_containers.structure_function_argument_container import (
@@ -12,9 +14,9 @@ class StructureFunctionCalculator:
 
     def __init__(
         self,
-        time: list[float],
-        flux: list[float],
-        err: list[float],
+        time: List[float],
+        flux: List[float],
+        err: List[float],
         argument_container: StructureFunctionArgumentContainer,
     ):
         # do the work here to initialize
@@ -24,8 +26,8 @@ class StructureFunctionCalculator:
         self._err = err
         self._argument_container = argument_container
 
-        self._binning_method = argument_container.method
-        self._sthresh = argument_container.sthresh
+        self._binning_method = argument_container.bin_method
+        self._bin_count_target = argument_container.bin_count_target
         self._dts = []
         return
 
@@ -48,7 +50,7 @@ class StructureFunctionCalculator:
             The returned bins array.
         """
 
-        num_bins = int(np.ceil(len(dts) / self._sthresh))
+        num_bins = int(np.ceil(len(dts) / self._bin_count_target))
         dts_unique = np.unique(dts)
         if self._binning_method == "size":
             quantiles = np.linspace(0.0, 1.0, num_bins + 1)

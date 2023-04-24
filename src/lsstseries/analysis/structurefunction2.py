@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import binned_statistic
 
-from lsstseries.analysis.structure_function_calculators import SF_CALCULATORS
+from lsstseries.analysis.structure_function_calculators import SF_METHODS
 
 
-def calc_sf2_v2(time, flux, err=None, band=None, lc_id=None, sf_calculator="basic", argument_container=None):
+def calc_sf2_v2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):
     """_summary_
 
     Parameters
@@ -20,7 +20,7 @@ def calc_sf2_v2(time, flux, err=None, band=None, lc_id=None, sf_calculator="basi
         _description_, by default None
     id : _type_, optional
         _description_, by default None
-    sf_calculator : str, optional
+    sf_method : str, optional
         _description_, by default "basic"
     argument_container : _type_, optional
         _description_, by default None
@@ -32,7 +32,20 @@ def calc_sf2_v2(time, flux, err=None, band=None, lc_id=None, sf_calculator="basi
     """
 
     if argument_container is None:
-        argument_container = SF_CALCULATORS[sf_calculator].expected_argument_container()
+        argument_container = SF_METHODS[sf_method].expected_argument_container()
+
+    # The following variables are present both as input arguments and inside
+    # `argument_container`. If any of these arguments are provided with
+    # non-default values, we'll use those. Otherwise, we'll look inside
+    # `argument_container` and use the values found there.
+    if band is None:
+        band = argument_container.band
+
+    if lc_id is None:
+        lc_id = argument_container.lc_id
+
+    if sf_method is "basic":
+        sf_method = argument_container.sf_method
 
     unq_band = np.unique(band)
     unq_ids = np.unique(lc_id)
@@ -93,7 +106,7 @@ def calc_sf2_v2(time, flux, err=None, band=None, lc_id=None, sf_calculator="basi
             fluxes_2d = [fluxes[mask] for mask in id_masks]
             errors_2d = [errors[mask] for mask in id_masks]
 
-            sf_calculator = SF_CALCULATORS[argument_container.sf_calculator](
+            sf_calculator = SF_METHODS[argument_container.sf_method](
                 times_2d, fluxes_2d, errors_2d, argument_container
             )
 
