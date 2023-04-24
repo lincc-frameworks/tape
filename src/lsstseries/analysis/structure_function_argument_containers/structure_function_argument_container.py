@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
+from typing import Union
 
 
 @dataclass
 class StructureFunctionArgumentContainer:
-    band_to_calc: str | list[str] = field(default=None)
+    band_to_calc: Union[str, list[str]] = field(default=None)
     combine: bool = field(default=False)
     sf_calculator: str = field(default="basic")
     bins: list[float] = field(default=None)
