@@ -533,6 +533,11 @@ class Ensemble:
         if band_col is not None:
             self._band_col = band_col
 
+        # Check that all of the required columns are provided.
+        for col in [self._id_col, self._time_col, self._flux_col, self._band_col]:
+            if not col in source_dict:
+                raise ValueError(f"Required column {col} missing.")
+
         # Load in the source data.
         self._source = dd.DataFrame.from_dict(source_dict, npartitions=npartitions)
         self._source = self._source.set_index(self._id_col, drop=True)

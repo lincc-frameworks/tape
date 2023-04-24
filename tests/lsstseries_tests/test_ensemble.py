@@ -55,14 +55,20 @@ def test_from_source_dict(dask_client):
     ens = Ensemble(client=dask_client)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
-    # and a few time steps.
+    # and a few time steps. Leave out the flux data initially.
     rows = {
         ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
         ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
-        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
         ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
         ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
     }
+
+    # We get an error without all of the required rows.
+    with pytest.raises(ValueError):
+        ens.from_source_dict(rows)
+
+    # Add the last row and build the ensemble.
+    rows[ens._flux_col] = [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0]
     ens.from_source_dict(rows)
     (obj_table, src_table) = ens.compute()
 
