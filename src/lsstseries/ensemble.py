@@ -284,21 +284,28 @@ class Ensemble:
 
         return self
 
-    def bin_sources(self, time_window=0.5, additional_cols=None, use_map=True, **kwargs):
+    def bin_sources(self, time_window=0.5, custom_aggr=None, use_map=True, **kwargs):
         """Bin sources on within a given time range to improve the estimates.
 
         Parameters
         ----------
         time_window : `float` (optional)
             The time range (in days) over which to consider observations in the same bin.
-        additional_cols : `dict` (optional)
-            A dictionary mapping column name to aggregation method.
-            Example: {"my_value_1": "mean", "my_value_2": "max"}
+        custom_aggr : `dict` (optional)
+            A dictionary mapping column name to aggregation method. This can be used to
+            both include additional columns to aggregate OR overwrite the aggregation
+            method for time, flux, or flux error by matching those column names.
+            Example: {"my_value_1": "mean", "my_value_2": "max", "psFlux": "sum"}
         use_map : `boolean` (optional)
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
             requires the data from each lightcurve is housed in a single
             partition. If False, a groupby will be performed instead.
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.Ensemble`
+            The ensemble object with pruned rows removed
 
         Notes
         -----
@@ -332,9 +339,9 @@ class Ensemble:
             )
 
         # Add any additional aggregation functions
-        if additional_cols is not None:
-            for key in additional_cols:
-                aggr_funs[key] = additional_cols[key]
+        if custom_aggr is not None:
+            for key in custom_aggr:
+                aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.
         self._source = self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
@@ -344,6 +351,7 @@ class Ensemble:
 
         # Mark the source table as dirty.
         self._source_dirty = True
+        return self
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
         """Run a function from lsstseries.TimeSeries on the available ids
