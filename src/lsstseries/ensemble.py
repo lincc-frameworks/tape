@@ -545,6 +545,8 @@ class Ensemble:
     def from_hipscat(
         self,
         dir,
+        source_subdir="source",
+        object_subdir="object",
         id_col=None,
         time_col=None,
         flux_col=None,
@@ -557,6 +559,11 @@ class Ensemble:
         ----------
         dir: 'str'
             Path to the directory structure
+        source_subdir: 'str'
+            Path to the subdirectory which contains source files
+        object_subdir: 'str'
+            Path to the subdirectory which contains object files, if None then
+            files will only be read from the source_subdir
         id_col: 'str', optional
             Identifies which column contains the Object IDs
         time_col: 'str', optional
@@ -578,11 +585,14 @@ class Ensemble:
             The ensemble object with parquet data loaded
         """
 
-        object_path = os.path.join(dir, "object")
-        source_path = os.path.join(dir, "source")
-
-        object_files = glob.glob(os.path.join(object_path, "**", "*.parquet"), recursive=True)
+        source_path = os.path.join(dir, source_subdir)
         source_files = glob.glob(os.path.join(source_path, "**", "*.parquet"), recursive=True)
+
+        if object_subdir is not None:
+            object_path = os.path.join(dir, object_subdir)
+            object_files = glob.glob(os.path.join(object_path, "**", "*.parquet"), recursive=True)
+        else:
+            object_files = None
 
         return self.from_parquet(
             source_files,
