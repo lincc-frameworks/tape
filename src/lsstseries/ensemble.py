@@ -65,7 +65,8 @@ class Ensemble:
         return self
 
     def insert_sources(
-        self, obj_ids, bands, timestamps, fluxes, flux_errs=None, force_repartition=False, **kwargs
+        self, obj_ids, bands, timestamps, fluxes, flux_errs=None,
+        provenance_label="custom", force_repartition=False, **kwargs
     ):
         """Manually insert sources into the ensemble.
 
@@ -89,6 +90,8 @@ class Ensemble:
             A list of the fluxes of the observations.
         flux_errs: `list`, optional
             A list of the errors in the flux.
+        provenance_label: `str`, optional
+            A label that denotes the provenance of the new observations.
         force_repartition: `bool` optional
             Do an immediate repartition of the dataframes.
         """
@@ -107,12 +110,16 @@ class Ensemble:
                 f"Incorrect flux_errs length during insert" f"{num_inserting} != {len(flux_errs)}"
             )
 
+        # Construct provenance array
+        provenance = [provenance_label] * len(obj_ids)
+
         # Create a dictionary with the new information.
         rows = {
             self._id_col: obj_ids,
             self._band_col: bands,
             self._time_col: timestamps,
             self._flux_col: fluxes,
+            self._provenance_col: provenance,
         }
         if flux_errs is not None:
             rows[self._err_col] = flux_errs

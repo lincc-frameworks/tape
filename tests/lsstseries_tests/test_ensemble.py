@@ -107,6 +107,7 @@ def test_insert(parquet_ensemble):
     flux_col = parquet_ensemble._flux_col
     err_col = parquet_ensemble._err_col
     band_col = parquet_ensemble._band_col
+    prov_col = parquet_ensemble._provenance_col
 
     # Test an insertion of 5 observations.
     new_inds = [2, 1, 100, 110, 111]
@@ -130,6 +131,7 @@ def test_insert(parquet_ensemble):
         assert new_source.loc[new_inds[i]][flux_col] == new_fluxes[i]
         assert new_source.loc[new_inds[i]][err_col] == new_errs[i]
         assert new_source.loc[new_inds[i]][band_col] == new_bands[i]
+        assert new_source.loc[new_inds[i]][prov_col] == "custom"
 
     # Check that all of the old data is still in there.
     obj_ids = old_source.index.unique()
