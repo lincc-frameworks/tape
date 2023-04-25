@@ -1,7 +1,7 @@
 import pandas as pd
 
 from lsstseries.analysis.stetsonj import calc_stetson_J
-from lsstseries.analysis.structurefunction2 import calc_sf2
+from lsstseries.analysis.structurefunction2 import calc_sf2, calc_sf2_v2
 
 
 class TimeSeries:
@@ -202,4 +202,19 @@ class TimeSeries:
             method=method,
             sthresh=sthresh,
             combine=False,
+        )
+
+    def sf2_v2(self, sf_method="basic", argument_container=None):
+        if self.meta["id"]:
+            lc_id = [self.meta["id"]] * len(self.time)
+        else:
+            lc_id = [0] * len(self.time)
+        return calc_sf2_v2(
+            time=self.time,
+            flux=self.flux,
+            err=self.flux_err,
+            band=self.band,
+            lc_id=lc_id,
+            sf_method=sf_method,
+            argument_container=argument_container,
         )
