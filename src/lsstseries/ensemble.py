@@ -65,8 +65,15 @@ class Ensemble:
         return self
 
     def insert_sources(
-        self, obj_ids, bands, timestamps, fluxes, flux_errs=None,
-        provenance_label="custom", force_repartition=False, **kwargs
+        self,
+        obj_ids,
+        bands,
+        timestamps,
+        fluxes,
+        flux_errs=None,
+        provenance_label="custom",
+        force_repartition=False,
+        **kwargs,
     ):
         """Manually insert sources into the ensemble.
 
@@ -623,7 +630,7 @@ class Ensemble:
         err_col=None,
         band_col=None,
         provenance_col=None,
-        provenance_label='survey_1',
+        provenance_label="survey_1",
         additional_cols=True,
         npartitions=None,
         partition_size=None,
@@ -689,8 +696,13 @@ class Ensemble:
             columns = None  # None will prompt read_parquet to read in all cols
         else:
             if self._provenance_col is not None:
-                columns = [self._time_col, self._flux_col, self._err_col,
-                           self._band_col, self._provenance_col]
+                columns = [
+                    self._time_col,
+                    self._flux_col,
+                    self._err_col,
+                    self._band_col,
+                    self._provenance_col,
+                ]
             else:
                 columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
@@ -701,9 +713,9 @@ class Ensemble:
 
         # Generate a provenance column if not provided
         if self._provenance_col is None:
-            self._source["provenance"] = self._source.apply(lambda x: provenance_label,
-                                                            axis=1,
-                                                            meta=pd.Series(name="provenance", dtype=str))
+            self._source["provenance"] = self._source.apply(
+                lambda x: provenance_label, axis=1, meta=pd.Series(name="provenance", dtype=str)
+            )
             self._provenance_col = "provenance"
 
         if npartitions and npartitions > 1:
