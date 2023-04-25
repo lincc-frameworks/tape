@@ -322,6 +322,33 @@ def test_prune(parquet_ensemble):
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
+def test_find_day_gap_offset(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # and a few time steps.
+    rows = {
+        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1],
+        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    }
+    ens.from_source_dict(rows)
+    gap_time = ens.find_day_gap_offset()
+    assert abs(gap_time - 13.0 / 24.0) < 1e-6
+
+    # Create fake observations covering all times
+    rows = {
+        ens._id_col: [8001] * 100,
+        ens._time_col: [24.0 * (float(i) / 100.0) for i in range(100)],
+        ens._flux_col: [1.0] * 100,
+        ens._band_col: ["g"] * 100,
+    }
+    ens.from_source_dict(rows)
+    assert ens.find_day_gap_offset() == -1
+
+
 def test_bin_sources(dask_client):
     ens = Ensemble(client=dask_client)
 
@@ -329,15 +356,12 @@ def test_bin_sources(dask_client):
     # and a few time steps.
     rows = {
         ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
-        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1],
         ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
         ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
         ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
     }
-    ddf = dd.DataFrame.from_dict(rows, npartitions=1)
-    ddf = ddf.set_index(ens._id_col, drop=True)
-    ens._source = ddf
-    ens._object = ens._generate_object_table()
+    ens.from_source_dict(rows)
 
     # Check that the source table has 9 rows.
     old_source = ens.compute("source")
@@ -354,7 +378,7 @@ def test_bin_sources(dask_client):
     # Check the results.
     list_to_check = [(8001, 0), (8001, 1), (8001, 2), (8002, 0), (8002, 1), (8002, 2)]
     expected_flux = [1.5, 5.0, 3.0, 1.0, 2.5, 4.5]
-    expected_time = [10.1, 10.2, 11.1, 11.2, 11.3, 15.0]
+    expected_time = [10.1, 10.2, 11.1, 11.2, 10.9, 15.0]
     expected_band = ["g", "b", "g", "b", "g", "g"]
     expected_error = [1.118033988749895, 1.0, 3.0, 2.0, 2.5, 3.905124837953327]
 
