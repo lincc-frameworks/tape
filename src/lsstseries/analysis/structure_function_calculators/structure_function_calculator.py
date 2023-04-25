@@ -8,8 +8,9 @@ from lsstseries.analysis.structure_function_argument_containers.structure_functi
 
 
 class StructureFunctionCalculator:
-    """This is the base class from which all other Structure Function calculators
-    will inherit
+    """This is the base class from which all other Structure Function calculator
+    methods inherit. Extend this class if you want to create a new Structure
+    Function calculation method.
     """
 
     def __init__(
@@ -19,13 +20,12 @@ class StructureFunctionCalculator:
         err: List[float],
         argument_container: StructureFunctionArgumentContainer,
     ):
-        # do the work here to initialize
-
         self._time = time
         self._flux = flux
         self._err = err
         self._argument_container = argument_container
 
+        self._bins = argument_container.bins
         self._binning_method = argument_container.bin_method
         self._bin_count_target = argument_container.bin_count_target
         self._dts = []
@@ -36,7 +36,7 @@ class StructureFunctionCalculator:
         raise (NotImplementedError, "Must be implemented by the child class")
 
     def _bin_dts(self, dts):
-        """Bin an input array of delta times (dt). Supports several binning
+        """Bin an input array of delta times (dts). Supports several binning
         schemes.
 
         Parameters
@@ -79,6 +79,7 @@ class StructureFunctionCalculator:
             # include the first element. Note this is also done to match
             # Panda's cut function.
             self._bins[0] -= 0.001 * (max_val - min_val)
+            self._bins = np.exp(self._bins)
 
         else:
             raise ValueError(f"Method '{self._binning_method}' not recognized")

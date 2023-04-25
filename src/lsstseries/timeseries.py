@@ -1,7 +1,7 @@
 import pandas as pd
 
 from lsstseries.analysis.stetsonj import calc_stetson_J
-from lsstseries.analysis.structurefunction2 import calc_sf2, calc_sf2_v2
+from lsstseries.analysis.structurefunction2 import calc_sf2
 
 
 class TimeSeries:
@@ -159,7 +159,7 @@ class TimeSeries:
         """
         return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
 
-    def sf2(self, bins=None, band_to_calc=None, method="size", sthresh=100):
+    def sf2(self, sf_method="basic", argument_container=None):
         """Compute the structure function squared statistic on data
 
         Parameters
@@ -192,24 +192,6 @@ class TimeSeries:
         else:
             lc_id = [0] * len(self.time)
         return calc_sf2(
-            lc_id,
-            self.time,
-            self.flux,
-            self.flux_err,
-            self.band,
-            bins=bins,
-            band_to_calc=band_to_calc,
-            method=method,
-            sthresh=sthresh,
-            combine=False,
-        )
-
-    def sf2_v2(self, sf_method="basic", argument_container=None):
-        if self.meta["id"]:
-            lc_id = [self.meta["id"]] * len(self.time)
-        else:
-            lc_id = [0] * len(self.time)
-        return calc_sf2_v2(
             time=self.time,
             flux=self.flux,
             err=self.flux_err,

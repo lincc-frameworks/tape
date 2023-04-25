@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from lsstseries import TimeSeries, analysis
+from lsstseries.analysis.structure_function_argument_containers import StructureFunctionArgumentContainer
 
 # pylint: disable=protected-access
 
@@ -45,7 +46,8 @@ def test_sf2_timeseries(lc_id):
     timseries = TimeSeries()
     timseries.meta["id"] = lc_id
     test_series = timseries.from_dict(data_dict=test_dict)
-    res = test_series.sf2(sthresh=100)
+
+    res = test_series.sf2()
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
@@ -70,7 +72,7 @@ def test_sf2_timeseries_without_timestamps():
     timeseries = TimeSeries()
     timeseries.meta["id"] = 1
     test_series = timeseries.from_dict(data_dict=test_dict)
-    res = test_series.sf2(sthresh=100)
+    res = test_series.sf2()
 
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
@@ -95,57 +97,10 @@ def test_sf2_timeseries_with_all_none_timestamps():
     timeseries = TimeSeries()
     timeseries.meta["id"] = 1
     test_series = timeseries.from_dict(data_dict=test_dict)
-    res = test_series.sf2(sthresh=100)
+    res = test_series.sf2()
 
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
-
-
-def test_dt_bins():
-    """
-    Test that the binning routines return the expected properties
-    """
-    # Test on some known data.
-    dts = np.array([(201.0 - i) for i in range(200)])
-
-    bins = analysis.structurefunction2._bin_dts(dts, method="size")
-    np.testing.assert_allclose(bins, [2.0, 101.5, 201.0])
-
-    bins = analysis.structurefunction2._bin_dts(dts, method="length")
-    np.testing.assert_allclose(bins, [1.801, 101.5, 201.0])
-
-    bins = analysis.structurefunction2._bin_dts(dts, method="loglength")
-    np.testing.assert_allclose(bins, [1.99080091, 20.04993766, 201.0], rtol=1e-5)
-
-    # Test on large randomized data (with a constant seed).
-    np.random.seed(1)
-    dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
-
-    # test size method
-    bins = analysis.structurefunction2._bin_dts(dts, method="size")
-    binsizes = np.histogram(dts, bins=bins)[0]
-    assert len(bins) == 11
-    assert len(np.unique(binsizes)) == 1  # Check that all bins are the same size
-
-    # test length method
-    bins = analysis.structurefunction2._bin_dts(dts, method="length")
-    assert len(bins) == 11
-
-    bins = analysis.structurefunction2._bin_dts(dts, method="loglength")
-    assert len(bins) == 11
-
-
-def test_dt_bins_raises_exception():
-    """
-    Test _bin_dts to make sure it raises an exception for an unknown method.
-    """
-    # Test on some known data.
-    dts = np.array([(201.0 - i) for i in range(2)])
-    test_method = "not_a_real_method"
-
-    with pytest.raises(ValueError) as excinfo:
-        _ = analysis.structurefunction2._bin_dts(dts, method=test_method)
-    assert "Method 'not_a_real_method' not recognized"
 
 
 def test_sf2_base_case():
@@ -160,16 +115,11 @@ def test_sf2_base_case():
     test_band = np.array(["r"] * len(test_y))
 
     res = analysis.calc_sf2(
-        lc_id=lc_id,
         time=test_t,
         flux=test_y,
         err=test_yerr,
         band=test_band,
-        bins=None,
-        band_to_calc=None,
-        combine=False,
-        method="size",
-        sthresh=100,
+        lc_id=lc_id,
     )
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
@@ -188,16 +138,11 @@ def test_sf2_base_case_time_as_none_array():
     test_band = np.array(["r"] * len(test_y))
 
     res = analysis.calc_sf2(
-        lc_id=lc_id,
         time=test_t,
         flux=test_y,
         err=test_yerr,
         band=test_band,
-        bins=None,
-        band_to_calc=None,
-        combine=False,
-        method="size",
-        sthresh=100,
+        lc_id=lc_id,
     )
 
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
@@ -216,16 +161,11 @@ def test_sf2_base_case_time_as_none_scalar():
     test_band = np.array(["r"] * len(test_y))
 
     res = analysis.calc_sf2(
-        lc_id=lc_id,
         time=test_t,
         flux=test_y,
         err=test_yerr,
         band=test_band,
-        bins=None,
-        band_to_calc=None,
-        combine=False,
-        method="size",
-        sthresh=100,
+        lc_id=lc_id,
     )
 
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
@@ -244,17 +184,11 @@ def test_sf2_base_case_string_for_band_to_calc():
     test_band = np.array(["r"] * len(test_y))
     test_band_to_calc = "r"
 
+    arg_container = StructureFunctionArgumentContainer()
+    arg_container.band_to_calc = test_band_to_calc
+
     res = analysis.calc_sf2(
-        lc_id=lc_id,
-        time=test_t,
-        flux=test_y,
-        err=test_yerr,
-        band=test_band,
-        bins=None,
-        band_to_calc=test_band_to_calc,
-        combine=False,
-        method="size",
-        sthresh=100,
+        time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, argument_container=arg_container
     )
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
@@ -273,16 +207,11 @@ def test_sf2_base_case_error_as_scalar():
     test_band = np.array(["r"] * len(test_y))
 
     res = analysis.calc_sf2(
-        lc_id=lc_id,
         time=test_t,
         flux=test_y,
         err=test_yerr,
         band=test_band,
-        bins=None,
-        band_to_calc=None,
-        combine=False,
-        method="size",
-        sthresh=100,
+        lc_id=lc_id,
     )
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
@@ -301,16 +230,11 @@ def test_sf2_base_case_error_as_none():
     test_band = np.array(["r"] * len(test_y))
 
     res = analysis.calc_sf2(
-        lc_id=lc_id,
         time=test_t,
         flux=test_y,
         err=test_yerr,
         band=test_band,
-        bins=None,
-        band_to_calc=None,
-        combine=False,
-        method="size",
-        sthresh=100,
+        lc_id=lc_id,
     )
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)

@@ -12,6 +12,8 @@ from lsstseries.analysis.structure_function_calculators.structure_function_calcu
 
 
 class BasicStructureFunctionCalculator(StructureFunctionCalculator):
+    """The most rudimentary Structure Function calculation method"""
+
     def __init__(
         self,
         time: List[float],
@@ -19,8 +21,9 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
         err: List[float],
         argument_container: StructureFunctionArgumentContainer,
     ):
-        # Not sure if there's any addition data manipulation that will be
-        # needed for this calculator
+        # The only work done in the __init__ method should be input argument
+        # validation. Operating on data should only happen in the `calculate`
+        # method.
 
         super().__init__(time, flux, err, argument_container)
 
@@ -98,8 +101,26 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
 
     @staticmethod
     def name_id():
+        """Utility static method used programmatically generate a list of all
+        subclasses of StructureFunctionCalculator.
+
+        Returns
+        -------
+        `str`
+            Unique name to identify this Structure Function calculation method.
+        """
         return "basic"
 
     @staticmethod
     def expected_argument_container():
+        """Utility static method used to determine what specific type of
+        StructureFunctionArgumentContainer this structure function calculation
+        method expects.
+
+        Returns
+        -------
+        StructureFunctionArgumentContainer
+            Argument container class that this structure function calculation
+            method expects.
+        """
         return StructureFunctionArgumentContainer
