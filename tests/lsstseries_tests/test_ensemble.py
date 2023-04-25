@@ -53,6 +53,7 @@ def test_from_parquet(data_fixture, request):
         parquet_ensemble._flux_col,
         parquet_ensemble._err_col,
         parquet_ensemble._band_col,
+        parquet_ensemble._provenance_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
@@ -102,7 +103,6 @@ def test_insert(parquet_ensemble):
     old_size = old_source.shape[0]
 
     # Save the column names to shorter strings
-    id_col = parquet_ensemble._id_col
     time_col = parquet_ensemble._time_col
     flux_col = parquet_ensemble._flux_col
     err_col = parquet_ensemble._err_col

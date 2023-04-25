@@ -36,6 +36,7 @@ class Ensemble:
         self._flux_col = "psFlux"
         self._err_col = "psFluxErr"
         self._band_col = "band"
+        self._provenance_col = None
 
         # Object, _id_col is shared
         self._nobs_col = "nobs_total"
@@ -614,6 +615,8 @@ class Ensemble:
         flux_col=None,
         err_col=None,
         band_col=None,
+        provenance_col=None,
+        provenance_label='survey_1',
         additional_cols=True,
         npartitions=None,
         partition_size=None,
@@ -639,6 +642,11 @@ class Ensemble:
             Identifies which column contains the flux/mag error information
         band_col: 'str', optional
             Identifies which column contains the band information
+        provenance_col: 'str', optional
+            Identifies which column contains the provenance information, if
+            None the provenance column is generated.
+        provenance_label: 'str', optional
+            Determines the label to use if a provenance column is generated
         additional_cols: 'bool', optional
             Boolean to indicate whether to carry in columns beyond the
             critical columns, true will, while false will only load the columns
@@ -667,16 +675,29 @@ class Ensemble:
             self._err_col = err_col
         if band_col is not None:
             self._band_col = band_col
+        if provenance_col is not None:
+            self._provenance_col = provenance_col
 
         if additional_cols:
             columns = None  # None will prompt read_parquet to read in all cols
         else:
-            columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
+            if self._provenance_col is not None:
+                columns = [self._time_col, self._flux_col, self._err_col,
+                           self._band_col, self._provenance_col]
+            else:
+                columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
 
         # Read in the source parquet file(s)
         self._source = dd.read_parquet(
             source_file, index=self._id_col, columns=columns, split_row_groups=True
         )
+
+        # Generate a provenance column if not provided
+        if self._provenance_col is None:
+            self._source["provenance"] = self._source.apply(lambda x: provenance_label,
+                                                            axis=1,
+                                                            meta=pd.Series(name="provenance", dtype=str))
+            self._provenance_col = "provenance"
 
         if npartitions and npartitions > 1:
             self._source = self._source.repartition(npartitions=npartitions)
