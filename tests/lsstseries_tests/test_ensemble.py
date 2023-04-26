@@ -349,7 +349,7 @@ def test_find_day_gap_offset(dask_client):
     assert ens.find_day_gap_offset() == -1
 
 
-def test_bin_sources(dask_client):
+def test_bin_sources_day(dask_client):
     ens = Ensemble(client=dask_client)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
@@ -371,7 +371,7 @@ def test_bin_sources(dask_client):
     # This should throw a warning because we are overwriting the aggregation
     # for the time column.
     with pytest.warns():
-        ens.bin_sources(custom_aggr={ens._time_col: "min"})
+        ens.bin_sources(time_window=1.0, offset=0.5, custom_aggr={ens._time_col: "min"})
     new_source = ens.compute("source")
     assert new_source.shape[0] == 6
 
@@ -387,6 +387,44 @@ def test_bin_sources(dask_client):
         assert abs(res[ens._flux_col] - expected_flux[i]) < 1e-6
         assert abs(res[ens._time_col] - expected_time[i]) < 1e-6
         assert abs(res[ens._err_col] - expected_error[i]) < 1e-6
+        assert res[ens._band_col] == expected_band[i]
+
+
+def test_bin_sources_two_days(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # and a few time steps.
+    rows = {
+        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002, 8002],
+        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1, 14.0],
+        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0],
+        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g", "g"],
+        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0, 5.0],
+    }
+    ens.from_source_dict(rows)
+
+    # Check that the source table has 10 rows.
+    old_source = ens.compute("source")
+    assert old_source.shape[0] == 10
+
+    # Bin the sources and check that we now have 5 rows.
+    # This should throw a warning because we are overwriting the aggregation
+    # for the time column.
+    ens.bin_sources(time_window=2.0, offset=0.5)
+    new_source = ens.compute("source")
+    assert new_source.shape[0] == 5
+
+    # Check the results.
+    list_to_check = [(8001, 0), (8001, 1), (8002, 0), (8002, 1), (8002, 2)]
+    expected_flux = [2.0, 5.0, 1.0, 2.5, 4.666666]
+    expected_time = [10.46666, 10.2, 11.2, 11.0, 14.70]
+    expected_band = ["g", "b", "b", "g", "g"]
+
+    for i in range(5):
+        res = new_source.loc[list_to_check[i][0]].iloc[list_to_check[i][1]]
+        assert abs(res[ens._flux_col] - expected_flux[i]) < 1e-3
+        assert abs(res[ens._time_col] - expected_time[i]) < 1e-3
         assert res[ens._band_col] == expected_band[i]
 
 

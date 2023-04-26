@@ -343,10 +343,9 @@ class Ensemble:
         ----------
         time_window : `float`, optional
             The time range (in days) over which to consider observations in the same bin.
-        offset : `float`, optional
+        offset : `float`
             The offset in days to use for binning. This should correspond to noon
-            of the observatory's time zone. If not included, then the code automatically
-            tries to detect the offset (recommended).
+            of the observatory's time zone. Can be computed with find_day_gap_offset.
         custom_aggr : `dict`, optional
             A dictionary mapping column name to aggregation method. This can be used to
             both include additional columns to aggregate OR overwrite the aggregation
@@ -375,12 +374,6 @@ class Ensemble:
         """
         if self._object_dirty:
             self = self._sync_tables()
-
-        # Estimate an offset if none is provided.
-        if offset is None:
-            offset = self.find_day_gap_offset()
-            if offset < 0:
-                raise ValueError("Unable to find hour without observations for offset computation.")
 
         # Bin the time and add it as a column. We create a temporary column that
         # truncates the time into increments of `time_window`.
