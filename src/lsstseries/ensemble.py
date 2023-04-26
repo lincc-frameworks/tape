@@ -336,16 +336,18 @@ class Ensemble:
             return -1
         return (best_mid_pt % 24.0) / 24.0
 
-    def bin_sources(self, time_window=1.0, offset=None, custom_aggr=None, use_map=True, **kwargs):
+    def bin_sources(self, time_window=1.0, offset=0.0, custom_aggr=None, use_map=True, **kwargs):
         """Bin sources on within a given time range to improve the estimates.
 
         Parameters
         ----------
         time_window : `float`, optional
             The time range (in days) over which to consider observations in the same bin.
-        offset : `float`
-            The offset in days to use for binning. This should correspond to noon
-            of the observatory's time zone. Can be computed with find_day_gap_offset.
+            The default is 1.0 days.
+        offset : `float`, optional
+            The offset in days to use for binning. This should correspond to the middle
+            of the daylight hours for the observatory. Default is 0.0.
+            This value can also be computed with find_day_gap_offset.
         custom_aggr : `dict`, optional
             A dictionary mapping column name to aggregation method. This can be used to
             both include additional columns to aggregate OR overwrite the aggregation
