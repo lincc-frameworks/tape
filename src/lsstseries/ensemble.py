@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
+import warnings
 
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
@@ -282,6 +283,137 @@ class Ensemble:
 
         self._object_dirty = True  # Object Table is now dirty
 
+        return self
+
+    def find_day_gap_offset(self):
+        """Finds an approximation of the MJD offset for noon at the
+        observatory.
+
+        This function looks for the longest strecth of hours of the day
+        with zero observations. This gap is treated as the daylight hours
+        and the function returns the middle hour of the gap. This is used
+        for automatically finding offsets for binning.
+
+        Returns
+        -------
+        empty_hours: `list`
+            The estimated middle of the day as a floating point day. Returns
+            -1.0 if no such time is found.
+
+        Note
+        ----
+        Calls a compute on the source table.
+        """
+        if self._object_dirty:
+            self = self._sync_tables()
+
+        # Compute a histogram of observations by hour of the day.
+        hours = self._source[self._time_col].apply(
+            lambda x: np.floor(x * 24.0).astype(int) % 24, meta=pd.Series(dtype=int)
+        )
+        hour_counts = hours.value_counts().compute()
+
+        # Find the longest run of hours with no observations.
+        start_hr = 0
+        best_length = 0
+        best_mid_pt = -1
+        while start_hr < 24:
+            # Find the end of the run of zero starting at `start_hr`.
+            # Note that this might wrap around 24->0 hours.
+            end_hr = start_hr
+            while end_hr < 48 and (end_hr % 24) not in hour_counts.index:
+                end_hr += 1
+
+            # If we have found a new longest gap, record it.
+            if end_hr - start_hr > best_length:
+                best_length = end_hr - start_hr
+                best_mid_pt = (start_hr + end_hr) / 2.0
+
+            # Move to the next block.
+            start_hr = end_hr + 1
+
+        if best_length == 0:
+            return -1
+        return (best_mid_pt % 24.0) / 24.0
+
+    def bin_sources(self, time_window=1.0, offset=0.0, custom_aggr=None, use_map=True, **kwargs):
+        """Bin sources on within a given time range to improve the estimates.
+
+        Parameters
+        ----------
+        time_window : `float`, optional
+            The time range (in days) over which to consider observations in the same bin.
+            The default is 1.0 days.
+        offset : `float`, optional
+            The offset in days to use for binning. This should correspond to the middle
+            of the daylight hours for the observatory. Default is 0.0.
+            This value can also be computed with find_day_gap_offset.
+        custom_aggr : `dict`, optional
+            A dictionary mapping column name to aggregation method. This can be used to
+            both include additional columns to aggregate OR overwrite the aggregation
+            method for time, flux, or flux error by matching those column names.
+            Example: {"my_value_1": "mean", "my_value_2": "max", "psFlux": "sum"}
+        use_map : `boolean`, optional
+            Determines whether `dask.dataframe.DataFrame.map_partitions` is
+            used (True). Using map_partitions is generally more efficient, but
+            requires the data from each lightcurve is housed in a single
+            partition. If False, a groupby will be performed instead.
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.Ensemble`
+            The ensemble object with pruned rows removed
+
+        Notes
+        -----
+        * This should only be used for slowly varying sources where we can
+        treat the source as constant within `time_window`.
+
+        * As a default the function only aggregates and keeps the id, band,
+        time, flux, and flux error columns. Additional columns can be preserved
+        by providing the mapping of column name to aggregation function with the
+        `additional_cols` parameter.
+        """
+        if self._object_dirty:
+            self = self._sync_tables()
+
+        # Bin the time and add it as a column. We create a temporary column that
+        # truncates the time into increments of `time_window`.
+        tmp_time_col = "tmp_time_for_aggregation"
+        if tmp_time_col in self._source.columns:
+            raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
+        self._source[tmp_time_col] = self._source[self._time_col].apply(
+            lambda x: np.floor((x + offset) / time_window) * time_window, meta=pd.Series(dtype=float)
+        )
+
+        # Set up the aggregation functions for the time and flux columns.
+        aggr_funs = {self._time_col: "mean", self._flux_col: "mean"}
+
+        # If the source table has errors then add an aggregation function for it.
+        if self._err_col in self._source.columns:
+            aggr_funs[self._err_col] = dd.Aggregation(
+                name="err_agg",
+                chunk=lambda x: (x.count(), x.apply(lambda s: np.sum(np.power(s, 2)))),
+                agg=lambda c, s: (c.sum(), s.sum()),
+                finalize=lambda c, s: np.sqrt(s) / c,
+            )
+
+        # Add any additional aggregation functions
+        if custom_aggr is not None:
+            for key in custom_aggr:
+                # Warn the user if they are overwriting a predefined aggregation function.
+                if key in aggr_funs:
+                    warnings.warn(f"Warning: Overwriting aggregation function for column {key}.")
+                aggr_funs[key] = custom_aggr[key]
+
+        # Group the columns by id, band, and time bucket and aggregate.
+        self._source = self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+
+        # Fix the indices and remove the temporary column.
+        self._source = self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1)
+
+        # Mark the source table as dirty.
+        self._source_dirty = True
         return self
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
