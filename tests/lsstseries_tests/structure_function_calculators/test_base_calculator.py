@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
-from lsstseries.analysis.structure_function_argument_containers import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function_calculators import BasicStructureFunctionCalculator
+from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from lsstseries.analysis.structure_function.basic.calculator import BasicStructureFunctionCalculator
 
 
 def test_dt_bins():

@@ -8,7 +8,7 @@ import pytest
 
 from lsstseries import Ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
-from lsstseries.analysis.structure_function_argument_containers import StructureFunctionArgumentContainer
+from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structurefunction2 import calc_sf2
 
 

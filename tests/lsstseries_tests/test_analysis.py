@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from lsstseries import TimeSeries, analysis
-from lsstseries.analysis.structure_function_argument_containers import StructureFunctionArgumentContainer
+from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 
 # pylint: disable=protected-access
 

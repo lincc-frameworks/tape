@@ -1,6 +1,5 @@
 """Test ensemble manipulations"""
 import pandas as pd
-import pytest
 
 from lsstseries import TimeSeries
 

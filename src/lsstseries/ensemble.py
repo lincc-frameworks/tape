@@ -6,8 +6,7 @@ import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
 
-from .analysis.structure_function_argument_containers import StructureFunctionArgumentContainer
-from .analysis.structure_function_calculators import SF_METHODS
+from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
 

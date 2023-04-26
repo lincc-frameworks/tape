@@ -3,9 +3,11 @@ from typing import List
 
 import numpy as np
 
-from lsstseries.analysis.structure_function_argument_containers.structure_function_argument_container import (
-    StructureFunctionArgumentContainer,
-)
+from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+
+# from lsstseries.analysis.structure_function_argument_containers.structure_function_argument_container import (
+#     StructureFunctionArgumentContainer,
+# )
 
 
 class StructureFunctionCalculator(ABC):

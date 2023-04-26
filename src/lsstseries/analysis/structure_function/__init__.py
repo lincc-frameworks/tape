@@ -1,5 +1,6 @@
-from .basic_structure_function_calculator import BasicStructureFunctionCalculator
-from .structure_function_calculator import StructureFunctionCalculator
+from .base_argument_container import StructureFunctionArgumentContainer
+from .base_calculator import StructureFunctionCalculator
+from .basic.calculator import BasicStructureFunctionCalculator
 
 # This dynamically generates the dictionary of all available subclasses of the
 # StructureFunctionCalculator. It will have the form `{"unique_name" : class}`.

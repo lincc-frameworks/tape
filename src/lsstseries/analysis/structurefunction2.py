@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from lsstseries.analysis.structure_function_calculators import SF_METHODS
+from lsstseries.analysis.structure_function import SF_METHODS
 
 
 def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):
