@@ -5,7 +5,10 @@ from lsstseries.analysis.structure_function_calculators import SF_METHODS
 
 
 def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):
-    """_summary_
+    """Calculate structure function squared using one of a variety of structure
+    function calculation methods defined by the input argument `sf_method`, or
+    in the argument container object.
+
 
     Parameters
     ----------
@@ -42,6 +45,7 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     if argument_container is None:
         argument_container_type = SF_METHODS[sf_method].expected_argument_container()
         argument_container = argument_container_type()
+        argument_container.sf_method = sf_method
 
     # The following variables are present both as input arguments and inside
     # `argument_container`. If any of these arguments are provided with
@@ -121,11 +125,9 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
             fluxes_2d = [fluxes[mask] for mask in id_masks]
             errors_2d = [errors[mask] for mask in id_masks]
 
-            sf_method = SF_METHODS[argument_container.sf_method](
-                times_2d, fluxes_2d, errors_2d, argument_container
-            )
+            sf_calculator = SF_METHODS[sf_method](times_2d, fluxes_2d, errors_2d, argument_container)
 
-            res = sf_method.calculate()
+            res = sf_calculator.calculate()
 
             res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res[0])]
             res_bands = [[b] * len(arr) for arr in res[0]]

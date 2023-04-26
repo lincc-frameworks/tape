@@ -46,15 +46,15 @@ class StructureFunctionArgumentContainer:
         have a default value defined.
     """
 
-    band: List[str] = field(default=None)
-    lc_id: Union[int, List[int]] = field(default=None)
-    sf_method: str = field(default="basic")
-    band_to_calc: Union[str, List[str]] = field(default=None)
-    combine: bool = field(default=False)
-    bins: List[float] = field(default=None)
-    bin_method: str = field(default="size")
-    bin_count_target: int = field(default=100)
-    ignore_timestamps: bool = field(default=False)
+    band: List[str] = None
+    lc_id: Union[int, List[int]] = None
+    sf_method: str = "basic"
+    band_to_calc: Union[str, List[str]] = None
+    combine: bool = False
+    bins: List[float] = None
+    bin_method: str = "size"
+    bin_count_target: int = 100
+    ignore_timestamps: bool = False
 
     def __post_init__(self):
         # Nothing here yet

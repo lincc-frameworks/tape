@@ -12,7 +12,11 @@ from lsstseries.analysis.structure_function_calculators.structure_function_calcu
 
 
 class BasicStructureFunctionCalculator(StructureFunctionCalculator):
-    """The most rudimentary Structure Function calculation method"""
+    """
+    SF calculation method that calculates excess variance directly as a
+    variance of observations with observational errors subtracted.
+    For reference, please see Equation 12 in https://arxiv.org/abs/1604.05858
+    """
 
     def __init__(
         self,
@@ -100,27 +104,9 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
             return t_all, sfs_all
 
     @staticmethod
-    def name_id():
-        """Utility static method used programmatically generate a list of all
-        subclasses of StructureFunctionCalculator.
-
-        Returns
-        -------
-        `str`
-            Unique name to identify this Structure Function calculation method.
-        """
+    def name_id() -> str:
         return "basic"
 
     @staticmethod
-    def expected_argument_container():
-        """Utility static method used to determine what specific type of
-        StructureFunctionArgumentContainer this structure function calculation
-        method expects.
-
-        Returns
-        -------
-        StructureFunctionArgumentContainer
-            Argument container class that this structure function calculation
-            method expects.
-        """
+    def expected_argument_container() -> type:
         return StructureFunctionArgumentContainer

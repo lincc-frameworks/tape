@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import List
 
 import numpy as np
@@ -7,7 +8,7 @@ from lsstseries.analysis.structure_function_argument_containers.structure_functi
 )
 
 
-class StructureFunctionCalculator:
+class StructureFunctionCalculator(ABC):
     """This is the base class from which all other Structure Function calculator
     methods inherit. Extend this class if you want to create a new Structure
     Function calculation method.
@@ -31,6 +32,7 @@ class StructureFunctionCalculator:
         self._dts = []
         return
 
+    @abstractmethod
     def calculate(self):
         """Abstract method that must be implemented by the child class."""
         raise (NotImplementedError, "Must be implemented by the child class")
@@ -85,9 +87,18 @@ class StructureFunctionCalculator:
             raise ValueError(f"Method '{self._binning_method}' not recognized")
 
     @staticmethod
-    def name_id():
+    @abstractmethod
+    def name_id() -> str:
+        """This method will return the unique name of the Structure Function
+        calculation method.
+        """
         raise (NotImplementedError, "Must be implemented as a static method by the child class")
 
     @staticmethod
-    def expected_argument_container():
+    @abstractmethod
+    def expected_argument_container() -> type:
+        """This method will return the argument container class type (not an
+        instance) that the Structure Function calculation method requires in
+        order to perform it's calculations.
+        """
         raise (NotImplementedError, "Must be implemented as a static method by the child class")
