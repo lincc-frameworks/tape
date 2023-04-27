@@ -159,7 +159,7 @@ class TimeSeries:
         """
         return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
 
-    def sf2(self, bins=None, band_to_calc=None, method="size", sthresh=100):
+    def sf2(self, sf_method="basic", argument_container=None):
         """Compute the structure function squared statistic on data
 
         Parameters
@@ -192,14 +192,11 @@ class TimeSeries:
         else:
             lc_id = [0] * len(self.time)
         return calc_sf2(
-            lc_id,
-            self.time,
-            self.flux,
-            self.flux_err,
-            self.band,
-            bins=bins,
-            band_to_calc=band_to_calc,
-            method=method,
-            sthresh=sthresh,
-            combine=False,
+            time=self.time,
+            flux=self.flux,
+            err=self.flux_err,
+            band=self.band,
+            lc_id=lc_id,
+            sf_method=sf_method,
+            argument_container=argument_container,
         )

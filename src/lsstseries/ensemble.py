@@ -7,6 +7,7 @@ import pyvo as vo
 from dask.distributed import Client
 import warnings
 
+from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
 
@@ -466,15 +467,17 @@ class Ensemble:
         known_cols = {
             "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
             "calc_sf2": [
-                self._id_col,
                 self._time_col,
                 self._flux_col,
                 self._err_col,
                 self._band_col,
+                self._id_col,
             ],
         }
 
-        known_meta = {"calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"}}
+        known_meta = {
+            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"},
+        }
         if func.__name__ in known_cols:
             args = known_cols[func.__name__]
         if func.__name__ in known_meta:
@@ -1003,28 +1006,15 @@ class Ensemble:
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
 
-    def sf2(self, bins=None, band_to_calc=None, combine=False, method="size", sthresh=100, use_map=True):
+    def sf2(self, sf_method="basic", argument_container=None, use_map=True):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
         Parameters
         ----------
-        bins : `np.array` or `list`
-        Manually provided bins, if not provided then bins are computed using
-        the `method` kwarg
-        band_to_calc : `str` or `list` of `str`
-            Bands to calculate structure function on. Single band descriptor,
-            or list of such descriptors.
-        combine : 'bool'
-            Boolean to determine whether structure function is computed for each
-            light curve independently (combine=False), or computed for all light
-            curves together (combine=True).
-        method : 'str'
-            The binning method to apply, choices of 'size'; which seeks an even
-            distribution of samples per bin using quantiles, 'length'; which
-            creates bins of equal length in time and 'loglength'; which creates
-            bins of equal length in log time.
-        sthresh : 'int'
-            Target number of samples per bin.
+        sf_method : 'str'
+            The structure function calculation method to be used, by default "basic".
+        argument_container : StructureFunctionArgumentContainer, optional
+            Container object for additional configuration options, by default None.
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -1042,29 +1032,24 @@ class Ensemble:
         executed on all available bands in `band`.
         """
 
-        if combine:
+        # Create a default argument container of the correct type if one was not
+        # provided. This is only necessary here because we need to know about
+        # `combine` in the next conditional.
+        if argument_container is None:
+            argument_container_type = SF_METHODS[sf_method].expected_argument_container()
+            argument_container = argument_container_type()
+
+        if argument_container.combine:
             result = calc_sf2(
-                self._source.index,
                 self._source[self._time_col],
                 self._source[self._flux_col],
                 self._source[self._err_col],
                 self._source[self._band_col],
-                bins=bins,
-                band_to_calc=band_to_calc,
-                combine=combine,
-                method=method,
-                sthresh=sthresh,
+                self._source.index,
+                argument_container=argument_container,
             )
             return result
         else:
-            result = self.batch(
-                calc_sf2,
-                bins=bins,
-                band_to_calc=band_to_calc,
-                combine=False,
-                method=method,
-                sthresh=sthresh,
-                use_map=use_map,
-            )
+            result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
 
             return result
