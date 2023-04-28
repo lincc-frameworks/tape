@@ -53,9 +53,13 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     # `argument_container` and use the values found there.
     if band is None:
         band = argument_container.band
+    if band is None:  # Still None after assignment?
+        band = np.full(len(flux), "none")
 
     if lc_id is None:
         lc_id = argument_container.lc_id
+    if lc_id is None:  # Still None after assignment?
+        lc_id = np.zeros(len(flux))
 
     if sf_method == "basic":
         sf_method = argument_container.sf_method
@@ -91,7 +95,7 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
             # with a single `None` element. Otherwise assume the user passed an
             # array of timestamps to be masked with `band_mask`.
             # Note: some or all timestamps could be `None`.
-            if time is None:
+            if time is None or argument_container.ignore_timestamps:
                 times = np.array(None)
             else:
                 times = np.array(time)[band_mask]

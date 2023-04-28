@@ -239,3 +239,82 @@ def test_sf2_base_case_error_as_none():
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.172482, rel=0.001)
+
+
+def test_sf2_no_lightcurve_ids():
+    """
+    Base test case accessing calc_sf2 directly. Pass no lightcurve ids.
+    Does not make use of TimeSeries or Ensemble.
+    """
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
+    test_band = np.array(["r"] * len(test_y))
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+    )
+
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_sf2_no_band_information():
+    """
+    Base test case accessing calc_sf2 directly. Pass no band information
+    Does not make use of TimeSeries or Ensemble.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        lc_id=lc_id,
+    )
+
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_sf2_least_possible_infomation():
+    """
+    Base test case accessing calc_sf2 directly. Pass time as None and flux, but
+    nothing else.
+    Does not make use of TimeSeries or Ensemble.
+    """
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+
+    res = analysis.calc_sf2(
+        time=None,
+        flux=test_y,
+    )
+
+    # assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    # assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.172482, rel=0.001)
+
+
+def test_sf2_least_possible_infomation_constant_flux():
+    """
+    Base test case accessing calc_sf2 directly. Pass time as None and identical
+    flux values, but nothing else.
+    Does not make use of TimeSeries or Ensemble.
+    """
+    test_y = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+
+    res = analysis.calc_sf2(time=None, flux=test_y)
+
+    # assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    # assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+
+    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.0, rel=0.001)
