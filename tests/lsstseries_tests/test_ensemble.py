@@ -8,6 +8,7 @@ import pytest
 
 from lsstseries import Ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
+from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structurefunction2 import calc_sf2
 
 
@@ -371,9 +372,15 @@ def test_bin_sources_day(dask_client):
     # This should throw a warning because we are overwriting the aggregation
     # for the time column.
     with pytest.warns():
-        ens.bin_sources(time_window=1.0, offset=0.5, custom_aggr={ens._time_col: "min"})
+        ens.bin_sources(
+            time_window=1.0,
+            offset=0.5,
+            custom_aggr={ens._time_col: "min"},
+            count_col="aggregated_bin_count",
+        )
     new_source = ens.compute("source")
     assert new_source.shape[0] == 6
+    assert new_source.shape[1] == 5
 
     # Check the results.
     list_to_check = [(8001, 0), (8001, 1), (8001, 2), (8002, 0), (8002, 1), (8002, 2)]
@@ -381,6 +388,7 @@ def test_bin_sources_day(dask_client):
     expected_time = [10.1, 10.2, 11.1, 11.2, 10.9, 15.0]
     expected_band = ["g", "b", "g", "b", "g", "g"]
     expected_error = [1.118033988749895, 1.0, 3.0, 2.0, 2.5, 3.905124837953327]
+    expected_count = [2, 1, 1, 1, 2, 2]
 
     for i in range(6):
         res = new_source.loc[list_to_check[i][0]].iloc[list_to_check[i][1]]
@@ -388,6 +396,7 @@ def test_bin_sources_day(dask_client):
         assert abs(res[ens._time_col] - expected_time[i]) < 1e-6
         assert abs(res[ens._err_col] - expected_error[i]) < 1e-6
         assert res[ens._band_col] == expected_band[i]
+        assert res[ens._bin_count_col] == expected_count[i]
 
 
 def test_bin_sources_two_days(dask_client):
@@ -489,10 +498,13 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
     Test calling sf2 from the ensemble
     """
 
-    res_sf2 = parquet_ensemble.sf2(combine=combine, method=method, sthresh=sthresh, use_map=use_map)
-    res_batch = parquet_ensemble.batch(
-        calc_sf2, use_map=use_map, combine=combine, method=method, sthresh=sthresh
-    )
+    arg_container = StructureFunctionArgumentContainer()
+    arg_container.bin_method = method
+    arg_container.combine = combine
+    arg_container.bin_count_target = sthresh
+
+    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
+    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
 
     if combine:
         assert not res_sf2.equals(res_batch)  # output should be different
