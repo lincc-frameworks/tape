@@ -337,7 +337,9 @@ class Ensemble:
             return -1
         return (best_mid_pt % 24.0) / 24.0
 
-    def bin_sources(self, time_window=1.0, offset=0.0, custom_aggr=None, use_map=True, **kwargs):
+    def bin_sources(
+        self, time_window=1.0, offset=0.0, custom_aggr=None, count_col=None, use_map=True, **kwargs
+    ):
         """Bin sources on within a given time range to improve the estimates.
 
         Parameters
@@ -354,6 +356,9 @@ class Ensemble:
             both include additional columns to aggregate OR overwrite the aggregation
             method for time, flux, or flux error by matching those column names.
             Example: {"my_value_1": "mean", "my_value_2": "max", "psFlux": "sum"}
+        count_col : `str`, optional
+            The name of the column in which to count the number of sources per bin.
+            If None then it does not include this column.
         use_map : `boolean`, optional
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -398,6 +403,16 @@ class Ensemble:
                 agg=lambda c, s: (c.sum(), s.sum()),
                 finalize=lambda c, s: np.sqrt(s) / c,
             )
+
+        # Handle the aggregation function for the bin count, including
+        # adding an initial column of all ones if needed.
+        if count_col is not None:
+            self._bin_count_col = count_col
+            if self._bin_count_col not in self._source.columns:
+                self._source[self._bin_count_col] = self._source[self._time_col].apply(
+                    lambda x: 1, meta=pd.Series(dtype=int)
+                )
+            aggr_funs[self._bin_count_col] = "sum"
 
         # Add any additional aggregation functions
         if custom_aggr is not None:
