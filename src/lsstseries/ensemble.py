@@ -1,11 +1,11 @@
 import time
+import warnings
 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
-import warnings
 
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2

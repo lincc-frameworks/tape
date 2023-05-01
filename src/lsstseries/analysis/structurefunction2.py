@@ -18,13 +18,13 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
         measurements is assumed.
     flux : `numpy.ndarray` (N,)
         Array of flux/magnitude measurements.
-    err : `numpy.ndarray` (N,), `float`, or `None`
+    err : `numpy.ndarray` (N,), `float`, or `None`, optional
         Array of associated flux/magnitude errors. If a scalar value is provided
         we assume that error for all measurements. If `None` is provided, we
         assume all errors are 0. By default None
-    band : `numpy.ndarray` (N,)
+    band : `numpy.ndarray` (N,), optional
         Array of associated band labels, by default None
-    lc_id : `numpy.ndarray` (N,)
+    lc_id : `numpy.ndarray` (N,), optional
         Array of lightcurve ids per data point. By default None
     sf_method : str, optional
         The structure function calculation method to be used, by default "basic".
@@ -42,29 +42,15 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     executed on all available bands in `band`.
     """
 
-    if argument_container is None:
-        argument_container_type = SF_METHODS[sf_method].expected_argument_container()
-        argument_container = argument_container_type()
-        argument_container.sf_method = sf_method
+    argument_container = _create_arg_container_if_needed(sf_method, argument_container)
 
-    # The following variables are present both as input arguments and inside
-    # `argument_container`. If any of these arguments are provided with
-    # non-default values, we'll use those. Otherwise, we'll look inside
-    # `argument_container` and use the values found there.
     band = _validate_band(band, flux, argument_container)
 
-    if lc_id is None:
-        lc_id = argument_container.lc_id
-    if lc_id is None:  # Still None after assignment?
-        lc_id = np.zeros(len(flux))
+    lc_id = _validate_lightcurve_id(lc_id, flux, argument_container)
 
-    if sf_method == "basic":
-        sf_method = argument_container.sf_method
+    sf_method = _validate_sf_method(sf_method, argument_container)
 
-    # Check to make sure that the type of argument container matches what is
-    # required by the structure function calculator method.
-    if type(argument_container) is not SF_METHODS[argument_container.sf_method].expected_argument_container():
-        raise TypeError("Argument container does not match Structure Function calculator method")
+    _validate_argument_container(argument_container)
 
     unq_band = np.unique(band)
     unq_ids = np.unique(lc_id)
@@ -121,23 +107,160 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     return sf2_df
 
 
+def _create_arg_container_if_needed(sf_method, argument_container):
+    """If no argument container was provided, we'll create a default container
+    with the default values using the value of `sf_method` to determine the correct
+    type.
+
+    Parameters
+    ----------
+    sf_method : str
+        The structure function calculation method to be used.
+    argument_container : StructureFunctionArgumentContainer
+        Container object for additional configuration options.
+
+    Returns
+    -------
+    StructureFunctionArgumentContainer
+        Container object for additional configuration options.
+    """
+
+    if argument_container is None:
+        argument_container_type = SF_METHODS[sf_method].expected_argument_container()
+        argument_container = argument_container_type()
+        argument_container.sf_method = sf_method
+
+    return argument_container
+
+
 def _validate_band(band, flux, argument_container):
-    # if the input argument `band` is None, check the value of `argument_container.band`
+    """The argument `band` can be set as an input argument or inside the
+    `argument_container`. If `band` is provided in the function call with
+    non-default values, we'll use those. Otherwise, we'll look inside
+    `argument_container` and use the values found there. If we still can't find
+    non-`None` values, we'll create a minimal fallback array of 1's with length
+    equal to the input `flux` array.
+
+    Parameters
+    ----------
+    band : `numpy.ndarray` (N,)
+        Array of associated band labels.
+    flux : `numpy.ndarray` (N,)
+        Array of flux/magnitude measurements.
+    argument_container : StructureFunctionArgumentContainer
+        Container object for additional configuration options.
+
+    Returns
+    -------
+    `numpy.ndarray` (N,)
+        The band information to be used for structure function calculations.
+
+    Raises
+    ------
+    ValueError
+        If the provided band and flux arrays have different lengths, raise an
+        exception.
+    """
+
     if band is None:
         band = argument_container.band
 
     # if band is still `None`, create a fake array of bands. We'll use numpy int8
     # values to use as little memory as possible.
     if band is None:
-        band = np.full(len(flux), 1, dtype=np.int8)
+        band = np.zeros(len(flux), dtype=np.int8)
 
     if len(band) != len(flux):
-        raise (
-            ValueError,
-            "Value of `band` should be `None` or array with length equal length of `flux` array.",
+        raise ValueError(
+            "Value of `band` should be `None` or array with the same length as the `flux` array."
         )
 
     return band
+
+
+def _validate_lightcurve_id(lc_id, flux, argument_container):
+    """The argument `lc_id` can be set as an input argument or inside the
+    `argument_container`. If `lc_id` is provided in the function call with
+    non-default values, we'll use those. Otherwise, we'll look inside
+    `argument_container` and use the values found there. If we still can't find
+    non-`None` values, we'll create a minimal fallback array of 1's with length
+    equal to the input `flux` array.
+
+    Parameters
+    ----------
+    lc_id : `numpy.ndarray` (N,), optional
+        Array of lightcurve ids per data point.
+    flux : `numpy.ndarray` (N,)
+        Array of flux/magnitude measurements.
+    argument_container : StructureFunctionArgumentContainer
+        Container object for additional configuration options.
+
+    Returns
+    -------
+    `numpy.ndarray` (N,)
+        The lightcurve id information to be used for structure function
+        calculations.
+
+    Raises
+    ------
+    ValueError
+        If the provided lc_id and flux arrays have different lengths, raise an
+        exception.
+    """
+
+    if lc_id is None:
+        lc_id = argument_container.lc_id
+
+    # if the light curve value is still `None`, create an array of all 0's.
+    # Using numpy.int8 values to save memory.
+    if lc_id is None:
+        lc_id = np.zeros(len(flux), dtype=np.int8)
+
+    if len(lc_id) != len(flux):
+        raise ValueError(
+            "Value of `lc_id` should be `None` or array with the same length as the `flux` array."
+        )
+
+    return lc_id
+
+
+def _validate_sf_method(sf_method, argument_container):
+    """The argument `sf_method` can be set as an input argument or inside the
+    `argument_container`. If `sf_method` is provided in the function call with
+    a non-default value, we'll use that. If the default value for `sf_method`
+    ("basic") has been provided, we'll check `argument_container` to see if the
+    user provided a different `sf_method` value there.
+
+    Parameters
+    ----------
+    sf_method : str, optional
+        The structure function calculation method to be used, by default "basic".
+    argument_container : StructureFunctionArgumentContainer
+        Container object for additional configuration options.
+
+    Returns
+    -------
+    `str`
+        The band information to be used for structure function calculations.
+    """
+
+    if sf_method == "basic":
+        sf_method = argument_container.sf_method
+
+    if sf_method not in SF_METHODS:
+        raise ValueError("Unknown structure function calculator method: " + str(sf_method))
+
+    return sf_method
+
+
+def _validate_argument_container(argument_container):
+    """Raise an exception if this type of argument container does not match the
+    type of argument container required by the structure function calculation
+    method
+    """
+
+    if type(argument_container) is not SF_METHODS[argument_container.sf_method].expected_argument_container():
+        raise TypeError("Argument container does not match Structure Function calculator method")
 
 
 def _extract_time(time, band_mask, argument_container):
