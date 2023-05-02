@@ -1,6 +1,7 @@
 import glob
 import os
 import time
+import warnings
 
 import dask.dataframe as dd
 import numpy as np
@@ -791,7 +792,7 @@ class Ensemble:
 
         # Check that all of the required columns are provided.
         for col in [self._id_col, self._time_col, self._flux_col, self._band_col]:
-            if not col in source_dict:
+            if col not in source_dict:
                 raise ValueError(f"Required column {col} missing.")
 
         # Load in the source data.
