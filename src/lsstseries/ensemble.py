@@ -557,18 +557,7 @@ class Ensemble:
         else:
             return batch
 
-    def from_hipscat(
-        self,
-        dir,
-        source_subdir="source",
-        object_subdir="object",
-        id_col=None,
-        time_col=None,
-        flux_col=None,
-        err_col=None,
-        band_col=None,
-        additional_cols=True,
-    ):
+    def from_hipscat(self, dir, source_subdir="source", object_subdir="object", **kwargs):
         """Read in parquet files from a hipscat-formatted directory structure
         Parameters
         ----------
@@ -579,20 +568,9 @@ class Ensemble:
         object_subdir: 'str'
             Path to the subdirectory which contains object files, if None then
             files will only be read from the source_subdir
-        id_col: 'str', optional
-            Identifies which column contains the Object IDs
-        time_col: 'str', optional
-            Identifies which column contains the time information
-        flux_col: 'str', optional
-            Identifies which column contains the flux/magnitude information
-        err_col: 'str', optional
-            Identifies which column contains the flux/mag error information
-        band_col: 'str', optional
-            Identifies which column contains the band information
-        additional_cols: 'bool', optional
-            Boolean to indicate whether to carry in columns beyond the
-            critical columns, true will, while false will only load the columns
-            containing the critical quantities (id,time,flux,err,band)
+        **kwargs:
+            keyword arguments passed along to
+            `lsstseries.ensemble.Ensemble.from_parquet`
 
         Returns
         ----------
@@ -612,12 +590,7 @@ class Ensemble:
         return self.from_parquet(
             source_files,
             object_files,
-            id_col=id_col,
-            time_col=time_col,
-            flux_col=flux_col,
-            err_col=err_col,
-            band_col=band_col,
-            additional_cols=additional_cols,
+            **kwargs,
         )
 
     def from_parquet(
@@ -629,8 +602,11 @@ class Ensemble:
         flux_col=None,
         err_col=None,
         band_col=None,
+        nobs_cols=None,
+        nobs_tot_col=None,
         provenance_col=None,
         provenance_label="survey_1",
+        sync_tables=True,
         additional_cols=True,
         npartitions=None,
         partition_size=None,
@@ -656,11 +632,22 @@ class Ensemble:
             Identifies which column contains the flux/mag error information
         band_col: 'str', optional
             Identifies which column contains the band information
+        nobs_col: list of 'str', optional
+            Identifies which columns contain number of observations for each
+            band, if available in the input object file
+        nobs_tot_col: 'str', optional
+            Identifies which column contains the total number of observations,
+            if available in the input object file
         provenance_col: 'str', optional
             Identifies which column contains the provenance information, if
             None the provenance column is generated.
         provenance_label: 'str', optional
             Determines the label to use if a provenance column is generated
+        sync_tables: 'bool', optional
+            In the case where object files are loaded in, determines whether an
+            initial sync is performed between the object and source tables. If
+            not performed, dynamic information like the number of observations
+            may be out of date until a sync is performed internally.
         additional_cols: 'bool', optional
             Boolean to indicate whether to carry in columns beyond the
             critical columns, true will, while false will only load the columns
@@ -711,6 +698,36 @@ class Ensemble:
             source_file, index=self._id_col, columns=columns, split_row_groups=True
         )
 
+        if object_file:  # read from parquet files
+            # Read in the object file(s)
+            self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
+
+            # Handle nobs_band columns
+            if nobs_cols is not None:
+                self._nobs_bands = nobs_cols
+            else:
+                # sets empty nobs cols in object
+                unq_filters = np.unique(self._source[self._band_col])
+                self._nobs_bands = [f"nobs_{filt}" for filt in unq_filters]
+                for col in self._nobs_bands:
+                    self._object[col] = np.nan
+
+            # Handle nobs_total column
+            if nobs_tot_col is not None:
+                self._nobs_col = nobs_tot_col
+            else:
+                self._object[self._nobs_col] = np.nan
+
+            # Optionally sync the tables, recalculates nobs columns
+            if sync_tables:
+                self._source_dirty = True
+                self._object_dirty = True
+                self._sync_tables()
+
+        else:  # generate object table from source
+            self._object = self._generate_object_table()
+            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_col]
+
         # Generate a provenance column if not provided
         if self._provenance_col is None:
             self._source["provenance"] = self._source.apply(
@@ -722,28 +739,6 @@ class Ensemble:
             self._source = self._source.repartition(npartitions=npartitions)
         elif partition_size:
             self._source = self._source.repartition(partition_size=partition_size)
-
-        if object_file:  # read from parquet files
-            # Read in the object file
-            file_table = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
-
-            # Generate an object table from the source table, then merge
-            generated = self._generate_object_table()
-            self._object = file_table.merge(
-                generated, how="right", on=[self._id_col], suffixes=("_original", None)
-            )
-
-            # Drop overwritten columns
-            overwritten_cols = [col for col in list(self._object.columns) if "_original" in col]
-            self._object = self._object.drop(overwritten_cols, axis=1)
-
-            self._nobs_bands = [
-                col for col in list(self._object.columns) if (col != self._nobs_col) and ("nobs" in col)
-            ]
-
-        else:  # generate object table from source
-            self._object = self._generate_object_table()
-            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_col]
 
         return self
 
@@ -873,6 +868,10 @@ class Ensemble:
 
             # Join old obj to new obj; pulls in other existing obj columns
             self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
+            # self._object = (
+            #    self._object
+            #    .merge(new_obj, how="left", suffixes=("_old", None), left_index=True, right_index=True)
+            # )
             old_cols = [col for col in list(self._object.columns) if "_old" in col]
             self._object = self._object.drop(old_cols, axis=1)
 
