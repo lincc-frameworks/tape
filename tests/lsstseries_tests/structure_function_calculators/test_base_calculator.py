@@ -11,7 +11,9 @@ def test_dt_bins():
     """
 
     arg_container = StructureFunctionArgumentContainer()
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     # Test on some known data.
     dts = np.array([(201.0 - i) for i in range(200)])
@@ -22,7 +24,9 @@ def test_dt_bins():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "length"
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     sf_method._bin_dts(dts)
     bins = sf_method._bins
@@ -30,7 +34,9 @@ def test_dt_bins():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "loglength"
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     sf_method._bin_dts(dts)
     bins = sf_method._bins
@@ -43,7 +49,9 @@ def test_dt_bins_large_random():
     dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
 
     arg_container = StructureFunctionArgumentContainer()
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     # test size method
     sf_method._bin_dts(dts)
@@ -54,7 +62,9 @@ def test_dt_bins_large_random():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "length"
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     # test length method
     sf_method._bin_dts(dts)
@@ -63,7 +73,9 @@ def test_dt_bins_large_random():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "loglength"
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     sf_method._bin_dts(dts)
     bins = sf_method._bins
@@ -79,7 +91,9 @@ def test_dt_bins_raises_exception():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "not_a_real_method"
-    sf_method = BasicStructureFunctionCalculator([], [], [], argument_container=arg_container)
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
 
     with pytest.raises(ValueError) as excinfo:
         _ = sf_method._bin_dts(dts)

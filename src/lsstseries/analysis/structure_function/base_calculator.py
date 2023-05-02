@@ -14,9 +14,9 @@ class StructureFunctionCalculator(ABC):
 
     def __init__(
         self,
-        time: List[float],
-        flux: List[float],
-        err: List[float],
+        time: List[List[float]],
+        flux: List[List[float]],
+        err: List[List[float]],
         argument_container: StructureFunctionArgumentContainer,
     ):
         self._time = time
@@ -83,6 +83,28 @@ class StructureFunctionCalculator(ABC):
 
         else:
             raise ValueError(f"Method '{self._binning_method}' not recognized")
+
+    # def _validate_time_input(self, time):
+    #     """_summary_
+
+    #     Parameters
+    #     ----------
+    #     time : _type_
+    #         _description_
+
+    #     Returns
+    #     -------
+    #     _type_
+    #         _description_
+    #     """
+
+    #     if type(time) != np.ndarray:
+    #         raise TypeError("Expected numpy array")
+
+    #     if time.ndim != 2:
+    #         raise TypeError("Expected 2 dimensional input")
+
+    #     return time
 
     @staticmethod
     @abstractmethod
