@@ -296,9 +296,6 @@ def test_sf2_least_possible_information():
         flux=test_y,
     )
 
-    # assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
-    # assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
-
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.172482, rel=0.001)
 
@@ -312,9 +309,6 @@ def test_sf2_least_possible_information_constant_flux():
     test_y = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
     res = analysis.calc_sf2(time=None, flux=test_y)
-
-    # assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
-    # assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
     assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.0, rel=0.001)
