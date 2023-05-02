@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier
-_commit: v1.2.1-91-g675ca2a
+_commit: v1.3.3
 _src_path: gh:lincc-frameworks/python-project-template
 author_email: brantd@uw.edu
 author_name: Doug Branton
@@ -12,4 +12,4 @@ preferred_linter: black
 project_license: MIT
 project_name: lsstseries
 use_gitlfs: none
-use_isort: true
+use_isort: false
