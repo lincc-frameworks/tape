@@ -510,3 +510,21 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
         assert not res_sf2.equals(res_batch)  # output should be different
     else:
         assert res_sf2.equals(res_batch)  # output should be identical
+
+
+@pytest.mark.parametrize("sf_method", ["basic", "iqr"])
+def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
+    """
+    Test calling sf2 from the ensemble
+    """
+
+    arg_container = StructureFunctionArgumentContainer()
+    arg_container.bin_method = "loglength"
+    arg_container.combine = False
+    arg_container.bin_count_target = 50
+    arg_container.sf_method = sf_method
+
+    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
+    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+
+    assert res_sf2.equals(res_batch)  # output should be identical
