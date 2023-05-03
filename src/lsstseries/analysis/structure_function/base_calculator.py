@@ -84,28 +84,6 @@ class StructureFunctionCalculator(ABC):
         else:
             raise ValueError(f"Method '{self._binning_method}' not recognized")
 
-    # def _validate_time_input(self, time):
-    #     """_summary_
-
-    #     Parameters
-    #     ----------
-    #     time : _type_
-    #         _description_
-
-    #     Returns
-    #     -------
-    #     _type_
-    #         _description_
-    #     """
-
-    #     if type(time) != np.ndarray:
-    #         raise TypeError("Expected numpy array")
-
-    #     if time.ndim != 2:
-    #         raise TypeError("Expected 2 dimensional input")
-
-    #     return time
-
     @staticmethod
     @abstractmethod
     def name_id() -> str:
