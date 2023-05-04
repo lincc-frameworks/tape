@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
 
-from lsstseries.analysis.structure_function.iqr.calculator import IqrStructureFunctionCalculator
+from lsstseries.analysis.structure_function.macleod_2012.calculator import (
+    Macleod2012StructureFunctionCalculator,
+)
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 
 
@@ -13,7 +14,7 @@ def test_basic_calculation():
     arg_container = StructureFunctionArgumentContainer()
     arg_container.combine = False
 
-    sf_calculator = IqrStructureFunctionCalculator(test_t, test_y, None, arg_container)
+    sf_calculator = Macleod2012StructureFunctionCalculator(test_t, test_y, None, arg_container)
 
     res = sf_calculator.calculate()
 
@@ -37,13 +38,13 @@ def test_calculate_iqr_method():
     arg_container = StructureFunctionArgumentContainer()
     arg_container.combine = False
 
-    sf_calculator = IqrStructureFunctionCalculator(test_t, test_y, None, arg_container)
+    sf_calculator = Macleod2012StructureFunctionCalculator(test_t, test_y, None, arg_container)
 
     test_input = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
     # 25th percentile of input = 2.25
     # 75th percentile of input = 6.75
-    # 0.741 * (75th - 25th) = 3.3345
+    # 0.74 * (75th - 25th) = 3.33
     output = sf_calculator.calculate_iqr_sf2_statistic(test_input)
 
-    assert output == 3.3345
+    assert output == 3.33

@@ -7,14 +7,14 @@ from lsstseries.analysis.structure_function.base_argument_container import Struc
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
 # For details MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
-CONVERSION_TO_SIGMA = 0.741
+CONVERSION_TO_SIGMA = 0.74
 
 
-class IqrStructureFunctionCalculator(StructureFunctionCalculator):
+class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     """This class implements the structure function calculation described in
     MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
 
-    SF_obs(deltaT) = 0.741 * IQR
+    SF_obs(deltaT) = 0.74 * IQR
 
     Where `IQR` is the interquartile range between 25% and 75% of the sorted
     (y(t) - y(t+delta_t)) distribution.
@@ -112,7 +112,7 @@ class IqrStructureFunctionCalculator(StructureFunctionCalculator):
             Result of calculating defined in
             MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]:
 
-            `SF(dt) = 0.741 * IQR`
+            `SF(dt) = 0.74 * IQR`
         """
         # calculate interquartile range between 25% and 75%.
         iqr = np.subtract(*np.percentile(input, [75, 25]))
@@ -121,7 +121,7 @@ class IqrStructureFunctionCalculator(StructureFunctionCalculator):
 
     @staticmethod
     def name_id() -> str:
-        return "iqr"
+        return "macleod_2012"
 
     @staticmethod
     def expected_argument_container() -> type:
