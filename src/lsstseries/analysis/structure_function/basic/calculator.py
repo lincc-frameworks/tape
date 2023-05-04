@@ -16,9 +16,9 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
 
     def __init__(
         self,
-        time: List[List[float]],
-        flux: List[List[float]],
-        err: List[List[float]],
+        time: np.ndarray,
+        flux: np.ndarray,
+        err: np.ndarray,
         argument_container: StructureFunctionArgumentContainer,
     ):
         # The only work done in the __init__ method should be input argument
