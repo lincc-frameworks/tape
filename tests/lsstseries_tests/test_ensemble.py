@@ -512,7 +512,7 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
         assert res_sf2.equals(res_batch)  # output should be identical
 
 
-@pytest.mark.parametrize("sf_method", ["basic", "iqr"])
+@pytest.mark.parametrize("sf_method", ["basic", "iqr", "macleod_2012"])
 def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
     """
     Test calling sf2 from the ensemble

@@ -557,3 +557,23 @@ def test_sf2_base_case_iqr():
 
     assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.41126, rel=0.001)
+
+
+def test_sf2_base_case_macleod_2012():
+    """
+    Base test case accessing calc_sf2 directly. Uses `macleod_2012` SF
+    calculation method.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
+    test_band = np.array(["r"] * len(test_y))
+    test_sf_method = "macleod_2012"
+
+    res = analysis.calc_sf2(
+        time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, sf_method=test_sf_method
+    )
+
+    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.07904, rel=0.001)
