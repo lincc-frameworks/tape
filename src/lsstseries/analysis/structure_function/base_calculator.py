@@ -14,9 +14,9 @@ class StructureFunctionCalculator(ABC):
 
     def __init__(
         self,
-        time: List[List[float]],
-        flux: List[List[float]],
-        err: List[List[float]],
+        time: np.ndarray,
+        flux: np.ndarray,
+        err: np.ndarray,
         argument_container: StructureFunctionArgumentContainer,
     ):
         self._time = time
