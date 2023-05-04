@@ -6,25 +6,28 @@ from scipy.stats import binned_statistic
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
-# For details see Kozlowski 16 Equation 10: https://arxiv.org/abs/1604.05858
+# For details MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
 CONVERSION_TO_SIGMA = 0.741
 
 
 class IqrStructureFunctionCalculator(StructureFunctionCalculator):
     """This class implements the structure function calculation described in
-    Equation 10 of Kozlowski 16: https://arxiv.org/abs/1604.05858
+    MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
 
     SF_obs(deltaT) = 0.741 * IQR
 
     Where `IQR` is the interquartile range between 25% and 75% of the sorted
     (y(t) - y(t+delta_t)) distribution.
+
+    References:
+    Kozlowski 2016, 2016ApJ...826..118K [https://arxiv.org/abs/1604.05858]
     """
 
     def __init__(
         self,
-        time: List[List[float]],
-        flux: List[List[float]],
-        err: List[List[float]],
+        time: np.ndarray,
+        flux: np.ndarray,
+        err: np.ndarray,
         argument_container: StructureFunctionArgumentContainer,
     ):
         super().__init__(time, flux, err, argument_container)
@@ -106,7 +109,9 @@ class IqrStructureFunctionCalculator(StructureFunctionCalculator):
         Returns
         -------
         float
-            Result of calculating Equation 10 of Kozlowski 16:
+            Result of calculating defined in
+            MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]:
+
             `SF(dt) = 0.741 * IQR`
         """
         # calculate interquartile range between 25% and 75%.
