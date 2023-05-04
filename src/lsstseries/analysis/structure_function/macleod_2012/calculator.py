@@ -6,13 +6,14 @@ from scipy.stats import binned_statistic
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
-# For details MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
+# MacLeod et al. 2012, Erratum 2014ApJ...782..119M
 CONVERSION_TO_SIGMA = 0.74
 
 
 class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     """This class implements the structure function calculation described in
     MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
+    MacLeod et al. 2012, Erratum 2014ApJ...782..119M
 
     SF_obs(deltaT) = 0.74 * IQR
 
@@ -109,8 +110,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
         Returns
         -------
         float
-            Result of calculating defined in
-            MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]:
+            Result of calculation defined in MacLeod et al. 2012, Erratum 2014ApJ...782..119M:
 
             `SF(dt) = 0.74 * IQR`
         """
