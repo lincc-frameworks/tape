@@ -860,8 +860,13 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-            self._source = self._source.merge(self._object, how="right", on=[self._id_col])
-            self._source = self._source.drop(list(self._object.columns), axis=1)
+            s_cols = self._source.columns
+            self._source = self._source.merge(
+                self._object, how="right", on=[self._id_col], suffixes=(None, "_obj")
+            )
+            cols_to_drop = [col for col in self._source.columns if col not in s_cols]
+            self._source = self._source.drop(cols_to_drop, axis=1)
+            self._source = self._source.persist()  # persist source
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
@@ -869,12 +874,9 @@ class Ensemble:
 
             # Join old obj to new obj; pulls in other existing obj columns
             self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
-            # self._object = (
-            #    self._object
-            #    .merge(new_obj, how="left", suffixes=("_old", None), left_index=True, right_index=True)
-            # )
             old_cols = [col for col in list(self._object.columns) if "_old" in col]
             self._object = self._object.drop(old_cols, axis=1)
+            self._object = self._object.persist()  # persist object
 
         # Now synced and clean
         self._source_dirty = False
