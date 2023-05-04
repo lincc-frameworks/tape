@@ -6,26 +6,29 @@ from scipy.stats import binned_statistic
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
-# For details see Graham+ 16 Equation 10: https://arxiv.org/abs/1401.1785
+# For details MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
 CONVERSION_TO_SIGMA = 0.74
 
 
 class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     """This class implements the structure function calculation described in
-    (Macleod et al. 2012) of Graham+ 16: https://arxiv.org/abs/1401.1785
+    MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
 
     SF_obs(delta_t) = 0.741 * IQR / sqrt(N-1)
 
     Where `IQR` is the interquartile range between 25% and 75% of the sorted
     (y(t) - y(t+delta_t)) distribution, and `N` is the number of delta_y values
     for a given delta_t bin.
+
+    References:
+    Graham et al. 2014, 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
     """
 
     def __init__(
         self,
-        time: List[List[float]],
-        flux: List[List[float]],
-        err: List[List[float]],
+        time: np.ndarray,
+        flux: np.ndarray,
+        err: np.ndarray,
         argument_container: StructureFunctionArgumentContainer,
     ):
         super().__init__(time, flux, err, argument_container)
@@ -122,7 +125,9 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
         Returns
         -------
         float
-            Result of calculating IQR part of (Macleod et al. 2012) of Graham+ 16:
+            Result of calculating IQR part of
+            MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
+
             `0.74 * IQR`
         """
         # calculate interquartile range between 25% and 75%.
