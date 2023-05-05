@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List
 
 import numpy as np
+from scipy.stats import binned_statistic
 
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 
@@ -28,6 +29,7 @@ class StructureFunctionCalculator(ABC):
         self._binning_method = argument_container.bin_method
         self._bin_count_target = argument_container.bin_count_target
         self._dts = []
+        self._all_d_fluxes = []
         return
 
     @abstractmethod
@@ -83,6 +85,80 @@ class StructureFunctionCalculator(ABC):
 
         else:
             raise ValueError(f"Method '{self._binning_method}' not recognized")
+
+    def _calculate_binned_statistics(self, statistic_to_apply="mean"):
+        """This method will take the parallel delta_t and delta_flux arrays,
+        bin the delta_t values using the bin edges defined by self._bins. Then
+        the corresponding delta_flux values in each bin will have a statistic
+        measure applied.
+
+        Largely speaking this is a wrapper over Scipy's `binned_statistic`, so
+        any of the statistics supported by that function are valid inputs here.
+
+        Parameters
+        ----------
+        statistict_to_apply : str or function, optional
+            The statistic to apply to the values in each delta_t bin, by default
+            "mean".
+
+        Returns
+        -------
+        Two List[floats]
+            The first list returned defines the center of the delta_t bins.
+            The second list returned contains the result of evaluating the
+            statistic measure of the delta_flux values in each delta_t bin.
+        """
+
+        # combining treats all lightcurves as one when calculating the structure function
+        if self._argument_container.combine and len(self._time) > 1:
+            self._dts = np.hstack(np.array(self._dts, dtype="object"))
+            self._all_d_fluxes = np.hstack(np.array(self._all_d_fluxes, dtype="object"))
+
+            # binning
+            if self._bins is None:
+                self._bin_dts(self._dts)
+
+            # structure function at specific dt
+            # the line below will throw error if the bins are not covering the whole range
+            sfs, bin_edgs, _ = binned_statistic(
+                self._dts, self._all_d_fluxes, statistic=statistic_to_apply, bins=self._bins
+            )
+
+            # return the mean delta_time values for each bin
+            # bin_means, _, _ = binned_statistic(self._dts, self._dts, statistic="mean", bins=self._bins)
+            return [(bin_edgs[0:-1] + bin_edgs[1:]) / 2], [sfs]
+
+        # Not combining calculates structure function for each light curve independently
+        else:
+            # may want to raise warning if len(times) <=1 and combine was set true
+            sfs_all = []
+            t_all = []
+            for lc_idx in range(len(self._dts)):
+                if len(self._dts[lc_idx]) > 1:
+                    # bin the delta_time values, and evaluate the `statistic_to_apply`
+                    # for the delta_flux values in each bin.
+                    self._bin_dts(self._dts[lc_idx])
+                    sfs, bin_edgs, _ = binned_statistic(
+                        self._dts[lc_idx],
+                        self._all_d_fluxes[lc_idx],
+                        statistic=statistic_to_apply,
+                        bins=self._bins,
+                    )
+                    sfs_all.append(sfs)
+
+                    # return the mean delta_time values for each bin
+                    # bin_means, _, _ = binned_statistic(
+                    #     self._dts[lc_idx],
+                    #     self._dts[lc_idx],
+                    #     statistic="mean",
+                    #     bins=self._bins,
+                    # )
+
+                    t_all.append((bin_edgs[0:-1] + bin_edgs[1:]) / 2)
+                else:
+                    sfs_all.append(np.array([]))
+                    t_all.append(np.array([]))
+            return t_all, sfs_all
 
     @staticmethod
     @abstractmethod
