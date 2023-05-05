@@ -65,39 +65,11 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
 
             # build stack of times and fluxes
             self._dts.append(d_times)
-            cor_flux2_all.append(cor_flux2)
+            self._all_d_fluxes.append(cor_flux2)
 
-        # combining treats all lightcurves as one when calculating the structure function
-        if self._argument_container.combine and len(self._time) > 1:
-            self._dts = np.hstack(np.array(self._dts, dtype="object"))
-            cor_flux2_all = np.hstack(np.array(cor_flux2_all, dtype="object"))
+        dts, sfs = self._calculate_binned_statistics()
 
-            # binning
-            if self._bins is None:
-                self._bin_dts(self._dts)
-
-            # structure function at specific dt
-            # the line below will throw error if the bins are not covering the whole range
-            sfs, bin_edgs, _ = binned_statistic(self._dts, cor_flux2_all, "mean", self._bins)
-            return [(bin_edgs[0:-1] + bin_edgs[1:]) / 2], [sfs]
-        # Not combining calculates structure function for each light curve independently
-        else:
-            # may want to raise warning if len(times) <=1 and combine was set true
-            sfs_all = []
-            t_all = []
-            for lc_idx in range(len(self._dts)):
-                if len(self._dts[lc_idx]) > 1:
-                    # binning
-                    self._bin_dts(self._dts[lc_idx])
-                    sfs, bin_edgs, _ = binned_statistic(
-                        self._dts[lc_idx], cor_flux2_all[lc_idx], "mean", self._bins
-                    )
-                    sfs_all.append(sfs)
-                    t_all.append((bin_edgs[0:-1] + bin_edgs[1:]) / 2)
-                else:
-                    sfs_all.append(np.array([]))
-                    t_all.append(np.array([]))
-            return t_all, sfs_all
+        return dts, sfs
 
     @staticmethod
     def name_id() -> str:
