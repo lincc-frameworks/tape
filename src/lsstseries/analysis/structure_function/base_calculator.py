@@ -103,10 +103,11 @@ class StructureFunctionCalculator(ABC):
 
         Returns
         -------
-        Two List[floats]
-            The first list returned defines the center of the delta_t bins.
-            The second list returned contains the result of evaluating the
-            statistic measure of the delta_flux values in each delta_t bin.
+        (`np.ndarray`, `np.ndarray`)
+            A tuple of two numpy arrays.
+            The first array contains the center of the delta_t bins.
+            The second array contains the result of evaluating the
+            statistic measure on the delta_flux values in each delta_t bin.
         """
 
         # combining treats all lightcurves as one when calculating the structure function
