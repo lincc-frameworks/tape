@@ -103,7 +103,7 @@ class StructureFunctionCalculator(ABC):
 
         Returns
         -------
-        (`List[float]`, List[float]`)
+        (`List[float]`, `List[float]`)
             A tuple of two lists.
             The first list contains the center of the delta_t bins.
             The second list contains the result of evaluating the
