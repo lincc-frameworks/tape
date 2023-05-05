@@ -682,17 +682,11 @@ class Ensemble:
 
         if additional_cols:
             columns = None  # None will prompt read_parquet to read in all cols
+
         else:
+            columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
             if self._provenance_col is not None:
-                columns = [
-                    self._time_col,
-                    self._flux_col,
-                    self._err_col,
-                    self._band_col,
-                    self._provenance_col,
-                ]
-            else:
-                columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
+                columns.append(self._provenance_col)
 
         # Read in the source parquet file(s)
         self._source = dd.read_parquet(
