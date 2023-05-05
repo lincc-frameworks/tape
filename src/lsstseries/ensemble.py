@@ -1,3 +1,5 @@
+import glob
+import os
 import time
 import warnings
 
@@ -35,6 +37,7 @@ class Ensemble:
         self._flux_col = "psFlux"
         self._err_col = "psFluxErr"
         self._band_col = "band"
+        self._provenance_col = None
 
         # Object, _id_col is shared
         self._nobs_col = "nobs_total"
@@ -63,7 +66,15 @@ class Ensemble:
         return self
 
     def insert_sources(
-        self, obj_ids, bands, timestamps, fluxes, flux_errs=None, force_repartition=False, **kwargs
+        self,
+        obj_ids,
+        bands,
+        timestamps,
+        fluxes,
+        flux_errs=None,
+        provenance_label="custom",
+        force_repartition=False,
+        **kwargs,
     ):
         """Manually insert sources into the ensemble.
 
@@ -87,6 +98,8 @@ class Ensemble:
             A list of the fluxes of the observations.
         flux_errs: `list`, optional
             A list of the errors in the flux.
+        provenance_label: `str`, optional
+            A label that denotes the provenance of the new observations.
         force_repartition: `bool` optional
             Do an immediate repartition of the dataframes.
         """
@@ -105,12 +118,16 @@ class Ensemble:
                 f"Incorrect flux_errs length during insert" f"{num_inserting} != {len(flux_errs)}"
             )
 
+        # Construct provenance array
+        provenance = [provenance_label] * len(obj_ids)
+
         # Create a dictionary with the new information.
         rows = {
             self._id_col: obj_ids,
             self._band_col: bands,
             self._time_col: timestamps,
             self._flux_col: fluxes,
+            self._provenance_col: provenance,
         }
         if flux_errs is not None:
             rows[self._err_col] = flux_errs
@@ -541,6 +558,42 @@ class Ensemble:
         else:
             return batch
 
+    def from_hipscat(self, dir, source_subdir="source", object_subdir="object", **kwargs):
+        """Read in parquet files from a hipscat-formatted directory structure
+        Parameters
+        ----------
+        dir: 'str'
+            Path to the directory structure
+        source_subdir: 'str'
+            Path to the subdirectory which contains source files
+        object_subdir: 'str'
+            Path to the subdirectory which contains object files, if None then
+            files will only be read from the source_subdir
+        **kwargs:
+            keyword arguments passed along to
+            `lsstseries.ensemble.Ensemble.from_parquet`
+
+        Returns
+        ----------
+        ensemble: `lsstseries.ensemble.Ensemble`
+            The ensemble object with parquet data loaded
+        """
+
+        source_path = os.path.join(dir, source_subdir)
+        source_files = glob.glob(os.path.join(source_path, "**", "*.parquet"), recursive=True)
+
+        if object_subdir is not None:
+            object_path = os.path.join(dir, object_subdir)
+            object_files = glob.glob(os.path.join(object_path, "**", "*.parquet"), recursive=True)
+        else:
+            object_files = None
+
+        return self.from_parquet(
+            source_files,
+            object_files,
+            **kwargs,
+        )
+
     def from_parquet(
         self,
         source_file,
@@ -550,6 +603,11 @@ class Ensemble:
         flux_col=None,
         err_col=None,
         band_col=None,
+        nobs_cols=None,
+        nobs_tot_col=None,
+        provenance_col=None,
+        provenance_label="survey_1",
+        sync_tables=True,
         additional_cols=True,
         npartitions=None,
         partition_size=None,
@@ -575,6 +633,22 @@ class Ensemble:
             Identifies which column contains the flux/mag error information
         band_col: 'str', optional
             Identifies which column contains the band information
+        nobs_col: list of 'str', optional
+            Identifies which columns contain number of observations for each
+            band, if available in the input object file
+        nobs_tot_col: 'str', optional
+            Identifies which column contains the total number of observations,
+            if available in the input object file
+        provenance_col: 'str', optional
+            Identifies which column contains the provenance information, if
+            None the provenance column is generated.
+        provenance_label: 'str', optional
+            Determines the label to use if a provenance column is generated
+        sync_tables: 'bool', optional
+            In the case where object files are loaded in, determines whether an
+            initial sync is performed between the object and source tables. If
+            not performed, dynamic information like the number of observations
+            may be out of date until a sync is performed internally.
         additional_cols: 'bool', optional
             Boolean to indicate whether to carry in columns beyond the
             critical columns, true will, while false will only load the columns
@@ -603,36 +677,63 @@ class Ensemble:
             self._err_col = err_col
         if band_col is not None:
             self._band_col = band_col
+        if provenance_col is not None:
+            self._provenance_col = provenance_col
 
         if additional_cols:
             columns = None  # None will prompt read_parquet to read in all cols
+
         else:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
+            if self._provenance_col is not None:
+                columns.append(self._provenance_col)
 
         # Read in the source parquet file(s)
         self._source = dd.read_parquet(
             source_file, index=self._id_col, columns=columns, split_row_groups=True
         )
 
-        if npartitions and npartitions > 1:
-            self._source = self._source.repartition(npartitions=npartitions)
-        elif partition_size:
-            self._source = self._source.repartition(partition_size=partition_size)
-
         if object_file:  # read from parquet files
-            # Read in the object file
-            file_table = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
+            # Read in the object file(s)
+            self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
 
-            # Generate an object table from the source table, then merge
-            generated = self._generate_object_table()
-            self._object = file_table.merge(generated, how="right", on=[self._id_col])
-            self._nobs_bands = [
-                col for col in list(self._object.columns) if (col != self._nobs_col) and ("nobs" in col)
-            ]
+            # Handle nobs_band columns
+            if nobs_cols is not None:
+                self._nobs_bands = nobs_cols
+            else:
+                # sets empty nobs cols in object
+                unq_filters = np.unique(self._source[self._band_col])
+                self._nobs_bands = [f"nobs_{filt}" for filt in unq_filters]
+                for col in self._nobs_bands:
+                    self._object[col] = np.nan
+
+            # Handle nobs_total column
+            if nobs_tot_col is not None:
+                self._nobs_col = nobs_tot_col
+            else:
+                self._object[self._nobs_col] = np.nan
+
+            # Optionally sync the tables, recalculates nobs columns
+            if sync_tables:
+                self._source_dirty = True
+                self._object_dirty = True
+                self._sync_tables()
 
         else:  # generate object table from source
             self._object = self._generate_object_table()
             self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_col]
+
+        # Generate a provenance column if not provided
+        if self._provenance_col is None:
+            self._source["provenance"] = self._source.apply(
+                lambda x: provenance_label, axis=1, meta=pd.Series(name="provenance", dtype=str)
+            )
+            self._provenance_col = "provenance"
+
+        if npartitions and npartitions > 1:
+            self._source = self._source.repartition(npartitions=npartitions)
+        elif partition_size:
+            self._source = self._source.repartition(partition_size=partition_size)
 
         return self
 
@@ -685,7 +786,7 @@ class Ensemble:
 
         # Check that all of the required columns are provided.
         for col in [self._id_col, self._time_col, self._flux_col, self._band_col]:
-            if not col in source_dict:
+            if col not in source_dict:
                 raise ValueError(f"Required column {col} missing.")
 
         # Load in the source data.
@@ -753,8 +854,13 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-            self._source = self._source.merge(self._object, how="right", on=[self._id_col])
-            self._source = self._source.drop(list(self._object.columns), axis=1)
+            s_cols = self._source.columns
+            self._source = self._source.merge(
+                self._object, how="right", on=[self._id_col], suffixes=(None, "_obj")
+            )
+            cols_to_drop = [col for col in self._source.columns if col not in s_cols]
+            self._source = self._source.drop(cols_to_drop, axis=1)
+            self._source = self._source.persist()  # persist source
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
@@ -764,6 +870,7 @@ class Ensemble:
             self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
             old_cols = [col for col in list(self._object.columns) if "_old" in col]
             self._object = self._object.drop(old_cols, axis=1)
+            self._object = self._object.persist()  # persist object
 
         # Now synced and clean
         self._source_dirty = False

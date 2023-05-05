@@ -17,7 +17,7 @@ def test_with():
     """Test that we open and close a client on enter and exit."""
     with Ensemble() as ens:
         ens.from_parquet(
-            "tests/lsstseries_tests/data/test_subset.parquet",
+            "tests/lsstseries_tests/data/source/test_source.parquet",
             id_col="ps1_objid",
             band_col="filterName",
             flux_col="psFlux",
@@ -26,17 +26,26 @@ def test_with():
         assert ens._data is not None
 
 
-def test_from_parquet(parquet_ensemble):
+@pytest.mark.parametrize("data_fixture", ["parquet_ensemble",
+                                          "parquet_ensemble_from_source",
+                                          "parquet_ensemble_from_hipscat"])
+def test_from_parquet(data_fixture, request):
     """
-    Test that ensemble.from_parquet() successfully loads a parquet file
+    Test that ensemble loader functions successfully load parquet files
     """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     # Check to make sure the source and object tables were created
     assert parquet_ensemble._source is not None
     assert parquet_ensemble._object is not None
 
     # Check that the data is not empty.
-    (_, parquet_ensemble._source) = parquet_ensemble.compute()
-    assert parquet_ensemble._source.size > 0
+    object, source = parquet_ensemble.compute()
+    assert len(source) == 2000
+    assert len(object) == 15
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(object.index))
 
     # Check the we loaded the correct columns.
     for col in [
@@ -44,6 +53,7 @@ def test_from_parquet(parquet_ensemble):
         parquet_ensemble._flux_col,
         parquet_ensemble._err_col,
         parquet_ensemble._band_col,
+        parquet_ensemble._provenance_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
@@ -93,11 +103,11 @@ def test_insert(parquet_ensemble):
     old_size = old_source.shape[0]
 
     # Save the column names to shorter strings
-    id_col = parquet_ensemble._id_col
     time_col = parquet_ensemble._time_col
     flux_col = parquet_ensemble._flux_col
     err_col = parquet_ensemble._err_col
     band_col = parquet_ensemble._band_col
+    prov_col = parquet_ensemble._provenance_col
 
     # Test an insertion of 5 observations.
     new_inds = [2, 1, 100, 110, 111]
@@ -121,6 +131,7 @@ def test_insert(parquet_ensemble):
         assert new_source.loc[new_inds[i]][flux_col] == new_fluxes[i]
         assert new_source.loc[new_inds[i]][err_col] == new_errs[i]
         assert new_source.loc[new_inds[i]][band_col] == new_bands[i]
+        assert new_source.loc[new_inds[i]][prov_col] == "custom"
 
     # Check that all of the old data is still in there.
     obj_ids = old_source.index.unique()
@@ -272,7 +283,7 @@ def test_dropna(parquet_ensemble):
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index) - 1
 
     # Assert the filtered ID is no longer in the objects.
-    assert not valid_id in new_objects_pdf.index.values
+    assert valid_id not in new_objects_pdf.index.values
 
     # Check that none of the other counts have changed.
     for i in new_objects_pdf.index.values:
