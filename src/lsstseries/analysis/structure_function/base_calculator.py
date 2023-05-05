@@ -97,16 +97,16 @@ class StructureFunctionCalculator(ABC):
 
         Parameters
         ----------
-        statistict_to_apply : str or function, optional
+        statistic_to_apply : str or function, optional
             The statistic to apply to the values in each delta_t bin, by default
             "mean".
 
         Returns
         -------
-        (`np.ndarray`, `np.ndarray`)
-            A tuple of two numpy arrays.
-            The first array contains the center of the delta_t bins.
-            The second array contains the result of evaluating the
+        (`List[float]`, List[float]`)
+            A tuple of two lists.
+            The first list contains the center of the delta_t bins.
+            The second list contains the result of evaluating the
             statistic measure on the delta_flux values in each delta_t bin.
         """
 
