@@ -14,7 +14,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     MacLeod et al. 2012, 2012ApJ...753..106M [https://arxiv.org/abs/1112.0679]
     MacLeod et al. 2012, Erratum 2014ApJ...782..119M
 
-    SF_obs(deltaT) = 0.74 * IQR
+    `SF_obs(deltaT) = 0.74 * IQR`
 
     Where `IQR` is the interquartile range between 25% and 75% of the sorted
     (y(t) - y(t+delta_t)) distribution.

@@ -86,7 +86,7 @@ class StructureFunctionCalculator(ABC):
         else:
             raise ValueError(f"Method '{self._binning_method}' not recognized")
 
-    def _calculate_binned_statistics(self, statistic_to_apply="mean"):
+    def _calculate_binned_statistics(self, sample_values=None, statistic_to_apply="mean"):
         """This method will take the parallel delta_t and delta_flux arrays,
         bin the delta_t values using the bin edges defined by self._bins. Then
         the corresponding delta_flux values in each bin will have a statistic
@@ -97,6 +97,9 @@ class StructureFunctionCalculator(ABC):
 
         Parameters
         ----------
+        sample_values : `np.ndarray`, optional
+            The values that will be used to calculate the `statistic_to_apply`.
+            If None or not provided, will use `self._all_d_fluxes` by default.
         statistic_to_apply : str or function, optional
             The statistic to apply to the values in each delta_t bin, by default
             "mean".
@@ -110,10 +113,13 @@ class StructureFunctionCalculator(ABC):
             statistic measure on the delta_flux values in each delta_t bin.
         """
 
+        if sample_values is None:
+            sample_values = self._all_d_fluxes
+
         # combining treats all lightcurves as one when calculating the structure function
         if self._argument_container.combine and len(self._time) > 1:
             self._dts = np.hstack(np.array(self._dts, dtype="object"))
-            self._all_d_fluxes = np.hstack(np.array(self._all_d_fluxes, dtype="object"))
+            sample_values = np.hstack(np.array(sample_values, dtype="object"))
 
             # binning
             if self._bins is None:
@@ -122,7 +128,7 @@ class StructureFunctionCalculator(ABC):
             # structure function at specific dt
             # the line below will throw error if the bins are not covering the whole range
             sfs, bin_edgs, _ = binned_statistic(
-                self._dts, self._all_d_fluxes, statistic=statistic_to_apply, bins=self._bins
+                self._dts, sample_values, statistic=statistic_to_apply, bins=self._bins
             )
 
             # return the mean delta_time values for each bin
@@ -141,7 +147,7 @@ class StructureFunctionCalculator(ABC):
                     self._bin_dts(self._dts[lc_idx])
                     sfs, bin_edgs, _ = binned_statistic(
                         self._dts[lc_idx],
-                        self._all_d_fluxes[lc_idx],
+                        sample_values[lc_idx],
                         statistic=statistic_to_apply,
                         bins=self._bins,
                     )
