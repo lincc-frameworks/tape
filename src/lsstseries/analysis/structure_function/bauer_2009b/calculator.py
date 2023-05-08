@@ -12,7 +12,7 @@ class Bauer2009BStructureFunctionCalculator(StructureFunctionCalculator):
 
     `SF(tau) = sqrt( (pi/2) * mean(abs(delta_flux))^2 - mean(err^2) )`
 
-    References:
+    Additional references:
     Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
     """
 

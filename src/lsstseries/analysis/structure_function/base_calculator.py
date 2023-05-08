@@ -87,13 +87,9 @@ class StructureFunctionCalculator(ABC):
             raise ValueError(f"Method '{self._binning_method}' not recognized")
 
     def _calculate_binned_statistics(self, sample_values=None, statistic_to_apply="mean"):
-        """This method will take the parallel delta_t and delta_flux arrays,
-        bin the delta_t values using the bin edges defined by self._bins. Then
-        the corresponding delta_flux values in each bin will have a statistic
-        measure applied.
-
-        Largely speaking this is a wrapper over Scipy's `binned_statistic`, so
-        any of the statistics supported by that function are valid inputs here.
+        """This method will bin delta_t values stored in `self._dts` using the
+        bin edges defined by `self._bins`. Then the corresponding `sample_values`
+        in each bin will have a statistic measure applied.
 
         Parameters
         ----------
@@ -111,6 +107,16 @@ class StructureFunctionCalculator(ABC):
             The first list contains the center of the delta_t bins.
             The second list contains the result of evaluating the
             statistic measure on the delta_flux values in each delta_t bin.
+
+        Notes
+        -----
+        1) Largely speaking this is a wrapper over Scipy's `binned_statistic`,
+        so any of the statistics supported by that function are valid inputs here.
+
+        2) It is expected that the shapes of `self._dts` and `sample_values` are
+        the same. Additionally, any entry at the i_th index of `self._dts` must
+        correspond to the same pair of observations as the entry at the i_th
+        index of `sample_values`.
         """
 
         if sample_values is None:
