@@ -19,7 +19,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     Where `IQR` is the interquartile range between 25% and 75% of the sorted
     (y(t) - y(t+delta_t)) distribution.
 
-    References:
+    Additional references:
     Kozlowski 2016, 2016ApJ...826..118K [https://arxiv.org/abs/1604.05858]
     """
 
