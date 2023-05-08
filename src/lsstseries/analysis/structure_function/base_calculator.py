@@ -122,6 +122,9 @@ class StructureFunctionCalculator(ABC):
         if sample_values is None:
             sample_values = self._all_d_fluxes
 
+        if len(sample_values) != len(self._dts):
+            raise AttributeError("Length of self._dts must equal sample_values.")
+
         # combining treats all lightcurves as one when calculating the structure function
         if self._argument_container.combine and len(self._time) > 1:
             self._dts = np.hstack(np.array(self._dts, dtype="object"))
@@ -133,9 +136,14 @@ class StructureFunctionCalculator(ABC):
 
             # structure function at specific dt
             # the line below will throw error if the bins are not covering the whole range
-            sfs, bin_edgs, _ = binned_statistic(
-                self._dts, sample_values, statistic=statistic_to_apply, bins=self._bins
-            )
+            try:
+                sfs, bin_edgs, _ = binned_statistic(
+                    self._dts, sample_values, statistic=statistic_to_apply, bins=self._bins
+                )
+            except AttributeError:
+                raise AttributeError(
+                    "Length of combined self._dts must equal length of combined sample_value."
+                )
 
             # return the mean delta_time values for each bin
             # bin_means, _, _ = binned_statistic(self._dts, self._dts, statistic="mean", bins=self._bins)
@@ -151,12 +159,19 @@ class StructureFunctionCalculator(ABC):
                     # bin the delta_time values, and evaluate the `statistic_to_apply`
                     # for the delta_flux values in each bin.
                     self._bin_dts(self._dts[lc_idx])
-                    sfs, bin_edgs, _ = binned_statistic(
-                        self._dts[lc_idx],
-                        sample_values[lc_idx],
-                        statistic=statistic_to_apply,
-                        bins=self._bins,
-                    )
+
+                    try:
+                        sfs, bin_edgs, _ = binned_statistic(
+                            self._dts[lc_idx],
+                            sample_values[lc_idx],
+                            statistic=statistic_to_apply,
+                            bins=self._bins,
+                        )
+                    except AttributeError:
+                        raise AttributeError(
+                            "Length of each self._dts array must equal length of corresponding sample_value array."
+                        )
+
                     sfs_all.append(sfs)
 
                     # return the mean delta_time values for each bin

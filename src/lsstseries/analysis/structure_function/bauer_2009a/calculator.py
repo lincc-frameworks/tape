@@ -31,9 +31,7 @@ class Bauer2009AStructureFunctionCalculator(StructureFunctionCalculator):
             lc_fluxes = lc_fluxes[~lc_mask]
             lc_errors = lc_errors[~lc_mask]
 
-            # compute d_times (difference of times) and
-            # d_fluxes (difference of magnitudes, i.e., fluxes) for all gaps
-            # d_times - difference of times
+            # compute d_times - difference of times
             dt_matrix = lc_times.reshape((1, lc_times.size)) - lc_times.reshape((lc_times.size, 1))
             d_times = dt_matrix[dt_matrix > 0].flatten()
 
