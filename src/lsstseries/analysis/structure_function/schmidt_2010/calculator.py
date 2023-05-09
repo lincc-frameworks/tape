@@ -9,12 +9,9 @@ SQRT_PI_OVER_2 = np.sqrt(np.pi / 2.0)
 class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
     """This class implements the structure function calculation described in
     Eqn. 2 of Schmidt et al. 2010, 2010ApJ...714.1194S [https://arxiv.org/abs/1002.2642]
+    Schmidt et al. 2010, Erratum 2010ApJ...721.1941S
 
-    `V(delta_t) = mean(sqrt(pi/2) * abs(delta_flux_i,j) - sqrt(err_i^2 + err_j^2))`
-
-    From Schmidt et al. 2010: "The quantity V is defined like this so that its
-    average, over a large number of data pairs, is an estimator for the
-    intrinsic variance of the source magnitude."
+    `SF(delta_t) = mean(sqrt(pi/2) * abs(delta_flux_i,j) - sqrt(err_i^2 + err_j^2))`
 
     Additional references:
     Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
