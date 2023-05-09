@@ -24,7 +24,7 @@ def test_basic_calculation():
     assert res
 
 
-def test_sf2_base_case_bauer_2009b():
+def test_sf2_base_case_schmidt_2010():
     """
     Base test case accessing calc_sf2 directly. Uses `Bauer 2009b` SF calculation method.
     """
