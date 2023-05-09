@@ -17,7 +17,7 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
     """
 
     def calculate(self):
-        err2_values = []
+        values_to_be_binned = []
         for lc_idx in range(len(self._time)):
             lc_times = self._time[lc_idx]
             lc_fluxes = self._flux[lc_idx]
@@ -51,10 +51,9 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
             self._dts.append(d_times)
 
             calculated_values = SQRT_PI_OVER_2 * np.abs(d_fluxes) - np.sqrt(err2s)
+            values_to_be_binned.append(calculated_values)
 
-            self._all_d_fluxes.append(calculated_values)
-
-        dts, sfs = self._calculate_binned_statistics()
+        dts, sfs = self._calculate_binned_statistics(sample_values=values_to_be_binned)
 
         return dts, sfs
 
