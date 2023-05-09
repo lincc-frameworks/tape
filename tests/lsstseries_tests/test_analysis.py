@@ -540,9 +540,9 @@ def test_validate_sf_method_raises_for_unknown_method():
     assert "Unknown" in str(execinfo.value)
 
 
-def test_sf2_base_case_iqr():
+def test_sf2_base_case_macleod_2012():
     """
-    Base test case accessing calc_sf2 directly. Uses `IQR` SF calculation method.
+    Base test case accessing calc_sf2 directly. Uses `MacLeod 2012` SF calculation method.
     """
     lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
     test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]

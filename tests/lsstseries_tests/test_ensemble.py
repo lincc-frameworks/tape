@@ -26,9 +26,9 @@ def test_with():
         assert ens._data is not None
 
 
-@pytest.mark.parametrize("data_fixture", ["parquet_ensemble",
-                                          "parquet_ensemble_from_source",
-                                          "parquet_ensemble_from_hipscat"])
+@pytest.mark.parametrize(
+    "data_fixture", ["parquet_ensemble", "parquet_ensemble_from_source", "parquet_ensemble_from_hipscat"]
+)
 def test_from_parquet(data_fixture, request):
     """
     Test that ensemble loader functions successfully load parquet files
@@ -523,7 +523,7 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
         assert res_sf2.equals(res_batch)  # output should be identical
 
 
-@pytest.mark.parametrize("sf_method", ["basic", "macleod_2012"])
+@pytest.mark.parametrize("sf_method", ["basic", "macleod_2012", "bauer_2009a", "bauer_2009b"])
 def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
     """
     Test calling sf2 from the ensemble

@@ -21,10 +21,10 @@ def test_basic_calculation():
     assert res
 
 
-def test_calculate_iqr_method():
+def test_calculate_macleod_2012_method():
     """This test is specifically for the
-    `IqrStructureFunctionCalculator.calculate_iqr_sf2_statistic` method.
-    We'll set up an instance of `IqrStructureFunctionCalculator`, but only so
+    `Macleod2012StructureFunctionCalculator.calculate_iqr_sf2_statistic` method.
+    We'll set up an instance of `Macleod2012StructureFunctionCalculator`, but only so
     we can get access to the method we want to test.
 
     Because the function is only called by scipy.binned_statistics, we can be

@@ -98,3 +98,76 @@ def test_dt_bins_raises_exception():
     with pytest.raises(ValueError) as excinfo:
         _ = sf_method._bin_dts(dts)
     assert "Method 'not_a_real_method' not recognized"
+
+
+def test_calculate_binned_statistics_raises_top_level():
+    """
+    Test to ensure that _calculate_binned_statistics will raise an exception if
+    self._dts and sample_values do not have the same length along axis=0.
+    """
+
+    np.random.seed(1)
+    dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
+
+    arg_container = StructureFunctionArgumentContainer()
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
+
+    sf_method._bin_dts(dts)
+
+    test_sample_values = np.array([[1, 2, 3], [4, 5, 6]])
+
+    with pytest.raises(AttributeError) as excinfo:
+        _ = sf_method._calculate_binned_statistics(test_sample_values)
+    assert "Length of self._dts must equal" in str(excinfo.value)
+
+
+def test_calculate_binned_statistics_raises_combined():
+    """
+    Test to ensure that _calculate_binned_statistics will raise an exception if
+    self._dts and sample_values do not have the same length when np.hstack'ed.
+    """
+
+    np.random.seed(1)
+    test_delta_times = np.random.random_sample((3, 10))
+    test_sample_values = np.random.random_sample((3, 8))
+
+    arg_container = StructureFunctionArgumentContainer()
+    arg_container.combine = True
+    sf_method = BasicStructureFunctionCalculator(
+        np.array([[1, 2, 3], [4, 5, 6]]),
+        np.atleast_2d([]),
+        np.atleast_2d([]),
+        argument_container=arg_container,
+    )
+
+    sf_method._bin_dts(test_delta_times)
+    sf_method._dts = test_delta_times
+
+    with pytest.raises(AttributeError) as excinfo:
+        _ = sf_method._calculate_binned_statistics(test_sample_values)
+    assert "Length of combined self._dts" in str(excinfo.value)
+
+
+def test_calculate_binned_statistics_raises_individual():
+    """
+    Test to ensure that _calculate_binned_statistics will raise an exception if
+    each of the self._dts and sample_values arrays do not have the same length.
+    """
+
+    np.random.seed(1)
+    test_delta_times = np.random.random_sample((3, 10))
+    test_sample_values = np.random.random_sample((3, 8))
+
+    arg_container = StructureFunctionArgumentContainer()
+    sf_method = BasicStructureFunctionCalculator(
+        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
+    )
+
+    sf_method._bin_dts(test_delta_times)
+    sf_method._dts = test_delta_times
+
+    with pytest.raises(AttributeError) as excinfo:
+        _ = sf_method._calculate_binned_statistics(test_sample_values)
+    assert "Length of each self._dts" in str(excinfo.value)

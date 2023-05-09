@@ -1,32 +1,21 @@
-from typing import List
-
 import numpy as np
 
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
 
-class BasicStructureFunctionCalculator(StructureFunctionCalculator):
-    """
-    SF calculation method that calculates excess variance directly as a
-    variance of observations with observational errors subtracted.
-    For reference, please see Equation 12 in https://arxiv.org/abs/1604.05858
-    """
+class Bauer2009AStructureFunctionCalculator(StructureFunctionCalculator):
+    """This class implements the structure function calculation described in
+    Eqn. 4 of Bauer et al. 2009, 2009ApJ...696.1241B [https://arxiv.org/abs/0902.4103]
 
-    def __init__(
-        self,
-        time: np.ndarray,
-        flux: np.ndarray,
-        err: np.ndarray,
-        argument_container: StructureFunctionArgumentContainer,
-    ):
-        # The only work done in the __init__ method should be input argument
-        # validation. Operating on data should only happen in the `calculate`
-        # method.
+    `SF(tau) = sqrt( mean(delta_flux^2) - mean(err^2) )`
 
-        super().__init__(time, flux, err, argument_container)
+    Additional references:
+    Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
+    """
 
     def calculate(self):
+        err2_values = []
         for lc_idx in range(len(self._time)):
             lc_times = self._time[lc_idx]
             lc_fluxes = self._flux[lc_idx]
@@ -42,9 +31,7 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
             lc_fluxes = lc_fluxes[~lc_mask]
             lc_errors = lc_errors[~lc_mask]
 
-            # compute d_times (difference of times) and
-            # d_fluxes (difference of magnitudes, i.e., fluxes) for all gaps
-            # d_times - difference of times
+            # compute d_times - difference of times
             dt_matrix = lc_times.reshape((1, lc_times.size)) - lc_times.reshape((lc_times.size, 1))
             d_times = dt_matrix[dt_matrix > 0].flatten()
 
@@ -58,20 +45,27 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
             )
             err2s = err2_matrix[dt_matrix > 0].flatten()
 
-            # corrected each pair of observations
-            cor_flux2 = d_fluxes**2 - err2s
-
-            # build stack of times and fluxes
+            # build stacks of time and flux differences and errors
             self._dts.append(d_times)
-            self._all_d_fluxes.append(cor_flux2)
+            self._all_d_fluxes.append(np.square(d_fluxes))
+            err2_values.append(err2s)
 
-        dts, sfs = self._calculate_binned_statistics()
+        # gather the means of the delta_fluxes per bin
+        dts, mean_d_flux_per_bin = self._calculate_binned_statistics(statistic_to_apply="mean")
+
+        # gather the means of the sigma^2 (error) per bin
+        _, mean_err2_per_bin = self._calculate_binned_statistics(
+            sample_values=err2_values, statistic_to_apply="mean"
+        )
+
+        # calculate the structure function
+        sfs = np.sqrt(np.asarray(mean_d_flux_per_bin) - np.asarray(mean_err2_per_bin))
 
         return dts, sfs
 
     @staticmethod
     def name_id() -> str:
-        return "basic"
+        return "bauer_2009a"
 
     @staticmethod
     def expected_argument_container() -> type:
