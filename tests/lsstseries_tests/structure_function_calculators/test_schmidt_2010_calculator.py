@@ -26,7 +26,7 @@ def test_basic_calculation():
 
 def test_sf2_base_case_schmidt_2010():
     """
-    Base test case accessing calc_sf2 directly. Uses `Bauer 2009b` SF calculation method.
+    Base test case accessing calc_sf2 directly. Uses `Schmidt 2010` SF calculation method.
     """
     lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
     test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
