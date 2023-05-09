@@ -12,6 +12,10 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
 
     `V(delta_t) = mean(sqrt(pi/2) * abs(delta_flux_i,j) - sqrt(err_i^2 + err_j^2))`
 
+    From Schmidt et al. 2010: "The quantity V is defined like this so that its
+    average, over a large number of data pairs, is an estimator for the
+    intrinsic variance of the source magnitude."
+
     Additional references:
     Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
     """
