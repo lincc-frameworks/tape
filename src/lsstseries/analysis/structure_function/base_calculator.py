@@ -104,7 +104,7 @@ class StructureFunctionCalculator(ABC):
         -------
         (`List[float]`, `List[float]`)
             A tuple of two lists.
-            The first list contains the center of the delta_t bins.
+            The first list contains the mean of the delta_t values in each bin.
             The second list contains the result of evaluating the
             statistic measure on the delta_flux values in each delta_t bin.
 
