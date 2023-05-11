@@ -146,8 +146,8 @@ class StructureFunctionCalculator(ABC):
                 )
 
             # return the mean delta_time values for each bin
-            # bin_means, _, _ = binned_statistic(self._dts, self._dts, statistic="mean", bins=self._bins)
-            return [(bin_edgs[0:-1] + bin_edgs[1:]) / 2], [sfs]
+            bin_means, _, _ = binned_statistic(self._dts, self._dts, statistic="mean", bins=self._bins)
+            return [bin_means], [sfs]
 
         # Not combining calculates structure function for each light curve independently
         else:
@@ -175,14 +175,14 @@ class StructureFunctionCalculator(ABC):
                     sfs_all.append(sfs)
 
                     # return the mean delta_time values for each bin
-                    # bin_means, _, _ = binned_statistic(
-                    #     self._dts[lc_idx],
-                    #     self._dts[lc_idx],
-                    #     statistic="mean",
-                    #     bins=self._bins,
-                    # )
+                    bin_means, _, _ = binned_statistic(
+                        self._dts[lc_idx],
+                        self._dts[lc_idx],
+                        statistic="mean",
+                        bins=self._bins,
+                    )
 
-                    t_all.append((bin_edgs[0:-1] + bin_edgs[1:]) / 2)
+                    t_all.append(bin_means)
                 else:
                     sfs_all.append(np.array([]))
                     t_all.append(np.array([]))
