@@ -168,7 +168,7 @@ class StructureFunctionCalculator(ABC):
             # structure function at specific dt
             # the line below will throw error if the bins are not covering the whole range
             try:
-                sfs, bin_edgs, _ = binned_statistic(
+                sfs, _, _ = binned_statistic(
                     self._dts, sample_values, statistic=statistic_to_apply, bins=self._bins
                 )
             except AttributeError:
@@ -189,10 +189,12 @@ class StructureFunctionCalculator(ABC):
                 if len(self._dts[lc_idx]) > 1:
                     # bin the delta_time values, and evaluate the `statistic_to_apply`
                     # for the delta_flux values in each bin.
-                    self._bin_dts(self._dts[lc_idx])
+
+                    if self._bins is None:
+                        self._bin_dts(self._dts[lc_idx])
 
                     try:
-                        sfs, bin_edgs, _ = binned_statistic(
+                        sfs, _, _ = binned_statistic(
                             self._dts[lc_idx],
                             sample_values[lc_idx],
                             statistic=statistic_to_apply,
