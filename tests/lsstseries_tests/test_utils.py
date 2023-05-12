@@ -18,7 +18,7 @@ def test_column_mapper():
             assert item[0] in needed  # all required columns should be captured here
 
     # Assign required columns
-    col_map.assign(id_col="id", flux_col="flux", err_col="err", band_col="band")
+    col_map.assign(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
 
     assert col_map.is_ready()  # col_map should now be ready
 
@@ -29,6 +29,7 @@ def test_column_mapper():
 
     expected_map = {
         "id_col": "id",
+        "time_col": "time",
         "flux_col": "flux",
         "err_col": "err",
         "band_col": "band",
@@ -47,6 +48,7 @@ def test_column_mapper_init():
 
     col_map = ColumnMapper(
         id_col="id",
+        time_col="time",
         flux_col="flux",
         err_col="err",
         band_col="band",
@@ -59,6 +61,7 @@ def test_column_mapper_init():
 
     expected_map = {
         "id_col": "id",
+        "time_col": "time",
         "flux_col": "flux",
         "err_col": "err",
         "band_col": "band",

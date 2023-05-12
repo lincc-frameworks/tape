@@ -4,6 +4,7 @@ class ColumnMapper:
     def __init__(
         self,
         id_col=None,
+        time_col=None,
         flux_col=None,
         err_col=None,
         band_col=None,
@@ -15,6 +16,7 @@ class ColumnMapper:
 
         self.map = {
             "id_col": id_col,
+            "time_col": time_col,
             "flux_col": flux_col,
             "err_col": err_col,
             "band_col": band_col,
@@ -27,6 +29,7 @@ class ColumnMapper:
         self.required = {
             "id_col": True,
             "flux_col": True,
+            "time_col": True,
             "err_col": True,
             "band_col": True,
             "provenance_col": False,
@@ -61,6 +64,7 @@ class ColumnMapper:
     def assign(
         self,
         id_col=None,
+        time_col=None,
         flux_col=None,
         err_col=None,
         band_col=None,
@@ -71,6 +75,7 @@ class ColumnMapper:
         """Updates a given set of columns"""
         assign_map = {
             "id_col": id_col,
+            "time_col": time_col,
             "flux_col": flux_col,
             "err_col": err_col,
             "band_col": band_col,
