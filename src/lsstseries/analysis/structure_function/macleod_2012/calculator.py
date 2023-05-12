@@ -33,30 +33,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
         super().__init__(time, flux, err, argument_container)
 
     def calculate(self):
-        for lc_idx in range(len(self._time)):
-            lc_times = self._time[lc_idx]
-            lc_fluxes = self._flux[lc_idx]
-
-            # mask out any nan values
-            t_mask = np.isnan(lc_times)
-            f_mask = np.isnan(lc_fluxes)
-            lc_mask = np.logical_or(t_mask, f_mask)
-
-            lc_times = lc_times[~lc_mask]
-            lc_fluxes = lc_fluxes[~lc_mask]
-
-            # compute difference of times
-            dt_matrix = lc_times.reshape((1, lc_times.size)) - lc_times.reshape((lc_times.size, 1))
-            d_times = dt_matrix[dt_matrix > 0].flatten()
-
-            # compute difference of fluxes, keep only where difference in time > 0
-            df_matrix = lc_fluxes.reshape((1, lc_fluxes.size)) - lc_fluxes.reshape((lc_fluxes.size, 1))
-            d_fluxes = df_matrix[dt_matrix > 0].flatten()
-
-            # build stack of times and fluxes
-            # `self._dts` and `all_d_fluxes` will have shape = (num_lightcurves, N)
-            self._dts.append(d_times)
-            self._all_d_fluxes.append(d_fluxes)
+        self._compute_difference_arrays()
 
         dts, sfs = self._calculate_binned_statistics(statistic_to_apply=self.calculate_iqr_sf2_statistic)
 

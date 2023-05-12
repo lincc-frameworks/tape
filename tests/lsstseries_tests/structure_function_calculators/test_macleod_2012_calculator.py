@@ -11,10 +11,11 @@ def test_basic_calculation():
 
     test_t = np.atleast_2d([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     test_y = np.atleast_2d([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    test_e = np.atleast_2d([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     arg_container = StructureFunctionArgumentContainer()
     arg_container.combine = False
 
-    sf_calculator = Macleod2012StructureFunctionCalculator(test_t, test_y, None, arg_container)
+    sf_calculator = Macleod2012StructureFunctionCalculator(test_t, test_y, test_e, arg_container)
 
     res = sf_calculator.calculate()
 
@@ -35,10 +36,11 @@ def test_calculate_macleod_2012_method():
 
     test_t = np.atleast_2d([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     test_y = np.atleast_2d([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    test_e = np.atleast_2d([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     arg_container = StructureFunctionArgumentContainer()
     arg_container.combine = False
 
-    sf_calculator = Macleod2012StructureFunctionCalculator(test_t, test_y, None, arg_container)
+    sf_calculator = Macleod2012StructureFunctionCalculator(test_t, test_y, test_e, arg_container)
 
     test_input = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 

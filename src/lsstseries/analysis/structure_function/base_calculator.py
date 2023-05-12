@@ -61,12 +61,59 @@ class StructureFunctionCalculator(ABC):
         self._bin_count_target = argument_container.bin_count_target
         self._dts = []
         self._all_d_fluxes = []
+        self._sum_error_squared = []
         return
 
     @abstractmethod
     def calculate(self):
         """Abstract method that must be implemented by the child class."""
         raise (NotImplementedError, "Must be implemented by the child class")
+
+    def _compute_difference_arrays(self):
+        """This method handles the calculation of the differences between all
+        pairs of values for time and flux. (Additionally the sum of error^2).
+        The expected inputs are 2D lists for time, flux and error.
+
+        For each array in time, flux and error, we'll mask out nan's, then use
+        the resulting values to calculate the difference of all pairs.
+
+        Then we filter out any differences that correspond to a delta_time <= 0.
+
+        We append the resulting numpy arrays into a corresponding python list,
+        and make that available for use in additional calculations.
+        """
+        for lc_idx in range(len(self._time)):
+            # Get one numpy array from the list of numpy arrays
+            lc_times = self._time[lc_idx]
+            lc_fluxes = self._flux[lc_idx]
+            lc_errors = self._err[lc_idx]
+
+            # mask out any nan values
+            t_mask = np.isnan(lc_times)
+            f_mask = np.isnan(lc_fluxes)
+            e_mask = np.isnan(lc_errors)  # always mask out nan errors?
+            lc_mask = np.logical_or(t_mask, f_mask, e_mask)
+
+            lc_times = lc_times[~lc_mask]
+            lc_fluxes = lc_fluxes[~lc_mask]
+            lc_errors = lc_errors[~lc_mask]
+
+            # d_times = difference of times
+            dt_matrix = lc_times.reshape((1, lc_times.size)) - lc_times.reshape((lc_times.size, 1))
+            d_times = dt_matrix[dt_matrix > 0].flatten()
+            self._dts.append(d_times)
+
+            # d_fluxes = difference of fluxes
+            df_matrix = lc_fluxes.reshape((1, lc_fluxes.size)) - lc_fluxes.reshape((lc_fluxes.size, 1))
+            d_fluxes = df_matrix[dt_matrix > 0].flatten()
+            self._all_d_fluxes.append(d_fluxes)
+
+            # err^2 = sum of squared errors
+            err2_matrix = (
+                lc_errors.reshape((1, lc_errors.size)) ** 2 + lc_errors.reshape((lc_errors.size, 1)) ** 2
+            )
+            err2s = err2_matrix[dt_matrix > 0].flatten()
+            self._sum_error_squared.append(err2s)
 
     def _bin_dts(self, dts):
         """Bin an input array of delta times (dts). Supports several binning
