@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from lsstseries.analysis.structure_function import SF_METHODS
+from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
 def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):
@@ -81,13 +82,24 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
 
             # Create stacks of critical quantities, indexed by id
             id_masks = [lc_ids == lc for lc in unq_ids]
-            times_2d = [times[mask] for mask in id_masks]
-            fluxes_2d = [fluxes[mask] for mask in id_masks]
-            errors_2d = [errors[mask] for mask in id_masks]
 
-            sf_calculator = SF_METHODS[sf_method](times_2d, fluxes_2d, errors_2d, argument_container)
+            lightcurves = []
+            for mask in id_masks:
+                sf_lc = StructureFunctionLightCurve(
+                    times=times[mask], fluxes=fluxes[mask], errors=errors[mask]
+                )
+                lightcurves.append(sf_lc)
 
-            res = sf_calculator.calculate()
+            sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
+
+            for _ in range(argument_container.calculation_repetitions):
+                if argument_container.equally_weight_lightcurves:
+                    sf_calculator._equally_weight_lightcurves()
+
+                res = sf_calculator.calculate()
+
+                # ! Need to do some more work to aggregate the results here
+                # ! Take the median, also calculate 16/83 quantiles to report as 1 sigma.
 
             res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res[0])]
             res_bands = [[b] * len(arr) for arr in res[0]]

@@ -4,6 +4,7 @@ import numpy as np
 
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
 class BasicStructureFunctionCalculator(StructureFunctionCalculator):
@@ -15,23 +16,18 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
 
     def __init__(
         self,
-        time: np.ndarray,
-        flux: np.ndarray,
-        err: np.ndarray,
+        lightcurves: List[StructureFunctionLightCurve],
         argument_container: StructureFunctionArgumentContainer,
     ):
         # The only work done in the __init__ method should be input argument
         # validation. Operating on data should only happen in the `calculate`
         # method.
 
-        super().__init__(time, flux, err, argument_container)
+        super().__init__(lightcurves, argument_container)
 
     def calculate(self):
-        self._compute_difference_arrays()
-
         values_to_be_binned = [
-            np.square(d_flux) - error_squared
-            for d_flux, error_squared in zip(self._all_d_fluxes, self._sum_error_squared)
+            np.square(lc.sample_d_fluxes) - lc.sample_sum_squared_error for lc in self._lightcurves
         ]
 
         dts, sfs = self._calculate_binned_statistics(sample_values=values_to_be_binned)

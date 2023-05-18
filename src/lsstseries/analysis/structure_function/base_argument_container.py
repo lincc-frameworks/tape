@@ -38,7 +38,24 @@ class StructureFunctionArgumentContainer:
             Target number of samples per time difference bin. By default 100.
         ignore_timestamps : `bool`, optional
             Used to ignore the use of any provided timestamps, instead assuming
-            all measurements are taken at equi-distant times.
+            all measurements are taken at equi-distant times. By default `False`.
+        random_seed: `int`, optional
+            Used when randomly sampling lightcurves to ensure reproducibility.
+            By default None.
+        equally_weight_lightcurves: `bool`, optional
+            Used to ensure that no lightcurves completely dominate the structure
+            function calculation. For instance if lightcurve LC_1 has N=10
+            observations and LC_2 has N=100, setting `equally_weight_lightcurves=True`
+            will calculate all of the time and flux differences (45 for LC_1 and
+            4950 for LC_2), then randomly sample (without replacement) 45 from
+            LC_2 when calculating the Structure Function. Note that to bin the
+            results, we would use the bins calculated based on the 4950
+            differences or the user provided bins.
+            By default `False`.
+        calculation_repetitions: `int`, optional
+            Specifies the number of times to repeat the structure function
+            calculation. Typically this would be used when setting
+            `equally_weight_lightcurves = True`. By default 1.
 
     Notes:
         It may be necessary to extend this dataclass to support new Structure
@@ -55,6 +72,9 @@ class StructureFunctionArgumentContainer:
     bin_method: str = "size"
     bin_count_target: int = 100
     ignore_timestamps: bool = False
+    random_seed: int = None
+    equally_weight_lightcurves: bool = False
+    calculation_repetitions: int = 1
 
     def __post_init__(self):
         # Nothing here yet
