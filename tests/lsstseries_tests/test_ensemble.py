@@ -27,7 +27,13 @@ def test_with():
 
 
 @pytest.mark.parametrize(
-    "data_fixture", ["parquet_ensemble", "parquet_ensemble_from_source", "parquet_ensemble_from_hipscat"]
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_from_source",
+        "parquet_ensemble_from_hipscat",
+        "parquet_ensemble_with_column_mapper",
+    ],
 )
 def test_from_parquet(data_fixture, request):
     """
@@ -521,6 +527,7 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
         assert not res_sf2.equals(res_batch)  # output should be different
     else:
         assert res_sf2.equals(res_batch)  # output should be identical
+
 
 @pytest.mark.parametrize("sf_method", ["basic", "macleod_2012", "bauer_2009a", "bauer_2009b", "schmidt_2010"])
 def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):

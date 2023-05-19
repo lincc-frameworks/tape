@@ -598,6 +598,7 @@ class Ensemble:
         self,
         source_file,
         object_file=None,
+        column_mapper=None,
         id_col=None,
         time_col=None,
         flux_col=None,
@@ -623,6 +624,9 @@ class Ensemble:
             Path to a parquet file, or multiple parquet files that contain
             object information. If not specified, it is generated from the
             source table
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
         id_col: 'str', optional
             Identifies which column contains the Object IDs
         time_col: 'str', optional
@@ -666,27 +670,52 @@ class Ensemble:
             The ensemble object with parquet data loaded
         """
 
-        # Track critical column changes
-        if id_col is not None:
-            self._id_col = id_col
-        if time_col is not None:
-            self._time_col = time_col
-        if flux_col is not None:
-            self._flux_col = flux_col
-        if err_col is not None:
-            self._err_col = err_col
-        if band_col is not None:
-            self._band_col = band_col
-        if provenance_col is not None:
-            self._provenance_col = provenance_col
+        if column_mapper is not None:  # Populate columns with a ColumnMapper object
+            if column_mapper.is_ready():
+                # Assign Critical Columns
+                self._id_col = column_mapper.map["id_col"]
+                self._time_col = column_mapper.map["time_col"]
+                self._flux_col = column_mapper.map["flux_col"]
+                self._err_col = column_mapper.map["err_col"]
+                self._band_col = column_mapper.map["band_col"]
 
+                # Assign optional columns if provided
+                if column_mapper.map["provenance_col"] is not None:
+                    self._provenance_col = column_mapper.map["provenance_col"]
+                if column_mapper.map["nobs_total_col"] is not None:
+                    self._nobs_total_col = column_mapper.map["nobs_total_col"]
+                if column_mapper.map["nobs_band_cols"] is not None:
+                    self._nobs_band_cols = column_mapper.map["nobs_band_cols"]
+
+            else:
+                raise ValueError("Input ColumnMapper is missing required mapping information")
+        else:  # Or populate via kwarg assigned mappings
+            # Track critical column changes
+            if id_col is not None:
+                self._id_col = id_col
+            if time_col is not None:
+                self._time_col = time_col
+            if flux_col is not None:
+                self._flux_col = flux_col
+            if err_col is not None:
+                self._err_col = err_col
+            if band_col is not None:
+                self._band_col = band_col
+            if provenance_col is not None:
+                self._provenance_col = provenance_col
+
+        # Handle additional columns
         if additional_cols:
             columns = None  # None will prompt read_parquet to read in all cols
-
         else:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
             if self._provenance_col is not None:
                 columns.append(self._provenance_col)
+            if self._nobs_total_col is not None:
+                columns.append(self._nobs_total_col)
+            if self._nobs_band_cols is not None:
+                for col in self._nobs_band_cols:
+                    columns.append(col)
 
         # Read in the source parquet file(s)
         self._source = dd.read_parquet(
