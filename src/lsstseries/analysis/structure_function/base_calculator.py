@@ -67,17 +67,15 @@ class StructureFunctionCalculator(ABC):
         """Abstract method that must be implemented by the child class."""
         raise (NotImplementedError, "Must be implemented by the child class")
 
-    def _equally_weight_lightcurves(self):
+    def _equally_weight_lightcurves(self, random_generator=None):
         """This method reduces the number of difference samples for all light
         curves to prevent a few from dominating the calculation.
         """
         self._get_difference_values_per_lightcurve()
-        least_lightcurve_differences = min(self._delta_values_per_lightcurve)
-
-        rng = np.random.default_rng(self._argument_container.random_seed)
+        least_lightcurve_differences = min(self._difference_values_per_lightcurve)
 
         for lc in self._lightcurves:
-            lc.select_difference_samples(least_lightcurve_differences, random_generator=rng)
+            lc.select_difference_samples(least_lightcurve_differences, random_generator=random_generator)
 
     def _get_difference_values_per_lightcurve(self):
         """Retrieves the number of difference values per lightcurve and stores
