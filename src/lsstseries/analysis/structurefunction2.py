@@ -119,10 +119,10 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
             dts.append(np.hstack(res[0]))
             sf2s.append(np.hstack(res[1]))
 
+    idstack = np.hstack(ids)
     if argument_container.combine:
-        idstack = ["combined"] * len(np.hstack(ids))
-    else:
-        idstack = np.hstack(ids)
+        idstack = ["combined"] * len(idstack)
+
     sf2_df = pd.DataFrame(
         {"lc_id": idstack, "band": np.hstack(bands), "dt": np.hstack(dts), "sf2": np.hstack(sf2s)}
     )
