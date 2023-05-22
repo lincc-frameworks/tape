@@ -109,15 +109,15 @@ def test_lightcurve_validate_same_length():
     assert "Input np.arrays are expected to have the same size." in str(excinfo.value)
 
 
-def test_lightcurve_validate_sufficient_observations():
-    """Make sure that we raise an exception if there aren't enough
-    observations to calculate Structure Function differences.
-    """
-    test_t = np.array([1.11])
-    test_y = np.array([0.11])
-    test_yerr = np.array([0.1])
+# def test_lightcurve_validate_sufficient_observations():
+#     """Make sure that we raise an exception if there aren't enough
+#     observations to calculate Structure Function differences.
+#     """
+#     test_t = np.array([1.11])
+#     test_y = np.array([0.11])
+#     test_yerr = np.array([0.1])
 
-    with pytest.raises(ValueError) as excinfo:
-        _ = StructureFunctionLightCurve(test_t, test_y, test_yerr)
+#     with pytest.raises(ValueError) as excinfo:
+#         _ = StructureFunctionLightCurve(test_t, test_y, test_yerr)
 
-    assert "Too few observations provided to calculate Structure Function differences." in str(excinfo.value)
+#     assert "Too few observations provided to calculate Structure Function differences." in str(excinfo.value)

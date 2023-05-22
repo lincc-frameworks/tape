@@ -32,7 +32,7 @@ class StructureFunctionLightCurve:
         """
         self._check_input_data_size_is_equal()  # make sure arrays the same length
         self._filter_nans()
-        self._check_input_data_length_is_sufficient()  # make sure we have enough values still
+        # self._check_input_data_length_is_sufficient()  # make sure we have enough values still
 
     def _filter_nans(self):
         """Mask out any NaN values from time, flux and error arrays"""

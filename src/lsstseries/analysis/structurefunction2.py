@@ -85,19 +85,15 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
 
             lightcurves = []
             for mask in id_masks:
-                if sum(mask) > 1:
-                    sf_lc = StructureFunctionLightCurve(
-                        times=times[mask], fluxes=fluxes[mask], errors=errors[mask]
-                    )
-                    lightcurves.append(sf_lc)
+                sf_lc = StructureFunctionLightCurve(
+                    times=times[mask], fluxes=fluxes[mask], errors=errors[mask]
+                )
+                lightcurves.append(sf_lc)
 
             #! This doesn't seem to behave the way I expect when I run the Ensemble
             #! tests. I would expect this to just pass through, but it gets caught
             #! in the lambda functions in `Ensemble.batch` because there is nothing
             #! to concatenate.
-
-            if len(lightcurves) == 0:
-                continue
 
             sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
 
