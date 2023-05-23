@@ -71,3 +71,15 @@ def test_column_mapper_init():
     }
 
     assert col_map.map == expected_map  # The expected mapping
+
+    @pytest.mark.parametrize("map_id", ["ZTF", "Grundor"])
+    def test_use_known_map(map_id):
+        """test a known mapping"""
+        cmap = ColumnMapper()
+
+        if map_id == "Grundor":
+            with pytest.raises(ValueError):
+                cmap.use_known_map(map_id)
+        else:
+            cmap.use_known_map(map_id)
+            assert cmap.is_ready()

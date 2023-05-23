@@ -10,6 +10,7 @@ from lsstseries import Ensemble
 from lsstseries.analysis.stetsonj import calc_stetson_J
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structurefunction2 import calc_sf2
+from lsstseries.utils import ColumnMapper
 
 
 # pylint: disable=protected-access
@@ -33,6 +34,7 @@ def test_with():
         "parquet_ensemble_from_source",
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
+        "parquet_ensemble_with_known_column_mapper",
     ],
 )
 def test_from_parquet(data_fixture, request):
@@ -46,12 +48,12 @@ def test_from_parquet(data_fixture, request):
     assert parquet_ensemble._object is not None
 
     # Check that the data is not empty.
-    object, source = parquet_ensemble.compute()
+    obj, source = parquet_ensemble.compute()
     assert len(source) == 2000
-    assert len(object) == 15
+    assert len(obj) == 15
 
     # Check that source and object both have the same ids present
-    assert sorted(np.unique(list(source.index))) == sorted(np.array(object.index))
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
 
     # Check the we loaded the correct columns.
     for col in [
@@ -74,10 +76,10 @@ def test_from_source_dict(dask_client):
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps. Leave out the flux data initially.
     rows = {
-        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
-        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
-        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
-        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
     }
 
     # We get an error without all of the required rows.
@@ -85,8 +87,10 @@ def test_from_source_dict(dask_client):
         ens.from_source_dict(rows)
 
     # Add the last row and build the ensemble.
-    rows[ens._flux_col] = [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0]
-    ens.from_source_dict(rows)
+    rows["flux"] = [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap)
     (obj_table, src_table) = ens.compute()
 
     # Check that the loaded source table is correct.
@@ -99,8 +103,8 @@ def test_from_source_dict(dask_client):
 
     # Check that the derived object table is correct.
     assert obj_table.shape[0] == 2
-    assert obj_table.iloc[0][ens._nobs_col] == 4
-    assert obj_table.iloc[1][ens._nobs_col] == 5
+    assert obj_table.iloc[0][ens._nobs_tot_col] == 4
+    assert obj_table.iloc[1][ens._nobs_tot_col] == 5
 
 
 def test_insert(parquet_ensemble):
@@ -167,12 +171,13 @@ def test_insert_paritioned(dask_client):
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
     rows = {
-        ens._id_col: [8000 + 2 * i for i in range(num_points)],
-        ens._time_col: [float(i) for i in range(num_points)],
-        ens._flux_col: [0.5 * float(i) for i in range(num_points)],
-        ens._band_col: [all_bands[i % 4] for i in range(num_points)],
+        "id": [8000 + 2 * i for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [0.5 * float(i) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
     }
-    ens.from_source_dict(rows, npartitions=4)
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap, npartitions=4)
 
     # Save the old data for comparison.
     old_data = ens.compute("source")
@@ -346,24 +351,28 @@ def test_find_day_gap_offset(dask_client):
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps.
     rows = {
-        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
-        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1],
-        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
-        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
-        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
     }
-    ens.from_source_dict(rows)
+
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap)
     gap_time = ens.find_day_gap_offset()
     assert abs(gap_time - 13.0 / 24.0) < 1e-6
 
     # Create fake observations covering all times
     rows = {
-        ens._id_col: [8001] * 100,
-        ens._time_col: [24.0 * (float(i) / 100.0) for i in range(100)],
-        ens._flux_col: [1.0] * 100,
-        ens._band_col: ["g"] * 100,
+        "id": [8001] * 100,
+        "time": [24.0 * (float(i) / 100.0) for i in range(100)],
+        "flux": [1.0] * 100,
+        "band": ["g"] * 100,
     }
-    ens.from_source_dict(rows)
+
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap)
     assert ens.find_day_gap_offset() == -1
 
 
@@ -373,13 +382,15 @@ def test_bin_sources_day(dask_client):
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps.
     rows = {
-        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
-        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1],
-        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
-        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
-        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
     }
-    ens.from_source_dict(rows)
+
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap)
 
     # Check that the source table has 9 rows.
     old_source = ens.compute("source")
@@ -422,13 +433,15 @@ def test_bin_sources_two_days(dask_client):
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps.
     rows = {
-        ens._id_col: [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002, 8002],
-        ens._time_col: [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1, 14.0],
-        ens._flux_col: [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0],
-        ens._band_col: ["g", "g", "b", "g", "b", "g", "g", "g", "g", "g"],
-        ens._err_col: [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0, 5.0],
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 10.9, 11.1, 15.0, 15.1, 14.0],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0, 5.0],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0, 5.0],
     }
-    ens.from_source_dict(rows)
+
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap)
 
     # Check that the source table has 10 rows.
     old_source = ens.compute("source")

@@ -12,6 +12,7 @@ from dask.distributed import Client
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
+from .utils import ColumnMapper
 
 
 class Ensemble:
@@ -30,18 +31,18 @@ class Ensemble:
         # Default to removing empty objects.
         self.keep_empty_objects = kwargs.get("keep_empty_objects", False)
 
-        # Assign Default Values for critical column quantities
+        # Initialize critical column quantities
         # Source
-        self._id_col = "object_id"
-        self._time_col = "midPointTai"
-        self._flux_col = "psFlux"
-        self._err_col = "psFluxErr"
-        self._band_col = "band"
+        self._id_col = None
+        self._time_col = None
+        self._flux_col = None
+        self._err_col = None
+        self._band_col = None
         self._provenance_col = None
 
         # Object, _id_col is shared
-        self._nobs_col = "nobs_total"
-        self._nobs_bands = []
+        self._nobs_tot_col = None
+        self._nobs_band_cols = []
 
         self.client = None
         self.cleanup_client = False
@@ -289,7 +290,7 @@ class Ensemble:
             The ensemble object with pruned rows removed
         """
         if not col_name:
-            col_name = self._nobs_col
+            col_name = self._nobs_tot_col
 
         # Sync Required if source is dirty
         if self._source_dirty:
@@ -558,7 +559,7 @@ class Ensemble:
         else:
             return batch
 
-    def from_hipscat(self, dir, source_subdir="source", object_subdir="object", **kwargs):
+    def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
         """Read in parquet files from a hipscat-formatted directory structure
         Parameters
         ----------
@@ -569,6 +570,9 @@ class Ensemble:
         object_subdir: 'str'
             Path to the subdirectory which contains object files, if None then
             files will only be read from the source_subdir
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
         **kwargs:
             keyword arguments passed along to
             `lsstseries.ensemble.Ensemble.from_parquet`
@@ -591,27 +595,49 @@ class Ensemble:
         return self.from_parquet(
             source_files,
             object_files,
+            column_mapper=column_mapper,
             **kwargs,
         )
+
+    def _load_column_mapper(self, column_mapper, **kwargs):
+        """load a column mapper object"""
+        if column_mapper is None:
+            column_mapper = ColumnMapper(**kwargs)
+
+        ready, needed = column_mapper.is_ready(show_needed=True)
+
+        if ready:
+            # Assign Critical Columns
+            self._id_col = column_mapper.map["id_col"]
+            self._time_col = column_mapper.map["time_col"]
+            self._flux_col = column_mapper.map["flux_col"]
+            self._err_col = column_mapper.map["err_col"]
+            self._band_col = column_mapper.map["band_col"]
+
+            # Assign optional columns if provided
+            if column_mapper.map["provenance_col"] is not None:
+                self._provenance_col = column_mapper.map["provenance_col"]
+            if column_mapper.map["nobs_total_col"] is not None:
+                self._nobs_total_col = column_mapper.map["nobs_total_col"]
+            if column_mapper.map["nobs_band_cols"] is not None:
+                self._nobs_band_cols = column_mapper.map["nobs_band_cols"]
+
+        else:
+            raise ValueError(f"Missing required column mapping information: {needed}")
+
+        return self
 
     def from_parquet(
         self,
         source_file,
         object_file=None,
         column_mapper=None,
-        id_col=None,
-        time_col=None,
-        flux_col=None,
-        err_col=None,
-        band_col=None,
-        nobs_cols=None,
-        nobs_tot_col=None,
-        provenance_col=None,
         provenance_label="survey_1",
         sync_tables=True,
         additional_cols=True,
         npartitions=None,
         partition_size=None,
+        **kwargs,
     ):
         """Read in parquet file(s) into an ensemble object
 
@@ -627,25 +653,6 @@ class Ensemble:
         column_mapper: 'ColumnMapper' object
             If provided, the ColumnMapper is used to populate relevant column
             information mapped from the input dataset.
-        id_col: 'str', optional
-            Identifies which column contains the Object IDs
-        time_col: 'str', optional
-            Identifies which column contains the time information
-        flux_col: 'str', optional
-            Identifies which column contains the flux/magnitude information
-        err_col: 'str', optional
-            Identifies which column contains the flux/mag error information
-        band_col: 'str', optional
-            Identifies which column contains the band information
-        nobs_col: list of 'str', optional
-            Identifies which columns contain number of observations for each
-            band, if available in the input object file
-        nobs_tot_col: 'str', optional
-            Identifies which column contains the total number of observations,
-            if available in the input object file
-        provenance_col: 'str', optional
-            Identifies which column contains the provenance information, if
-            None the provenance column is generated.
         provenance_label: 'str', optional
             Determines the label to use if a provenance column is generated
         sync_tables: 'bool', optional
@@ -670,39 +677,8 @@ class Ensemble:
             The ensemble object with parquet data loaded
         """
 
-        if column_mapper is not None:  # Populate columns with a ColumnMapper object
-            if column_mapper.is_ready():
-                # Assign Critical Columns
-                self._id_col = column_mapper.map["id_col"]
-                self._time_col = column_mapper.map["time_col"]
-                self._flux_col = column_mapper.map["flux_col"]
-                self._err_col = column_mapper.map["err_col"]
-                self._band_col = column_mapper.map["band_col"]
-
-                # Assign optional columns if provided
-                if column_mapper.map["provenance_col"] is not None:
-                    self._provenance_col = column_mapper.map["provenance_col"]
-                if column_mapper.map["nobs_total_col"] is not None:
-                    self._nobs_total_col = column_mapper.map["nobs_total_col"]
-                if column_mapper.map["nobs_band_cols"] is not None:
-                    self._nobs_band_cols = column_mapper.map["nobs_band_cols"]
-
-            else:
-                raise ValueError("Input ColumnMapper is missing required mapping information")
-        else:  # Or populate via kwarg assigned mappings
-            # Track critical column changes
-            if id_col is not None:
-                self._id_col = id_col
-            if time_col is not None:
-                self._time_col = time_col
-            if flux_col is not None:
-                self._flux_col = flux_col
-            if err_col is not None:
-                self._err_col = err_col
-            if band_col is not None:
-                self._band_col = band_col
-            if provenance_col is not None:
-                self._provenance_col = provenance_col
+        # load column mappings
+        self._load_column_mapper(column_mapper, **kwargs)
 
         # Handle additional columns
         if additional_cols:
@@ -726,21 +702,17 @@ class Ensemble:
             # Read in the object file(s)
             self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
 
-            # Handle nobs_band columns
-            if nobs_cols is not None:
-                self._nobs_bands = nobs_cols
-            else:
+            if self._nobs_band_cols is None:
                 # sets empty nobs cols in object
                 unq_filters = np.unique(self._source[self._band_col])
-                self._nobs_bands = [f"nobs_{filt}" for filt in unq_filters]
-                for col in self._nobs_bands:
+                self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
+                for col in self._nobs_band_cols:
                     self._object[col] = np.nan
 
             # Handle nobs_total column
-            if nobs_tot_col is not None:
-                self._nobs_col = nobs_tot_col
-            else:
-                self._object[self._nobs_col] = np.nan
+            if self._nobs_tot_col is None:
+                self._object["nobs_total"] = np.nan
+                self._nobs_tot_col = "nobs_total"
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
@@ -750,7 +722,7 @@ class Ensemble:
 
         else:  # generate object table from source
             self._object = self._generate_object_table()
-            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_col]
+            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
 
         # Generate a provenance column if not provided
         if self._provenance_col is None:
@@ -766,32 +738,16 @@ class Ensemble:
 
         return self
 
-    def from_source_dict(
-        self,
-        source_dict,
-        id_col=None,
-        time_col=None,
-        flux_col=None,
-        err_col=None,
-        band_col=None,
-        npartitions=1,
-    ):
+    def from_source_dict(self, source_dict, column_mapper=None, npartitions=1, **kwargs):
         """Load the sources into an ensemble from a dictionary.
 
         Parameters
         ----------
         source_dict: 'dict'
             The dictionary containing the source information.
-        id_col: 'str', optional
-            Identifies which column contains the Object IDs
-        time_col: 'str', optional
-            Identifies which column contains the time information
-        flux_col: 'str', optional
-            Identifies which column contains the flux/magnitude information
-        err_col: 'str', optional
-            Identifies which column contains the flux/mag error information
-        band_col: 'str', optional
-            Identifies which column contains the band information
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
         npartitions: `int`, optional
             If specified, attempts to repartition the ensemble to the specified
             number of partitions
@@ -801,22 +757,8 @@ class Ensemble:
         ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with dictionary data loaded
         """
-        # Track any column name changes.
-        if id_col is not None:
-            self._id_col = id_col
-        if time_col is not None:
-            self._time_col = time_col
-        if flux_col is not None:
-            self._flux_col = flux_col
-        if err_col is not None:
-            self._err_col = err_col
-        if band_col is not None:
-            self._band_col = band_col
-
-        # Check that all of the required columns are provided.
-        for col in [self._id_col, self._time_col, self._flux_col, self._band_col]:
-            if col not in source_dict:
-                raise ValueError(f"Required column {col} missing.")
+        # load column mappings
+        self._load_column_mapper(column_mapper, **kwargs)
 
         # Load in the source data.
         self._source = dd.DataFrame.from_dict(source_dict, npartitions=npartitions)
@@ -869,7 +811,9 @@ class Ensemble:
         res = res.rename(columns=band_cols)
 
         # Add total nobs by summing across each band.
-        res[self._nobs_col] = res.sum(axis=1)
+        if self._nobs_tot_col is None:
+            self._nobs_tot_col = "nobs_total"
+        res[self._nobs_tot_col] = res.sum(axis=1)
 
         return res
 
