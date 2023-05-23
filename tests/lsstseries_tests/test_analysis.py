@@ -49,7 +49,7 @@ def test_sf2_timeseries(lc_id):
 
     res = test_series.sf2()
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -74,7 +74,7 @@ def test_sf2_timeseries_without_timestamps():
     test_series = timeseries.from_dict(data_dict=test_dict)
     res = test_series.sf2()
 
-    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -99,7 +99,7 @@ def test_sf2_timeseries_with_all_none_timestamps():
     test_series = timeseries.from_dict(data_dict=test_dict)
     res = test_series.sf2()
 
-    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -122,7 +122,7 @@ def test_sf2_base_case():
         lc_id=lc_id,
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -145,7 +145,7 @@ def test_sf2_base_case_time_as_none_array():
         lc_id=lc_id,
     )
 
-    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -168,7 +168,7 @@ def test_sf2_base_case_time_as_none_scalar():
         lc_id=lc_id,
     )
 
-    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -191,7 +191,7 @@ def test_sf2_base_case_string_for_band_to_calc():
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, argument_container=arg_container
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -214,7 +214,7 @@ def test_sf2_base_case_error_as_scalar():
         lc_id=lc_id,
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.152482, rel=0.001)
 
 
@@ -237,7 +237,7 @@ def test_sf2_base_case_error_as_none():
         lc_id=lc_id,
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.172482, rel=0.001)
 
 
@@ -258,7 +258,7 @@ def test_sf2_no_lightcurve_ids():
         band=test_band,
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -279,7 +279,7 @@ def test_sf2_no_band_information():
         lc_id=lc_id,
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
 
 
@@ -296,7 +296,7 @@ def test_sf2_least_possible_information():
         flux=test_y,
     )
 
-    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.172482, rel=0.001)
 
 
@@ -310,7 +310,7 @@ def test_sf2_least_possible_information_constant_flux():
 
     res = analysis.calc_sf2(time=None, flux=test_y)
 
-    assert res["dt"][0] == pytest.approx(4.0, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.0, rel=0.001)
 
 
@@ -555,5 +555,90 @@ def test_sf2_base_case_macleod_2012():
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, sf_method=test_sf_method
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.4107, rel=0.001)
+
+
+def test_sf2_multiple_bands():
+    """
+    Starts with the base case test, but duplicates the test_t, test_y and test_err
+    for a second color band.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2, 1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2, 0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+    ]
+    test_band = np.array(
+        [
+            "r",
+            "r",
+            "r",
+            "r",
+            "r",
+            "r",
+            "r",
+            "r",
+            "g",
+            "g",
+            "g",
+            "g",
+            "g",
+            "g",
+            "g",
+            "g",
+        ]
+    )
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        lc_id=lc_id,
+    )
+
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+    assert res["dt"][1] == pytest.approx(3.1482, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(0.005365, rel=0.001)
+
+
+def test_sf2_provide_bins_in_argument_container():
+    """
+    Base test case accessing calc_sf2 directly. Does not make use of TimeSeries
+    or Ensemble.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
+    test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
+    test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
+    test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
+    test_band = np.array(["r"] * len(test_y))
+
+    arg_container = StructureFunctionArgumentContainer()
+    arg_container.bins = [0.0, 3.1, 9.0]
+
+    res = analysis.calc_sf2(
+        time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, argument_container=arg_container
+    )
+
+    assert res["dt"][0] == pytest.approx(1.7581, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.0103, rel=0.001)
+    assert res["dt"][1] == pytest.approx(5.0017, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(-0.001216, rel=0.001)
