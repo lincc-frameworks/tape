@@ -93,7 +93,7 @@ class ColumnMapper:
                 self = ZTFColumnMapper()._set_known_map()
             return self
         else:
-            raise ValueError('Unknown Mapping: "{map_id}"')
+            raise ValueError(f'Unknown Mapping: "{map_id}"')
 
     def is_ready(self, show_needed=False):
         """shows whether the ColumnMapper has all critical columns assigned
