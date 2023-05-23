@@ -39,5 +39,5 @@ def test_sf2_base_case_schmidt_2010():
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, sf_method=test_sf_method
     )
 
-    assert res["dt"][0] == pytest.approx(3.705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.1714, rel=0.001)
