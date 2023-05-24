@@ -1,3 +1,6 @@
+from collections import namedtuple
+
+
 class ColumnMapper:
     """Maps columns from a given dataset into known ensemble column"""
 
@@ -26,20 +29,22 @@ class ColumnMapper:
             Identifies which column contains the flux/mag error information
         band_col: 'str', optional
             Identifies which column contains the band information
-        nobs_col: list of 'str', optional
-            Identifies which columns contain number of observations for each
-            band, if available in the input object file
-        nobs_tot_col: 'str', optional
-            Identifies which column contains the total number of observations,
-            if available in the input object file
         provenance_col: 'str', optional
             Identifies which column contains the provenance information, if
             None the provenance column is generated.
+        nobs_band_cols: list of 'str', optional
+            Identifies which columns contain number of observations for each
+            band, if available in the input object file
+        nobs_total_col: 'str', optional
+            Identifies which column contains the total number of observations,
+            if available in the input object file
 
         Returns
         -------
         ColumnMapper object
         """
+
+        Column = namedtuple('Column', ['name', 'is_required'])
 
         self.map = {
             "id_col": id_col,
@@ -51,7 +56,7 @@ class ColumnMapper:
             "nobs_total_col": nobs_total_col,
             "nobs_band_cols": nobs_band_cols,
         }
-
+        """
         # Specifies which column mappings must be set for the Ensemble
         self.required = {
             "id_col": True,
@@ -63,6 +68,17 @@ class ColumnMapper:
             "nobs_total_col": False,
             "nobs_band_cols": False,
         }
+        """
+        self.required = [
+            Column("id_col", True),
+            Column("time_col", True),
+            Column("flux_col", True),
+            Column("err_col", True),
+            Column("band_col", True),
+            Column("provenance_col", False),
+            Column("nobs_total_col", False),
+            Column("nobs_band_cols", False)
+        ]
 
         self.known_maps = {"ZTF": ZTFColumnMapper}
 
@@ -88,10 +104,8 @@ class ColumnMapper:
         ZTFColumnMapper in the case of "ZTF"
 
         """
-        if map_id in self.known_maps.keys():
-            if map_id == "ZTF":
-                self = ZTFColumnMapper()._set_known_map()
-            return self
+        if map_id in self.known_maps:
+            return self.known_maps[map_id]()._set_known_map()
         else:
             raise ValueError(f'Unknown Mapping: "{map_id}"')
 
@@ -110,7 +124,8 @@ class ColumnMapper:
         """
 
         # Grab required column keys
-        required_keys = [item[0] for item in self.required.items() if item[1]]
+        #required_keys = [item[0] for item in self.required.items() if item[1]]
+        required_keys = [col.name for col in self.required if col.is_required]
 
         # Check the map for assigned keys
         ready = True

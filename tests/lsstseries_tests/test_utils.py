@@ -13,9 +13,9 @@ def test_column_mapper():
 
     assert not ready  # the col_map should not be ready for an ensemble
 
-    for item in col_map.required.items():
-        if item[1]:
-            assert item[0] in needed  # all required columns should be captured here
+    for col in col_map.required:
+        if col.is_required:
+            assert col.name in needed  # all required columns should be captured here
 
     # Assign required columns
     col_map.assign(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
