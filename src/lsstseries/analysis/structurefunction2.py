@@ -111,9 +111,12 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
             res_sfs = np.nanmedian(aggregated_sfs, 0)
 
             # ! This is not working correctly: np.diff(np.nanquantile())
-            res_err = np.nanquantile(
-                aggregated_sfs,
-                (argument_container.lower_error_quantile, argument_container.upper_error_quantile),
+            res_err = np.diff(
+                np.nanquantile(
+                    np.hstack(aggregated_sfs),
+                    (argument_container.lower_error_quantile, argument_container.upper_error_quantile),
+                    axis=1,
+                ),
                 axis=0,
             )
 
