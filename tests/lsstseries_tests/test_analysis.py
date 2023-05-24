@@ -841,5 +841,5 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings():
 
     assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
-    assert res["dt"][1] == pytest.approx(3.0685, rel=0.001)
-    assert res["sf2"][1] == pytest.approx(0.045867, rel=0.001)
+    assert res["dt"][1] == pytest.approx(2.9036, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(0.04914, rel=0.001)

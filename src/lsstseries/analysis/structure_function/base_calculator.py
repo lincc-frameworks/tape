@@ -72,7 +72,12 @@ class StructureFunctionCalculator(ABC):
         curves to prevent a few from dominating the calculation.
         """
         self._get_difference_values_per_lightcurve()
-        least_lightcurve_differences = min(self._difference_values_per_lightcurve)
+
+        # if the user defined number_lightcurve_samples in the argument container,
+        # use that, otherwise, default to the minimum number of difference values.
+        least_lightcurve_differences = self._argument_container.number_lightcurve_samples or min(
+            self._difference_values_per_lightcurve
+        )
 
         for lc in self._lightcurves:
             lc.select_difference_samples(least_lightcurve_differences, random_generator=random_generator)

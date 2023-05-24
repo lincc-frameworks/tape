@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 import pandas as pd
 
@@ -68,6 +70,7 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     dts = []
     bands = []
     sf2s = []
+    sf2_err = []
     for b in band_to_calc:
         if b in unq_band:
             band_mask = band == b
@@ -90,30 +93,38 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
                 )
                 lightcurves.append(sf_lc)
 
-            #! This doesn't seem to behave the way I expect when I run the Ensemble
-            #! tests. I would expect this to just pass through, but it gets caught
-            #! in the lambda functions in `Ensemble.batch` because there is nothing
-            #! to concatenate.
-
             sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
 
+            # aggregated_* has shape [calc_rep(0:arg_container.calc_repetitions)][lc_id(0:num_lightcurves)][bin(0:num_dt_bins)]
+            aggregated_dts: List[np.ndarray] = []
+            aggregated_sfs: List[np.ndarray] = []
             rng = np.random.default_rng(argument_container.random_seed)
             for _ in range(argument_container.calculation_repetitions):
                 if argument_container.equally_weight_lightcurves:
                     sf_calculator._equally_weight_lightcurves(random_generator=rng)
 
-                res = sf_calculator.calculate()
+                tmp_dts, tmp_sfs = sf_calculator.calculate()
+                aggregated_dts.append(tmp_dts)
+                aggregated_sfs.append(tmp_sfs)
 
-                # ! Need to do some more work to aggregate the results here
-                # ! Take the median, also calculate 16/83 quantiles to report as 1 sigma.
+            res_dts = np.nanmedian(aggregated_dts, 0)
+            res_sfs = np.nanmedian(aggregated_sfs, 0)
 
-            res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res[0])]
-            res_bands = [[b] * len(arr) for arr in res[0]]
+            # ! This is not working correctly: np.diff(np.nanquantile())
+            res_err = np.nanquantile(
+                aggregated_sfs,
+                (argument_container.lower_error_quantile, argument_container.upper_error_quantile),
+                axis=0,
+            )
+
+            res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res_dts)]
+            res_bands = [[b] * len(arr) for arr in res_dts]
 
             ids.append(np.hstack(res_ids))
             bands.append(np.hstack(res_bands))
-            dts.append(np.hstack(res[0]))
-            sf2s.append(np.hstack(res[1]))
+            dts.append(np.hstack(res_dts))
+            sf2s.append(np.hstack(res_sfs))
+            sf2_err.append(np.hstack(res_err))
 
     idstack = np.hstack(ids)
     if argument_container.combine:

@@ -52,10 +52,28 @@ class StructureFunctionArgumentContainer:
             results, we would use the bins calculated based on the 4950
             differences or the user provided bins.
             By default `False`.
+        number_lightcurve_samples: `int`, optional
+            Used to specify the number of time and flux differences to select
+            from a lightcurve. This would be used in conjunction with
+            `equally_weight_lightcurves`. If it is not set, then the default
+            value will be equal to the least number of differences in the
+            available lightcurves. By default None.
         calculation_repetitions: `int`, optional
             Specifies the number of times to repeat the structure function
             calculation. Typically this would be used when setting
             `equally_weight_lightcurves = True`. By default 1.
+        lower_error_quantile: `float`, optional
+            When calculation_repetitions > 1 we will calculate the
+            `lower_error_quantile` and `upper_error_quantile` quantiles of the
+            results of the structure function calculation and report the
+            difference as 1_sigma_error. Value must be between 0 and 1.
+            By default 0.16.
+        upper_error_quantile: `float`, optional
+            When calculation_repetitions > 1 we will calculate the
+            `lower_error_quantile` and `upper_error_quantile` quantiles of the
+            results of the structure function calculation and report the
+            difference as 1_sigma_error. Value must be between 0 and 1.
+            By default 0.83
 
     Notes:
         It may be necessary to extend this dataclass to support new Structure
@@ -74,7 +92,10 @@ class StructureFunctionArgumentContainer:
     ignore_timestamps: bool = False
     random_seed: int = None
     equally_weight_lightcurves: bool = False
+    number_lightcurve_samples: int = None
     calculation_repetitions: int = 1
+    lower_error_quantile: float = 0.16
+    upper_error_quantile: float = 0.83
 
     def __post_init__(self):
         # Nothing here yet
