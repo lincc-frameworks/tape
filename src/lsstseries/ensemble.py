@@ -270,8 +270,48 @@ class Ensemble:
         self._source_dirty = True  # This operation modifies the source table
         return self
 
-    def filter(self, on, criteria, table="object"):
-        pass
+    def query(self, expr, table="object"):
+        """Select a subset of rows based on an expression.
+
+        Parameters
+        ----------
+        keep_series: `dask.dataframe.Series`
+            A series mapping the table's row to a Boolean indicating
+            whether or not to keep the row.
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
+        """
+        self._lazy_sync_tables(table)
+        if table == "object":
+            self._object = self._object.query(expr)
+            self._object_dirty = True
+        elif table == "source":
+            self._source = self._source.query(expr)
+            self._source_dirty = True
+        return self
+
+    def filter_from_series(self, keep_series, table="object"):
+        """Filter the tables based on a DaskSeries indicating which
+        rows to keep.
+
+        Parameters
+        ----------
+        keep_series: `dask.dataframe.Series`
+            A series mapping the table's row to a Boolean indicating
+            whether or not to keep the row.
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
+        """
+        self._lazy_sync_tables(table)
+        if table == "object":
+            self._object = self._object[keep_series]
+            self._object_dirty = True
+        elif table == "source":
+            self._source = self._source[keep_series]
+            self._source_dirty = True
+        return self
 
     def prune(self, threshold=50, col_name=None):
         """remove objects with less observations than a given threshold
@@ -816,6 +856,26 @@ class Ensemble:
         res[self._nobs_tot_col] = res.sum(axis=1)
 
         return res
+
+    def _lazy_sync_tables(self, table="object"):
+        """Call the sync operation for the table only if the
+        the table being modified (`table`) needs to be synced.
+        Does nothing in the case that only the table to be modified
+        is dirty.
+
+        Parameters
+        ----------
+        table: `str`, optional
+            The table being modified. Should be one of "object",
+            "source", or "both"
+        """
+        if table == "object" and self._source_dirty:  # object table should be updated
+            self._sync_tables()
+        elif table == "source" and self._object_dirty:  # source table should be updated
+            self._sync_tables()
+        elif table == "both" and (self._source_dirty or self._object_dirty):
+            self._sync_tables()
+        return self
 
     def _sync_tables(self):
         """Sync operation to align both tables.

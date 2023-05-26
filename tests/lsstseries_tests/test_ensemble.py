@@ -241,7 +241,7 @@ def test_core_wrappers(parquet_ensemble):
 
 def test_sync_tables(parquet_ensemble):
     """
-    Test that _table_sync works as expected
+    Test that _sync_tables works as expected
     """
 
     assert len(parquet_ensemble.compute("object")) == 15
@@ -260,6 +260,46 @@ def test_sync_tables(parquet_ensemble):
     assert len(parquet_ensemble.compute("source")) == 1562
 
     # dirty flags should be unset after sync
+    assert not parquet_ensemble._object_dirty
+    assert not parquet_ensemble._source_dirty
+
+
+def test_lazy_sync_tables(parquet_ensemble):
+    """
+    Test that _lazy_sync_tables works as expected
+    """
+    assert len(parquet_ensemble.compute("object")) == 15
+    assert len(parquet_ensemble.compute("source")) == 2000
+
+    # Modify only the object table.
+    parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
+    assert parquet_ensemble._object_dirty
+    assert not parquet_ensemble._source_dirty
+
+    # For a lazy sync on the object table, nothing should change, because
+    # it is already dirty.
+    parquet_ensemble._lazy_sync_tables(table="object")
+    assert parquet_ensemble._object_dirty
+    assert not parquet_ensemble._source_dirty
+
+    # For a lazy sync on the source table, the source table should be updated.
+    parquet_ensemble._lazy_sync_tables(table="source")
+    assert not parquet_ensemble._object_dirty
+    assert not parquet_ensemble._source_dirty
+
+    # Modify only the source table.
+    parquet_ensemble.dropna(1)
+    assert not parquet_ensemble._object_dirty
+    assert parquet_ensemble._source_dirty
+
+    # For a lazy sync on the source table, nothing should change, because
+    # it is already dirty.
+    parquet_ensemble._lazy_sync_tables(table="source")
+    assert not parquet_ensemble._object_dirty
+    assert parquet_ensemble._source_dirty
+
+    # For a lazy sync on the source, the object table should be updated.
+    parquet_ensemble._lazy_sync_tables(table="object")
     assert not parquet_ensemble._object_dirty
     assert not parquet_ensemble._source_dirty
 
@@ -343,6 +383,55 @@ def test_prune(parquet_ensemble):
     parquet_ensemble.prune(threshold)
 
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
+
+
+def test_query(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = ["r", "g", "b", "i"]
+    rows = {
+        "id": [8000 + 2 * i for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [float(i % 4) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
+
+    # Filter the data set to low flux sources only.
+    ens.query("flux <= 1.5", table="source")
+
+    # Check that all of the filtered rows are value.
+    (new_obj, new_source) = ens.compute()
+    assert new_source.shape[0] == 500
+    for i in range(500):
+        assert new_source.iloc[i][ens._flux_col] <= 1.5
+
+
+def test_filter_from_series(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = ["r", "g", "b", "i"]
+    rows = {
+        "id": [8000 + 2 * i for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [0.5 * float(i % 4) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
+
+    # Filter the data set to low flux sources only.
+    keep_series = ens._source[ens._time_col] >= 250.0
+    ens.filter_from_series(keep_series, table="source")
+
+    # Check that all of the filtered rows are value.
+    (new_obj, new_source) = ens.compute()
+    assert new_source.shape[0] == 750
+    for i in range(750):
+        assert new_source.iloc[i][ens._time_col] >= 250.0
 
 
 def test_find_day_gap_offset(dask_client):
