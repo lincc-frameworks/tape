@@ -239,6 +239,29 @@ def test_core_wrappers(parquet_ensemble):
     parquet_ensemble.compute()
 
 
+def test_persist(dask_client):
+    # Create some fake data.
+    rows = {
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens = Ensemble(client=dask_client)
+    ens.from_source_dict(rows, column_mapper=cmap)
+
+    # Perform an operation that will build out the task graph.
+    ens.query("flux <= 1.5", table="source")
+
+    # Compute the task graph size before and after the persist.
+    old_graph_size = len(ens._source.dask)
+    ens.persist()
+    new_graph_size = len(ens._source.dask)
+    assert new_graph_size < old_graph_size
+
+
 def test_sync_tables(parquet_ensemble):
     """
     Test that _sync_tables works as expected

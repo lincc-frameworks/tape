@@ -196,8 +196,21 @@ class Ensemble:
         self._source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
 
     def compute(self, table=None, **kwargs):
-        """Wrapper for dask.dataframe.DataFrame.compute()"""
+        """Wrapper for dask.dataframe.DataFrame.compute()
 
+        The compute operation performs the computations that had been lazily allocated
+        and returns the results as an in-memory pandas data frame.
+
+        Parameters
+        ----------
+        table: `str`, optional
+            The table to materialize.
+
+        Returns
+        -------
+        A single pandas data frame for the specified table or a tuple of (object, source)
+        data frames.
+        """
         if table:
             self._lazy_sync_tables(table)
             if table == "object":
@@ -207,6 +220,18 @@ class Ensemble:
         else:
             self._lazy_sync_tables(table="all")
             return (self._object.compute(**kwargs), self._source.compute(**kwargs))
+
+    def persist(self, **kwargs):
+        """Wrapper for dask.dataframe.DataFrame.persist()
+
+        The compute operation performs the computations that had been lazily allocated,
+        but does not bring the results into memory or return them. This is useful
+        for preventing a Dask task graph from growing too large by performing part
+        of the computation.
+        """
+        self._lazy_sync_tables("all")
+        self._object = self._object.persist(**kwargs)
+        self._source = self._source.persist(**kwargs)
 
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
