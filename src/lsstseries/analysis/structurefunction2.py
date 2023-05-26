@@ -107,18 +107,30 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
                 aggregated_dts.append(tmp_dts)
                 aggregated_sfs.append(tmp_sfs)
 
-            res_dts = np.nanmedian(aggregated_dts, 0)
-            res_sfs = np.nanmedian(aggregated_sfs, 0)
+            # find the median value for each (lightcurve, dt_bin) coordinate
+            res_dts = np.nanmedian(aggregated_dts, axis=0)
+            res_sfs = np.nanmedian(aggregated_sfs, axis=0)
 
-            # ! This is not working correctly: np.diff(np.nanquantile())
-            res_err = np.diff(
-                np.nanquantile(
-                    np.hstack(aggregated_sfs),
-                    (argument_container.lower_error_quantile, argument_container.upper_error_quantile),
-                    axis=1,
-                ),
-                axis=0,
-            )
+            if _no_results_found(aggregated_sfs):
+                res_err = np.zeros_like(res_sfs)
+            else:
+                # Subtract the upper and lower quantiles and remove the outer
+                # axis that has length 1. The resulting shape will be the same
+                # as `res_dts`` and `res_sfs`.
+                res_err = np.squeeze(
+                    np.diff(
+                        np.nanquantile(
+                            aggregated_sfs,
+                            (
+                                argument_container.lower_error_quantile,
+                                argument_container.upper_error_quantile,
+                            ),
+                            axis=0,
+                        ),
+                        axis=0,
+                    ),
+                    axis=0,
+                )
 
             res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res_dts)]
             res_bands = [[b] * len(arr) for arr in res_dts]
@@ -134,7 +146,13 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
         idstack = ["combined"] * len(idstack)
 
     sf2_df = pd.DataFrame(
-        {"lc_id": idstack, "band": np.hstack(bands), "dt": np.hstack(dts), "sf2": np.hstack(sf2s)}
+        {
+            "lc_id": idstack,
+            "band": np.hstack(bands),
+            "dt": np.hstack(dts),
+            "sf2": np.hstack(sf2s),
+            "1_sigma": np.hstack(sf2_err),
+        }
     )
     return sf2_df
 
@@ -361,3 +379,34 @@ def _extract_error(err, band_mask):
         errors = np.array(err)[band_mask]
 
     return errors
+
+
+def _no_results_found(aggregated_sfs: List[np.ndarray]) -> bool:
+    """This helper function determines if there are results from calculating
+    the Structure Function for a given input. An example instances where there
+    might not be results would be calculating the SF for a Lightcurve object
+    that contains only 1 observation.
+
+    Parameters
+    ----------
+    aggregated_sfs : List[np.ndarray]
+        The output from the Structure Function calculation. This is a 3 dimensional
+        array with dimensions [calculation_repetitions][lightcurve_id][sf_result]
+        where calculation_repetition has range (0:arg_container.calc_repetitions)
+        lightcurve_id has range (0:num_lightcurves)
+        and sf_result has range (0:num_dt_bins)
+
+    Returns
+    -------
+    bool
+        True if no results were found.
+    """
+
+    no_results_found = False
+
+    # `shape[2]==0` implies that there wasn't enough data to perform the SF calculation
+    # For instance, only 1 observation.
+    if np.shape(aggregated_sfs)[2] == 0:
+        no_results_found = True
+
+    return no_results_found

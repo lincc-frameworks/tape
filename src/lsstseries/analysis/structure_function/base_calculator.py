@@ -180,7 +180,7 @@ class StructureFunctionCalculator(ABC):
         if self._argument_container.combine and len(self._lightcurves) > 1:
             all_sample_delta_times = np.hstack([lc.sample_d_times for lc in self._lightcurves])
             all_binning_delta_times = np.hstack([lc._all_d_times for lc in self._lightcurves])
-            all_sample_values = np.hstack(np.array(sample_values, dtype="object"))
+            all_sample_values = np.hstack([s for s in sample_values])
 
             # binning
             if self._bins is None:

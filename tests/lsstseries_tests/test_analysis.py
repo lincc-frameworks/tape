@@ -757,6 +757,101 @@ def test_sf2_with_equal_weighting_multiple_lightcurve():
     assert res["sf2"][1] == pytest.approx(0.037911, rel=0.001)
 
 
+def test_sf2_with_unequal_weighting_multiple_lightcurve():
+    """
+    Passing two light curves with unequal weighting. The first light curve is the
+    well tested one, the second has more observations. Uses a
+    predefined random seed for reproducibility.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    test_t = [
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        4.01,
+        5.67,
+    ]
+    test_y = [
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.01,
+        0.67,
+    ]
+    test_yerr = [
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.067,
+    ]
+    # test_band = np.array(["r"] * len(test_y))
+    test_band = np.array(
+        ["r", "r", "r", "r", "r", "g", "g", "g", "r", "r", "r", "r", "r", "r", "g", "g", "g", "g"]
+    )
+    test_arg_container = StructureFunctionArgumentContainer()
+    test_arg_container.equally_weight_lightcurves = False
+    test_arg_container.random_seed = 42
+    test_arg_container.bin_count_target = 4
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        lc_id=lc_id,
+        argument_container=test_arg_container,
+    )
+
+    assert res["lc_id"][0] == "1"
+    assert res["band"][0] == "g"
+    assert res["dt"][0] == pytest.approx(1.2533, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(-0.1641, rel=0.001)
+    assert res["lc_id"][5] == "2"
+    assert res["band"][5] == "r"
+    assert res["dt"][5] == pytest.approx(0.8875, rel=0.001)
+    assert res["sf2"][5] == pytest.approx(0.0871, rel=0.001)
+
+
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings():
     """
     Passing two light curves with equal weighting. The first light curve is the
@@ -843,3 +938,281 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings():
     assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
     assert res["dt"][1] == pytest.approx(2.9036, rel=0.001)
     assert res["sf2"][1] == pytest.approx(0.04914, rel=0.001)
+
+
+def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_bins():
+    """
+    Passing two light curves with equal weighting. The first light curve is the
+    well tested one, the second is longer so a subsample will be taken. We will
+    resample multiple times. Uses a predefined random seed for reproducibility.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    test_t = [
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        4.01,
+        5.67,
+    ]
+    test_y = [
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.01,
+        0.67,
+    ]
+    test_yerr = [
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.067,
+    ]
+    test_band = np.array(["r"] * len(test_y))
+    test_arg_container = StructureFunctionArgumentContainer()
+    test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.random_seed = 42
+    test_arg_container.calculation_repetitions = 100
+    test_arg_container.bin_count_target = 4
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        lc_id=lc_id,
+        argument_container=test_arg_container,
+    )
+
+    assert res["dt"][0] == pytest.approx(0.6625, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.0311, rel=0.001)
+    assert res["dt"][7] == pytest.approx(0.6600, rel=0.001)
+    assert res["sf2"][7] == pytest.approx(0.0705, rel=0.001)
+
+
+def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_combining():
+    """
+    Passing two light curves with equal weighting. The first light curve is the
+    well tested one, the second is longer so a subsample will be taken. We will
+    resample multiple times. Also requesting that the results are combined.
+    Uses a predefined random seed for reproducibility.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    test_t = [
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        9.01,
+        10.67,
+    ]
+    test_y = [
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.01,
+        0.67,
+    ]
+    test_yerr = [
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.067,
+    ]
+    test_band = np.array(["r"] * len(test_y))
+    test_arg_container = StructureFunctionArgumentContainer()
+    test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.random_seed = 42
+    test_arg_container.calculation_repetitions = 3
+    test_arg_container.bin_count_target = 4
+    test_arg_container.combine = True
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        lc_id=lc_id,
+        argument_container=test_arg_container,
+    )
+
+    assert res["dt"][0] == pytest.approx(0.5100, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.0402, rel=0.001)
+    assert res["1_sigma"][0] == pytest.approx(0.01923, rel=0.001)
+    assert res["dt"][9] == pytest.approx(3.2040, rel=0.001)
+    assert res["sf2"][9] == pytest.approx(0.1557, rel=0.001)
+    assert res["1_sigma"][9] == pytest.approx(0.0348, rel=0.001)
+
+
+def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_combining_non_default_sigma():
+    """
+    Passing two light curves with equal weighting. The first light curve is the
+    well tested one, the second is longer so a subsample will be taken. We will
+    resample multiple times. Also requesting that the results are combined.
+    We will use a non-default value for the upper and lower error quantiles.
+    Uses a predefined random seed for reproducibility.
+    """
+    lc_id = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    test_t = [
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        1.11,
+        2.23,
+        3.45,
+        4.01,
+        5.67,
+        6.32,
+        7.88,
+        8.2,
+        9.01,
+        10.67,
+    ]
+    test_y = [
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.11,
+        0.23,
+        0.45,
+        0.01,
+        0.67,
+        0.32,
+        0.88,
+        0.2,
+        0.01,
+        0.67,
+    ]
+    test_yerr = [
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.023,
+        0.045,
+        0.1,
+        0.067,
+        0.032,
+        0.8,
+        0.02,
+        0.1,
+        0.067,
+    ]
+    test_band = np.array(["r"] * len(test_y))
+    test_arg_container = StructureFunctionArgumentContainer()
+    test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.random_seed = 42
+    test_arg_container.calculation_repetitions = 3
+    test_arg_container.bin_count_target = 4
+    test_arg_container.combine = True
+    test_arg_container.lower_error_quantile = 0.4
+    test_arg_container.upper_error_quantile = 0.6
+
+    res = analysis.calc_sf2(
+        time=test_t,
+        flux=test_y,
+        err=test_yerr,
+        band=test_band,
+        lc_id=lc_id,
+        argument_container=test_arg_container,
+    )
+
+    assert res["dt"][0] == pytest.approx(0.5100, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.0402, rel=0.001)
+    assert res["1_sigma"][0] == pytest.approx(0.00566, rel=0.001)
+    assert res["dt"][9] == pytest.approx(3.2040, rel=0.001)
+    assert res["sf2"][9] == pytest.approx(0.1557, rel=0.001)
+    assert res["1_sigma"][9] == pytest.approx(0.0105, rel=0.001)
