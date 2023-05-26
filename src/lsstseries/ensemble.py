@@ -188,8 +188,7 @@ class Ensemble:
             A series of counts by object
         """
         # Sync tables if user wants to retrieve their information
-        if self._source_dirty or self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="all")
 
         print("Object Table")
         self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
@@ -200,18 +199,13 @@ class Ensemble:
         """Wrapper for dask.dataframe.DataFrame.compute()"""
 
         if table:
+            self._lazy_sync_tables(table)
             if table == "object":
-                if self._source_dirty:  # object table should be updated
-                    self = self._sync_tables()
                 return self._object.compute(**kwargs)
             elif table == "source":
-                if self._object_dirty:  # source table should be updated
-                    self._sync_tables()
                 return self._source.compute(**kwargs)
         else:
-            if self._source_dirty or self._object_dirty:
-                self = self._sync_tables()
-
+            self._lazy_sync_tables(table="all")
             return (self._object.compute(**kwargs), self._source.compute(**kwargs))
 
     def columns(self, table="object"):
@@ -225,28 +219,22 @@ class Ensemble:
 
     def head(self, table="object", n=5, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.head()"""
+        self._lazy_sync_tables(table)
 
         if table == "object":
-            if self._source_dirty:  # object table should be updated
-                self = self._sync_tables()
             return self._object.head(n=n, **kwargs)
         elif table == "source":
-            if self._object_dirty:  # source table should be updated
-                self = self._sync_tables()
             return self._source.head(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
     def tail(self, table="object", n=5, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.tail()"""
+        self._lazy_sync_tables(table)
 
         if table == "object":
-            if self._source_dirty:  # object table should be updated
-                self = self._sync_tables()
             return self._object.tail(n=n, **kwargs)
         elif table == "source":
-            if self._object_dirty:  # source table should be updated
-                self = self._sync_tables()
             return self._source.tail(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -270,8 +258,60 @@ class Ensemble:
         self._source_dirty = True  # This operation modifies the source table
         return self
 
-    def filter(self, on, criteria, table="object"):
-        pass
+    def filter(self, expr, table="object"):
+        """Filter the rows of a table based on an expression of
+        what information to *keep*.
+
+        Parameters
+        ----------
+        keep_series: `dask.dataframe.Series`
+            A series mapping the table's row to a Boolean indicating
+            whether or not to keep the row.
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
+
+        Examples
+        --------
+        # Keep sources with flux above 100.0:
+        ens.filter("flux > 100", table="source")
+
+        # Keep sources in the green band:
+        ens.filter("band_col_name == 'g'", table="source")
+
+        # Filtering on the flux column without knowing its name:
+        ens.filter(f"{ens._flux_col} > 100", table="source")
+        """
+        self._lazy_sync_tables(table)
+        if table == "object":
+            self._object = self._object.query(expr)
+            self._object_dirty = True
+        elif table == "source":
+            self._source = self._source.query(expr)
+            self._source_dirty = True
+        return self
+
+    def filter_from_series(self, keep_series, table="object"):
+        """Filter the tables based on a DaskSeries indicating which
+        rows to keep.
+
+        Parameters
+        ----------
+        keep_series: `dask.dataframe.Series`
+            A series mapping the table's row to a Boolean indicating
+            whether or not to keep the row.
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
+        """
+        self._lazy_sync_tables(table)
+        if table == "object":
+            self._object = self._object[keep_series]
+            self._object_dirty = True
+        elif table == "source":
+            self._source = self._source[keep_series]
+            self._source_dirty = True
+        return self
 
     def prune(self, threshold=50, col_name=None):
         """remove objects with less observations than a given threshold
@@ -293,8 +333,7 @@ class Ensemble:
             col_name = self._nobs_tot_col
 
         # Sync Required if source is dirty
-        if self._source_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="object")
 
         # Mask on object table
         mask = self._object[col_name] >= threshold
@@ -323,8 +362,7 @@ class Ensemble:
         ----
         Calls a compute on the source table.
         """
-        if self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="source")
 
         # Compute a histogram of observations by hour of the day.
         hours = self._source[self._time_col].apply(
@@ -398,8 +436,7 @@ class Ensemble:
         by providing the mapping of column name to aggregation function with the
         `additional_cols` parameter.
         """
-        if self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="source")
 
         # Bin the time and add it as a column. We create a temporary column that
         # truncates the time into increments of `time_window`.
@@ -492,10 +529,7 @@ class Ensemble:
         ensemble.batch(calc_stetson_J, band_to_calc='i')
         `
         """
-
-        # Needs tables to be in sync
-        if self._source_dirty or self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="all")
 
         known_cols = {
             "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
@@ -816,6 +850,26 @@ class Ensemble:
         res[self._nobs_tot_col] = res.sum(axis=1)
 
         return res
+
+    def _lazy_sync_tables(self, table="object"):
+        """Call the sync operation for the table only if the
+        the table being modified (`table`) needs to be synced.
+        Does nothing in the case that only the table to be modified
+        is dirty.
+
+        Parameters
+        ----------
+        table: `str`, optional
+            The table being modified. Should be one of "object",
+            "source", or "all"
+        """
+        if table == "object" and self._source_dirty:  # object table should be updated
+            self._sync_tables()
+        elif table == "source" and self._object_dirty:  # source table should be updated
+            self._sync_tables()
+        elif table == "all" and (self._source_dirty or self._object_dirty):
+            self._sync_tables()
+        return self
 
     def _sync_tables(self):
         """Sync operation to align both tables.
