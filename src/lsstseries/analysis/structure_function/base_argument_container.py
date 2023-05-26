@@ -66,14 +66,19 @@ class StructureFunctionArgumentContainer:
             When calculation_repetitions > 1 we will calculate the
             `lower_error_quantile` and `upper_error_quantile` quantiles of the
             results of the structure function calculation and report the
-            difference as 1_sigma_error. Value must be between 0 and 1.
+            difference/2 as 1_sigma_error. Value must be between 0 and 1.
             By default 0.16.
         upper_error_quantile: `float`, optional
             When calculation_repetitions > 1 we will calculate the
             `lower_error_quantile` and `upper_error_quantile` quantiles of the
             results of the structure function calculation and report the
-            difference as 1_sigma_error. Value must be between 0 and 1.
-            By default 0.83
+            difference/2 as 1_sigma_error. Value must be between 0 and 1.
+            By default 0.84.
+        report_upper_lower_error_separately: `bool`, optional
+            When true, upper_error_quantile - median and median - lower_error_quantile
+            will be reported separately. Note, when using `Ensemble.batch`,
+            additional metadata information will need to be provided.
+            By default False.
 
     Notes:
         It may be necessary to extend this dataclass to support new Structure
@@ -95,7 +100,8 @@ class StructureFunctionArgumentContainer:
     number_lightcurve_samples: int = None
     calculation_repetitions: int = 1
     lower_error_quantile: float = 0.16
-    upper_error_quantile: float = 0.83
+    upper_error_quantile: float = 0.84
+    report_upper_lower_error_separately: bool = False
 
     def __post_init__(self):
         # Nothing here yet

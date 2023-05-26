@@ -71,6 +71,8 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     bands = []
     sf2s = []
     sf2_err = []
+    sf2_lower_error = []
+    sf2_upper_error = []
     for b in band_to_calc:
         if b in unq_band:
             band_mask = band == b
@@ -113,24 +115,24 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
 
             if _no_results_found(aggregated_sfs):
                 res_err = np.zeros_like(res_sfs)
+                lower_error = np.zeros_like(res_err)
+                upper_error = np.zeros_like(res_err)
             else:
                 # Subtract the upper and lower quantiles and remove the outer
                 # axis that has length 1. The resulting shape will be the same
                 # as `res_dts`` and `res_sfs`.
-                res_err = np.squeeze(
-                    np.diff(
-                        np.nanquantile(
-                            aggregated_sfs,
-                            (
-                                argument_container.lower_error_quantile,
-                                argument_container.upper_error_quantile,
-                            ),
-                            axis=0,
-                        ),
-                        axis=0,
+                lower_quantile, upper_quantile = np.nanquantile(
+                    aggregated_sfs,
+                    (
+                        argument_container.lower_error_quantile,
+                        argument_container.upper_error_quantile,
                     ),
                     axis=0,
                 )
+
+                res_err = (upper_quantile - lower_quantile) / 2
+                lower_error = res_sfs - lower_quantile
+                upper_error = upper_quantile - res_sfs
 
             res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res_dts)]
             res_bands = [[b] * len(arr) for arr in res_dts]
@@ -140,20 +142,27 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
             dts.append(np.hstack(res_dts))
             sf2s.append(np.hstack(res_sfs))
             sf2_err.append(np.hstack(res_err))
+            if argument_container.report_upper_lower_error_separately:
+                sf2_lower_error.append(np.hstack(lower_error))
+                sf2_upper_error.append(np.hstack(upper_error))
 
     idstack = np.hstack(ids)
     if argument_container.combine:
         idstack = ["combined"] * len(idstack)
 
-    sf2_df = pd.DataFrame(
-        {
-            "lc_id": idstack,
-            "band": np.hstack(bands),
-            "dt": np.hstack(dts),
-            "sf2": np.hstack(sf2s),
-            "1_sigma": np.hstack(sf2_err),
-        }
-    )
+    data_frame_dict = {
+        "lc_id": idstack,
+        "band": np.hstack(bands),
+        "dt": np.hstack(dts),
+        "sf2": np.hstack(sf2s),
+        "1_sigma": np.hstack(sf2_err),
+    }
+
+    if argument_container.report_upper_lower_error_separately:
+        data_frame_dict["lower_error"] = np.hstack(sf2_lower_error)
+        data_frame_dict["upper_error"] = np.hstack(sf2_upper_error)
+
+    sf2_df = pd.DataFrame(data_frame_dict)
     return sf2_df
 
 
