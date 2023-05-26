@@ -259,7 +259,8 @@ class Ensemble:
         return self
 
     def filter(self, expr, table="object"):
-        """Filter the rows of a table based on an expression.
+        """Filter the rows of a table based on an expression of
+        what information to *keep*.
 
         Parameters
         ----------
@@ -269,6 +270,17 @@ class Ensemble:
         table: `str`, optional
             A string indicating which table to filter.
             Should be one of "object" or "source".
+
+        Examples
+        --------
+        # Keep sources with flux above 100.0:
+        ens.filter("flux > 100", table="source")
+
+        # Keep sources in the green band:
+        ens.filter("band_col_name == 'g'", table="source")
+
+        # Filtering on the flux column without knowing its name:
+        ens.filter(f"{ens._flux_col} > 100", table="source")
         """
         self._lazy_sync_tables(table)
         if table == "object":
