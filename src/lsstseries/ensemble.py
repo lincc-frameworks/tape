@@ -188,8 +188,7 @@ class Ensemble:
             A series of counts by object
         """
         # Sync tables if user wants to retrieve their information
-        if self._source_dirty or self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="all")
 
         print("Object Table")
         self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
@@ -200,18 +199,13 @@ class Ensemble:
         """Wrapper for dask.dataframe.DataFrame.compute()"""
 
         if table:
+            self._lazy_sync_tables(table)
             if table == "object":
-                if self._source_dirty:  # object table should be updated
-                    self = self._sync_tables()
                 return self._object.compute(**kwargs)
             elif table == "source":
-                if self._object_dirty:  # source table should be updated
-                    self._sync_tables()
                 return self._source.compute(**kwargs)
         else:
-            if self._source_dirty or self._object_dirty:
-                self = self._sync_tables()
-
+            self._lazy_sync_tables(table="all")
             return (self._object.compute(**kwargs), self._source.compute(**kwargs))
 
     def columns(self, table="object"):
@@ -225,28 +219,22 @@ class Ensemble:
 
     def head(self, table="object", n=5, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.head()"""
+        self._lazy_sync_tables(table)
 
         if table == "object":
-            if self._source_dirty:  # object table should be updated
-                self = self._sync_tables()
             return self._object.head(n=n, **kwargs)
         elif table == "source":
-            if self._object_dirty:  # source table should be updated
-                self = self._sync_tables()
             return self._source.head(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
     def tail(self, table="object", n=5, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.tail()"""
+        self._lazy_sync_tables(table)
 
         if table == "object":
-            if self._source_dirty:  # object table should be updated
-                self = self._sync_tables()
             return self._object.tail(n=n, **kwargs)
         elif table == "source":
-            if self._object_dirty:  # source table should be updated
-                self = self._sync_tables()
             return self._source.tail(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -333,8 +321,7 @@ class Ensemble:
             col_name = self._nobs_tot_col
 
         # Sync Required if source is dirty
-        if self._source_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="object")
 
         # Mask on object table
         mask = self._object[col_name] >= threshold
@@ -363,8 +350,7 @@ class Ensemble:
         ----
         Calls a compute on the source table.
         """
-        if self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="source")
 
         # Compute a histogram of observations by hour of the day.
         hours = self._source[self._time_col].apply(
@@ -438,8 +424,7 @@ class Ensemble:
         by providing the mapping of column name to aggregation function with the
         `additional_cols` parameter.
         """
-        if self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="source")
 
         # Bin the time and add it as a column. We create a temporary column that
         # truncates the time into increments of `time_window`.
@@ -532,10 +517,7 @@ class Ensemble:
         ensemble.batch(calc_stetson_J, band_to_calc='i')
         `
         """
-
-        # Needs tables to be in sync
-        if self._source_dirty or self._object_dirty:
-            self = self._sync_tables()
+        self._lazy_sync_tables(table="all")
 
         known_cols = {
             "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
@@ -867,13 +849,13 @@ class Ensemble:
         ----------
         table: `str`, optional
             The table being modified. Should be one of "object",
-            "source", or "both"
+            "source", or "all"
         """
         if table == "object" and self._source_dirty:  # object table should be updated
             self._sync_tables()
         elif table == "source" and self._object_dirty:  # source table should be updated
             self._sync_tables()
-        elif table == "both" and (self._source_dirty or self._object_dirty):
+        elif table == "all" and (self._source_dirty or self._object_dirty):
             self._sync_tables()
         return self
 
