@@ -258,15 +258,14 @@ class Ensemble:
         self._source_dirty = True  # This operation modifies the source table
         return self
 
-    def filter(self, expr, table="object"):
-        """Filter the rows of a table based on an expression of
-        what information to *keep*.
+    def query(self, expr, table="object"):
+        """Keep only certain rows of a table based on an expression of
+        what information to *keep*. Wraps Dask `query`.
 
         Parameters
         ----------
-        keep_series: `dask.dataframe.Series`
-            A series mapping the table's row to a Boolean indicating
-            whether or not to keep the row.
+        expr: `str`
+            A string specifying the expression of what to keep.
         table: `str`, optional
             A string indicating which table to filter.
             Should be one of "object" or "source".
@@ -274,13 +273,13 @@ class Ensemble:
         Examples
         --------
         # Keep sources with flux above 100.0:
-        ens.filter("flux > 100", table="source")
+        ens.query("flux > 100", table="source")
 
         # Keep sources in the green band:
-        ens.filter("band_col_name == 'g'", table="source")
+        ens.query("band_col_name == 'g'", table="source")
 
         # Filtering on the flux column without knowing its name:
-        ens.filter(f"{ens._flux_col} > 100", table="source")
+        ens.query(f"{ens._flux_col} > 100", table="source")
         """
         self._lazy_sync_tables(table)
         if table == "object":
