@@ -112,7 +112,7 @@ class StructureFunctionLightCurve:
 
         if number_of_samples > self.number_of_difference_values:
             raise ValueError(
-                f"Requesting {number_of_samples} samples, but only {self.number_of_differences} are present in the lightcurve"
+                f"Requesting {number_of_samples} samples, but only {self.number_of_difference_values} are present in the lightcurve"
             )
 
         # Initialize a random generator if one was not provided

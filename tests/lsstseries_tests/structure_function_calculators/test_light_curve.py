@@ -48,6 +48,22 @@ def test_lightcurve_get_sub_sample():
     assert sf_lc.sample_d_times.size == num_samples_requested
 
 
+def test_lightcurve_get_sub_sample_raises():
+    """Make sure that the method raises an exception when we request more samples
+    than are available."""
+    test_t = np.array([1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2])
+    test_y = np.array([0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2])
+    test_yerr = np.array([0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02])
+
+    sf_lc = StructureFunctionLightCurve(test_t, test_y, test_yerr)
+
+    with pytest.raises(ValueError) as excinfo:
+        num_samples_requested = 50000
+        _ = sf_lc.select_difference_samples(num_samples_requested)
+
+    assert f"Requesting {num_samples_requested} samples, but only" in str(excinfo.value)
+
+
 def test_lightcurve_get_sub_sample_with_duplicated_generator():
     """Make sure that the input random generator is respected, and will
     produce repeatable results when reset with the same seed.
