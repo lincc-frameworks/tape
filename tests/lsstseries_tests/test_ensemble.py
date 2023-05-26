@@ -385,7 +385,7 @@ def test_prune(parquet_ensemble):
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
-def test_query(dask_client):
+def test_filter(dask_client):
     ens = Ensemble(client=dask_client)
 
     num_points = 1000
@@ -400,7 +400,7 @@ def test_query(dask_client):
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
 
     # Filter the data set to low flux sources only.
-    ens.query("flux <= 1.5", table="source")
+    ens.filter("flux <= 1.5", table="source")
 
     # Check that all of the filtered rows are value.
     (new_obj, new_source) = ens.compute()

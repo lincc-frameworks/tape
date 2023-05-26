@@ -270,8 +270,8 @@ class Ensemble:
         self._source_dirty = True  # This operation modifies the source table
         return self
 
-    def query(self, expr, table="object"):
-        """Select a subset of rows based on an expression.
+    def filter(self, expr, table="object"):
+        """Filter the rows of a table based on an expression.
 
         Parameters
         ----------
