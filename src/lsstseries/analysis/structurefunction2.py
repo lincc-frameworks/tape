@@ -99,73 +99,92 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
                     # Exception raised by StructureFunctionLightCurve when there are too few data point.
                     print("Attempted to create a Lightcurve with too few data points.")
 
-            sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
+            if len(lightcurves):
+                sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
 
-            # `aggregated_dts` and `aggregated_sfs` will have the shape:
-            # [calc_rep(0:arg_container.calc_repetitions)][lc_id(0:num_lightcurves)][bin(0:num_dt_bins)]
-            aggregated_dts: List[np.ndarray] = []
-            aggregated_sfs: List[np.ndarray] = []
-            rng = np.random.default_rng(argument_container.random_seed)
-            for _ in range(argument_container.calculation_repetitions):
-                if argument_container.equally_weight_lightcurves:
-                    sf_calculator._equally_weight_lightcurves(random_generator=rng)
+                # `aggregated_dts` and `aggregated_sfs` will have the shape:
+                # [calc_rep(0:arg_container.calc_repetitions)][lc_id(0:num_lightcurves)][bin(0:num_dt_bins)]
+                aggregated_dts: List[np.ndarray] = []
+                aggregated_sfs: List[np.ndarray] = []
+                rng = np.random.default_rng(argument_container.random_seed)
+                for _ in range(argument_container.calculation_repetitions):
+                    if argument_container.equally_weight_lightcurves:
+                        sf_calculator._equally_weight_lightcurves(random_generator=rng)
 
-                tmp_dts, tmp_sfs = sf_calculator.calculate()
-                aggregated_dts.append(tmp_dts)
-                aggregated_sfs.append(tmp_sfs)
+                    tmp_dts, tmp_sfs = sf_calculator.calculate()
+                    aggregated_dts.append(tmp_dts)
+                    aggregated_sfs.append(tmp_sfs)
 
-            # find the median value for each (lightcurve, dt_bin) coordinate
-            res_dts = np.nanmedian(aggregated_dts, axis=0)
-            res_sfs = np.nanmedian(aggregated_sfs, axis=0)
+                # find the median value for each (lightcurve, dt_bin) coordinate
+                res_dts = np.nanmedian(aggregated_dts, axis=0)
+                res_sfs = np.nanmedian(aggregated_sfs, axis=0)
 
-            if _no_results_found(aggregated_sfs):
-                res_err = np.zeros_like(res_sfs)
-                lower_error = np.zeros_like(res_err)
-                upper_error = np.zeros_like(res_err)
-            else:
-                # Subtract the upper and lower quantiles and remove the outer
-                # axis that has length 1. The resulting shape will be the same
-                # as `res_dts`` and `res_sfs`.
-                lower_quantile, upper_quantile = np.nanquantile(
-                    aggregated_sfs,
-                    (
-                        argument_container.lower_error_quantile,
-                        argument_container.upper_error_quantile,
-                    ),
-                    axis=0,
-                )
+                if _no_results_found(aggregated_sfs):
+                    res_err = np.zeros_like(res_sfs)
+                    lower_error = np.zeros_like(res_err)
+                    upper_error = np.zeros_like(res_err)
+                else:
+                    # Subtract the upper and lower quantiles and remove the outer
+                    # axis that has length 1. The resulting shape will be the same
+                    # as `res_dts`` and `res_sfs`.
+                    lower_quantile, upper_quantile = np.nanquantile(
+                        aggregated_sfs,
+                        (
+                            argument_container.lower_error_quantile,
+                            argument_container.upper_error_quantile,
+                        ),
+                        axis=0,
+                    )
 
-                res_err = (upper_quantile - lower_quantile) / 2
-                lower_error = res_sfs - lower_quantile
-                upper_error = upper_quantile - res_sfs
+                    res_err = (upper_quantile - lower_quantile) / 2
+                    lower_error = res_sfs - lower_quantile
+                    upper_error = upper_quantile - res_sfs
 
-            res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res_dts)]
-            res_bands = [[b] * len(arr) for arr in res_dts]
+                res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res_dts)]
+                res_bands = [[b] * len(arr) for arr in res_dts]
 
-            ids.append(np.hstack(res_ids))
-            bands.append(np.hstack(res_bands))
-            dts.append(np.hstack(res_dts))
-            sf2s.append(np.hstack(res_sfs))
-            sf2_err.append(np.hstack(res_err))
-            if argument_container.report_upper_lower_error_separately:
-                sf2_lower_error.append(np.hstack(lower_error))
-                sf2_upper_error.append(np.hstack(upper_error))
+                ids.append(np.hstack(res_ids))
+                bands.append(np.hstack(res_bands))
+                dts.append(np.hstack(res_dts))
+                sf2s.append(np.hstack(res_sfs))
+                sf2_err.append(np.hstack(res_err))
+                if argument_container.report_upper_lower_error_separately:
+                    sf2_lower_error.append(np.hstack(lower_error))
+                    sf2_upper_error.append(np.hstack(upper_error))
 
-    idstack = np.hstack(ids)
-    if argument_container.combine:
-        idstack = ["combined"] * len(idstack)
+    id_stack = []
+    band_stack = []
+    dts_stack = []
+    sf2_stack = []
+    sigma_stack = []
+    sf2_lower_stack = []
+    sf2_upper_stack = []
+
+    if len(ids):
+        id_stack = np.hstack(ids)
+        if argument_container.combine:
+            id_stack = ["combined"] * len(id_stack)
+
+        band_stack = np.hstack(bands)
+        dts_stack = np.hstack(dts)
+        sf2_stack = np.hstack(sf2s)
+        sigma_stack = np.hstack(sf2_err)
+
+        if argument_container.report_upper_lower_error_separately:
+            sf2_lower_stack = np.hstack(sf2_lower_error)
+            sf2_upper_stack = np.hstack(sf2_upper_error)
 
     data_frame_dict = {
-        "lc_id": idstack,
-        "band": np.hstack(bands),
-        "dt": np.hstack(dts),
-        "sf2": np.hstack(sf2s),
-        "1_sigma": np.hstack(sf2_err),
+        "lc_id": id_stack,
+        "band": band_stack,
+        "dt": dts_stack,
+        "sf2": sf2_stack,
+        "1_sigma": sigma_stack,
     }
 
     if argument_container.report_upper_lower_error_separately:
-        data_frame_dict["lower_error"] = np.hstack(sf2_lower_error)
-        data_frame_dict["upper_error"] = np.hstack(sf2_upper_error)
+        data_frame_dict["lower_error"] = sf2_lower_stack
+        data_frame_dict["upper_error"] = sf2_upper_stack
 
     sf2_df = pd.DataFrame(data_frame_dict)
     return sf2_df
