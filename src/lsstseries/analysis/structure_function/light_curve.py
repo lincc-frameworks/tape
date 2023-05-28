@@ -1,7 +1,7 @@
 from typing import Optional
 import numpy as np
 
-MIN_OBSERVATIONS_REQUIRED_FOR_SF = 2
+MIN_OBSERVATIONS_REQUIRED_FOR_SF = 3
 
 
 class StructureFunctionLightCurve:
@@ -97,16 +97,13 @@ class StructureFunctionLightCurve:
             number of difference values.
         random_generator: np.random.Generator, optional
             A Numpy random.Generator to sample the lightcurve difference. This
-            allows for repeatable random samples to be selected. By default None
+            allows for repeatable random samples to be selected. By default None.
 
         Raises
         ------
         ValueError
             If samples are requested than are present in the light curve raise
             ValueError.
-
-        Notes
-        -----
 
         """
 

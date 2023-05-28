@@ -90,14 +90,19 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
 
             lightcurves = []
             for mask in id_masks:
-                sf_lc = StructureFunctionLightCurve(
-                    times=times[mask], fluxes=fluxes[mask], errors=errors[mask]
-                )
-                lightcurves.append(sf_lc)
+                try:
+                    sf_lc = StructureFunctionLightCurve(
+                        times=times[mask], fluxes=fluxes[mask], errors=errors[mask]
+                    )
+                    lightcurves.append(sf_lc)
+                except ValueError:
+                    # Exception raised by StructureFunctionLightCurve when there are too few data point.
+                    print("Attempted to create a Lightcurve with too few data points.")
 
             sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
 
-            # aggregated_* has shape [calc_rep(0:arg_container.calc_repetitions)][lc_id(0:num_lightcurves)][bin(0:num_dt_bins)]
+            # `aggregated_dts` and `aggregated_sfs` will have the shape:
+            # [calc_rep(0:arg_container.calc_repetitions)][lc_id(0:num_lightcurves)][bin(0:num_dt_bins)]
             aggregated_dts: List[np.ndarray] = []
             aggregated_sfs: List[np.ndarray] = []
             rng = np.random.default_rng(argument_container.random_seed)
