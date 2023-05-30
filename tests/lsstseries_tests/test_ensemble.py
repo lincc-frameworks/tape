@@ -457,6 +457,39 @@ def test_filter_from_series(dask_client):
         assert new_source.iloc[i][ens._time_col] >= 250.0
 
 
+def test_select(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = ["r", "g", "b", "i"]
+    rows = {
+        "id": [8000 + 2 * i for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [float(i % 4) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
+        "count": [i for i in range(num_points)],
+        "something_else": [None for _ in range(num_points)],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
+    assert len(ens._source.columns) == 5
+    assert "time" in ens._source.columns
+    assert "flux" in ens._source.columns
+    assert "band" in ens._source.columns
+    assert "count" in ens._source.columns
+    assert "something_else" in ens._source.columns
+
+    # Select on just time and flux
+    ens.select(["time", "flux"], table="source")
+
+    assert len(ens._source.columns) == 2
+    assert "time" in ens._source.columns
+    assert "flux" in ens._source.columns
+    assert "band" not in ens._source.columns
+    assert "count" not in ens._source.columns
+    assert "something_else" not in ens._source.columns
+
+
 def test_find_day_gap_offset(dask_client):
     ens = Ensemble(client=dask_client)
 
