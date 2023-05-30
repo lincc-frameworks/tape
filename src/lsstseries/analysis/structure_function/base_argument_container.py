@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Union
 
 
@@ -54,10 +54,13 @@ class StructureFunctionArgumentContainer:
             By default `False`.
         number_lightcurve_samples: `int`, optional
             Used to specify the number of time and flux differences to select
-            from a lightcurve. This would be used in conjunction with
-            `equally_weight_lightcurves`. If it is not set, then the default
-            value will be equal to the least number of differences in the
-            available lightcurves. By default None.
+            from a lightcurve. For Structure Function calculators that inherit
+            from `StructureFunctionCalculator` and do not implement their own
+            `_equally_weight_lightcurves` method, the value defined here will
+            only be used when `equally_weight_lightcurves = True`.
+            If a value is not provided here, then the default number of
+            lightcurve samples will be equal to the least number of differences
+            in the available lightcurves. By default None.
         calculation_repetitions: `int`, optional
             Specifies the number of times to repeat the structure function
             calculation. Typically this would be used when setting
