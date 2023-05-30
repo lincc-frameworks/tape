@@ -5,6 +5,7 @@ import numpy as np
 from scipy.stats import binned_statistic
 
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
 def register_sf_subclasses():
@@ -46,22 +47,19 @@ class StructureFunctionCalculator(ABC):
 
     def __init__(
         self,
-        time: np.ndarray,
-        flux: np.ndarray,
-        err: np.ndarray,
+        lightcurves: List[StructureFunctionLightCurve],
         argument_container: StructureFunctionArgumentContainer,
     ):
-        self._time = time
-        self._flux = flux
-        self._err = err
+        self._lightcurves = lightcurves
         self._argument_container = argument_container
 
-        self._bins = argument_container.bins
+        self._bins = argument_container.bins  # defaults to None
         self._binning_method = argument_container.bin_method
         self._bin_count_target = argument_container.bin_count_target
         self._dts = []
         self._all_d_fluxes = []
         self._sum_error_squared = []
+        self._difference_values_per_lightcurve: List[int] = []
         return
 
     @abstractmethod
@@ -69,51 +67,26 @@ class StructureFunctionCalculator(ABC):
         """Abstract method that must be implemented by the child class."""
         raise (NotImplementedError, "Must be implemented by the child class")
 
-    def _compute_difference_arrays(self):
-        """This method handles the calculation of the differences between all
-        pairs of values for time and flux. (Additionally the sum of error^2).
-        The expected inputs are 2D lists for time, flux and error.
-
-        For each array in time, flux and error, we'll mask out nan's, then use
-        the resulting values to calculate the difference of all pairs.
-
-        Then we filter out any differences that correspond to a delta_time <= 0.
-
-        We append the resulting numpy arrays into a corresponding python list,
-        and make that available for use in additional calculations.
+    def _equally_weight_lightcurves(self, random_generator=None):
+        """This method reduces the number of difference samples for all light
+        curves to prevent a few from dominating the calculation.
         """
-        for lc_idx in range(len(self._time)):
-            # Get one numpy array from the list of numpy arrays
-            lc_times = self._time[lc_idx]
-            lc_fluxes = self._flux[lc_idx]
-            lc_errors = self._err[lc_idx]
+        self._get_difference_values_per_lightcurve()
 
-            # mask out any nan values
-            t_mask = np.isnan(lc_times)
-            f_mask = np.isnan(lc_fluxes)
-            e_mask = np.isnan(lc_errors)  # always mask out nan errors?
-            lc_mask = np.logical_or(t_mask, f_mask, e_mask)
+        # if the user defined number_lightcurve_samples in the argument container,
+        # use that, otherwise, default to the minimum number of difference values.
+        least_lightcurve_differences = self._argument_container.number_lightcurve_samples or min(
+            self._difference_values_per_lightcurve
+        )
 
-            lc_times = lc_times[~lc_mask]
-            lc_fluxes = lc_fluxes[~lc_mask]
-            lc_errors = lc_errors[~lc_mask]
+        for lc in self._lightcurves:
+            lc.select_difference_samples(least_lightcurve_differences, random_generator=random_generator)
 
-            # d_times = difference of times
-            dt_matrix = lc_times.reshape((1, lc_times.size)) - lc_times.reshape((lc_times.size, 1))
-            d_times = dt_matrix[dt_matrix > 0].flatten()
-            self._dts.append(d_times)
-
-            # d_fluxes = difference of fluxes
-            df_matrix = lc_fluxes.reshape((1, lc_fluxes.size)) - lc_fluxes.reshape((lc_fluxes.size, 1))
-            d_fluxes = df_matrix[dt_matrix > 0].flatten()
-            self._all_d_fluxes.append(d_fluxes)
-
-            # err^2 = sum of squared errors
-            err2_matrix = (
-                lc_errors.reshape((1, lc_errors.size)) ** 2 + lc_errors.reshape((lc_errors.size, 1)) ** 2
-            )
-            err2s = err2_matrix[dt_matrix > 0].flatten()
-            self._sum_error_squared.append(err2s)
+    def _get_difference_values_per_lightcurve(self):
+        """Retrieves the number of difference values per lightcurve and stores
+        them in an array.
+        """
+        self._difference_values_per_lightcurve = [lc.number_of_difference_values for lc in self._lightcurves]
 
     def _bin_dts(self, dts):
         """Bin an input array of delta times (dts). Supports several binning
@@ -198,33 +171,34 @@ class StructureFunctionCalculator(ABC):
         """
 
         if sample_values is None:
-            sample_values = self._all_d_fluxes
+            sample_values = [lc.sample_d_fluxes for lc in self._lightcurves]
 
-        if len(sample_values) != len(self._dts):
-            raise AttributeError("Length of self._dts must equal sample_values.")
+        if len(sample_values) != len(self._lightcurves):
+            raise AttributeError("Number of lightcurves must equal sample_values.")
 
         # combining treats all lightcurves as one when calculating the structure function
-        if self._argument_container.combine and len(self._time) > 1:
-            self._dts = np.hstack(np.array(self._dts, dtype="object"))
-            sample_values = np.hstack(np.array(sample_values, dtype="object"))
+        if self._argument_container.combine and len(self._lightcurves) > 1:
+            all_sample_delta_times = np.hstack([lc.sample_d_times for lc in self._lightcurves])
+            all_binning_delta_times = np.hstack([lc._all_d_times for lc in self._lightcurves])
+            all_sample_values = np.hstack([s for s in sample_values])
 
             # binning
             if self._bins is None:
-                self._bin_dts(self._dts)
+                self._bin_dts(all_binning_delta_times)
 
             # structure function at specific dt
             # the line below will throw error if the bins are not covering the whole range
             try:
                 sfs, _, _ = binned_statistic(
-                    self._dts, sample_values, statistic=statistic_to_apply, bins=self._bins
+                    all_sample_delta_times, all_sample_values, statistic=statistic_to_apply, bins=self._bins
                 )
             except AttributeError:
-                raise AttributeError(
-                    "Length of combined self._dts must equal length of combined sample_value."
-                )
+                raise AttributeError("Length of all_delta_times must equal length of all_sample_value.")
 
             # return the mean delta_time values for each bin
-            bin_means, _, _ = binned_statistic(self._dts, self._dts, statistic="mean", bins=self._bins)
+            bin_means, _, _ = binned_statistic(
+                all_sample_delta_times, all_sample_delta_times, statistic="mean", bins=self._bins
+            )
             return [bin_means], [sfs]
 
         # Not combining calculates structure function for each light curve independently
@@ -232,32 +206,34 @@ class StructureFunctionCalculator(ABC):
             # may want to raise warning if len(times) <=1 and combine was set true
             sfs_all = []
             t_all = []
-            for lc_idx in range(len(self._dts)):
-                if len(self._dts[lc_idx]) > 1:
+            for lc_idx in range(len(self._lightcurves)):
+                # ! double check this to see if this should be len(...) >= 1.
+                if len(self._lightcurves[lc_idx]._all_d_times) > 1:
                     # bin the delta_time values, and evaluate the `statistic_to_apply`
                     # for the delta_flux values in each bin.
 
+                    # If the users has not defined bins, calculate them using all the time difference values
                     if self._bins is None:
-                        self._bin_dts(self._dts[lc_idx])
+                        self._bin_dts(self._lightcurves[lc_idx]._all_d_times)
 
                     try:
                         sfs, _, _ = binned_statistic(
-                            self._dts[lc_idx],
+                            self._lightcurves[lc_idx].sample_d_times,
                             sample_values[lc_idx],
                             statistic=statistic_to_apply,
                             bins=self._bins,
                         )
                     except AttributeError:
                         raise AttributeError(
-                            "Length of each self._dts array must equal length of corresponding sample_value array."
+                            "Length of self._lightcurves[lc_idx].sample_d_times array must equal length of corresponding sample_value array."
                         )
 
                     sfs_all.append(sfs)
 
                     # return the mean delta_time values for each bin
                     bin_means, _, _ = binned_statistic(
-                        self._dts[lc_idx],
-                        self._dts[lc_idx],
+                        self._lightcurves[lc_idx].sample_d_times,
+                        self._lightcurves[lc_idx].sample_d_times,
                         statistic="mean",
                         bins=self._bins,
                     )

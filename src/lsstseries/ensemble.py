@@ -591,7 +591,7 @@ class Ensemble:
         }
 
         known_meta = {
-            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float"},
+            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float", "1_sigma": "float"},
         }
         if func.__name__ in known_cols:
             args = known_cols[func.__name__]

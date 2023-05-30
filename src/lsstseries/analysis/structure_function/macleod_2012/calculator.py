@@ -4,6 +4,7 @@ import numpy as np
 
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 # MacLeod et al. 2012, Erratum 2014ApJ...782..119M
 CONVERSION_TO_SIGMA = 0.74
@@ -23,18 +24,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     Kozlowski 2016, 2016ApJ...826..118K [https://arxiv.org/abs/1604.05858]
     """
 
-    def __init__(
-        self,
-        time: np.ndarray,
-        flux: np.ndarray,
-        err: np.ndarray,
-        argument_container: StructureFunctionArgumentContainer,
-    ):
-        super().__init__(time, flux, err, argument_container)
-
     def calculate(self):
-        self._compute_difference_arrays()
-
         dts, sfs = self._calculate_binned_statistics(statistic_to_apply=self.calculate_iqr_sf2_statistic)
 
         return dts, sfs

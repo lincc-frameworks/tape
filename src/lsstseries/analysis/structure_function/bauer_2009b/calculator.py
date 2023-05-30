@@ -17,14 +17,13 @@ class Bauer2009BStructureFunctionCalculator(StructureFunctionCalculator):
     """
 
     def calculate(self):
-        self._compute_difference_arrays()
-
         # gather the means of the abs(delta_fluxes) per bin
-        value_to_be_binned = [np.abs(d_flux) for d_flux in self._all_d_fluxes]
-        dts, mean_d_flux_per_bin = self._calculate_binned_statistics(sample_values=value_to_be_binned)
+        values_to_be_binned = [np.abs(lc.sample_d_fluxes) for lc in self._lightcurves]
+        dts, mean_d_flux_per_bin = self._calculate_binned_statistics(sample_values=values_to_be_binned)
 
         # gather the means of the sigma^2 (error) per bin
-        _, mean_err2_per_bin = self._calculate_binned_statistics(sample_values=self._sum_error_squared)
+        values_to_be_binned = [lc.sample_sum_squared_error for lc in self._lightcurves]
+        _, mean_err2_per_bin = self._calculate_binned_statistics(sample_values=values_to_be_binned)
 
         # calculate the structure function
         sfs = np.sqrt(PI_OVER_2 * np.square(mean_d_flux_per_bin) - mean_err2_per_bin)

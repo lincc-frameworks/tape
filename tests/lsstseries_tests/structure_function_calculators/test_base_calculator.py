@@ -7,6 +7,7 @@ from lsstseries.analysis.structure_function.base_calculator import (
 )
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.basic.calculator import BasicStructureFunctionCalculator
+from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
 def test_dt_bins():
@@ -15,9 +16,7 @@ def test_dt_bins():
     """
 
     arg_container = StructureFunctionArgumentContainer()
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     # Test on some known data.
     dts = np.array([(201.0 - i) for i in range(200)])
@@ -28,9 +27,7 @@ def test_dt_bins():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "length"
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     sf_method._bin_dts(dts)
     bins = sf_method._bins
@@ -38,9 +35,7 @@ def test_dt_bins():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "loglength"
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     sf_method._bin_dts(dts)
     bins = sf_method._bins
@@ -53,9 +48,7 @@ def test_dt_bins_large_random():
     dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
 
     arg_container = StructureFunctionArgumentContainer()
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     # test size method
     sf_method._bin_dts(dts)
@@ -66,9 +59,7 @@ def test_dt_bins_large_random():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "length"
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     # test length method
     sf_method._bin_dts(dts)
@@ -77,9 +68,7 @@ def test_dt_bins_large_random():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "loglength"
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     sf_method._bin_dts(dts)
     bins = sf_method._bins
@@ -95,9 +84,7 @@ def test_dt_bins_raises_exception():
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "not_a_real_method"
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     with pytest.raises(ValueError) as excinfo:
         _ = sf_method._bin_dts(dts)
@@ -107,16 +94,14 @@ def test_dt_bins_raises_exception():
 def test_calculate_binned_statistics_raises_top_level():
     """
     Test to ensure that _calculate_binned_statistics will raise an exception if
-    self._dts and sample_values do not have the same length along axis=0.
+    time differences and sample_values do not have the same length along axis=0.
     """
 
     np.random.seed(1)
     dts = np.random.random_sample(1000) * 5 + np.logspace(1, 2, 1000)
 
     arg_container = StructureFunctionArgumentContainer()
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator([], argument_container=arg_container)
 
     sf_method._bin_dts(dts)
 
@@ -124,57 +109,54 @@ def test_calculate_binned_statistics_raises_top_level():
 
     with pytest.raises(AttributeError) as excinfo:
         _ = sf_method._calculate_binned_statistics(test_sample_values)
-    assert "Length of self._dts must equal" in str(excinfo.value)
+    assert "Number of lightcurves must equal sample_values." in str(excinfo.value)
 
 
 def test_calculate_binned_statistics_raises_combined():
     """
     Test to ensure that _calculate_binned_statistics will raise an exception if
-    self._dts and sample_values do not have the same length when np.hstack'ed.
+    all_delta_times and sample_values do not have the same length when
+    np.hstack'ed for calculations of combined lightcurves.
     """
 
     np.random.seed(1)
     test_delta_times = np.random.random_sample((3, 10))
     test_sample_values = np.random.random_sample((3, 8))
 
+    test_lcs = [StructureFunctionLightCurve(dt, dt, dt) for dt in test_delta_times]
+
     arg_container = StructureFunctionArgumentContainer()
     arg_container.combine = True
-    sf_method = BasicStructureFunctionCalculator(
-        np.array([[1, 2, 3], [4, 5, 6]]),
-        np.atleast_2d([]),
-        np.atleast_2d([]),
-        argument_container=arg_container,
-    )
+    sf_method = BasicStructureFunctionCalculator(test_lcs, argument_container=arg_container)
 
     sf_method._bin_dts(test_delta_times)
-    sf_method._dts = test_delta_times
 
     with pytest.raises(AttributeError) as excinfo:
         _ = sf_method._calculate_binned_statistics(test_sample_values)
-    assert "Length of combined self._dts" in str(excinfo.value)
+    assert "Length of all_delta_times" in str(excinfo.value)
 
 
 def test_calculate_binned_statistics_raises_individual():
     """
     Test to ensure that _calculate_binned_statistics will raise an exception if
-    each of the self._dts and sample_values arrays do not have the same length.
+    time differences from lightcurves don't have the same length as
+    sample_values arrays.
     """
 
     np.random.seed(1)
     test_delta_times = np.random.random_sample((3, 10))
     test_sample_values = np.random.random_sample((3, 8))
 
+    test_lcs = [StructureFunctionLightCurve(dt, dt, dt) for dt in test_delta_times]
+
     arg_container = StructureFunctionArgumentContainer()
-    sf_method = BasicStructureFunctionCalculator(
-        np.atleast_2d([]), np.atleast_2d([]), np.atleast_2d([]), argument_container=arg_container
-    )
+    sf_method = BasicStructureFunctionCalculator(test_lcs, argument_container=arg_container)
 
     sf_method._bin_dts(test_delta_times)
-    sf_method._dts = test_delta_times
 
     with pytest.raises(AttributeError) as excinfo:
         _ = sf_method._calculate_binned_statistics(test_sample_values)
-    assert "Length of each self._dts" in str(excinfo.value)
+    assert "Length of self._lightcurves[lc_idx].sample_d_times" in str(excinfo.value)
 
 
 def test_register_sf_subclasses():
