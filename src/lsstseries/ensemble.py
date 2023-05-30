@@ -283,6 +283,30 @@ class Ensemble:
         self._source_dirty = True  # This operation modifies the source table
         return self
 
+    def select(self, columns, table="object"):
+        """Select a subset of columns. Modifies the ensemble in-place by dropping
+        the unselected columns.
+
+        Parameters
+        ----------
+        columns: `list`
+            A list of column labels to keep.
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
+        """
+        self._lazy_sync_tables(table)
+        if table == "object":
+            cols_to_drop = [col for col in self._object.columns if col not in columns]
+            self._object = self._object.drop(cols_to_drop, axis=1)
+            self._object_dirty = True
+        elif table == "source":
+            cols_to_drop = [col for col in self._source.columns if col not in columns]
+            self._source = self._source.drop(cols_to_drop, axis=1)
+            self._source_dirty = True
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
+
     def query(self, expr, table="object"):
         """Keep only certain rows of a table based on an expression of
         what information to *keep*. Wraps Dask `query`.
