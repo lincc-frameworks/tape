@@ -27,7 +27,10 @@ class LightCurve:
         t_mask = np.isnan(self._times)
         f_mask = np.isnan(self._fluxes)
         e_mask = np.isnan(self._errors)
-        nan_mask = np.logical_or(t_mask, f_mask, e_mask)
+
+        # np.logical_or takes at most 2 arguments, using reduce will collapse
+        # the first two arguments into one, and apply it to the third.
+        nan_mask = np.logical_or.reduce((t_mask, f_mask, e_mask))
 
         self._times = self._times[~nan_mask]
         self._fluxes = self._fluxes[~nan_mask]
