@@ -8,37 +8,6 @@ from lsstseries.analysis.structure_function.base_argument_container import Struc
 from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
-def register_sf_subclasses():
-    """This method will identify all of the subclasses of `StructureFunctionCalculator`
-    and build a dictionary that maps `name : subclass`.
-
-    Returns
-    -------
-    dict
-        A dictionary of all of subclasses of `StructureFunctionCalculator`. Where
-        the str returned from `subclass.name_id()` is the key, and the class is
-        the value.
-
-    Raises
-    ------
-    ValueError
-        If a duplicate key is found, a ValueError will be raised. This would
-        likely occur if a user copy/pasted an existing subclass but failed to
-        update the unique name_id string.
-    """
-    subclass_dict = {}
-    for subcls in StructureFunctionCalculator.__subclasses__():
-        if subcls.name_id() in subclass_dict:
-            raise ValueError(
-                "Attempted to add duplicate Structure Function calculator name to SF_METHODS: "
-                + str(subcls.name_id())
-            )
-
-        subclass_dict[subcls.name_id()] = subcls
-
-    return subclass_dict
-
-
 class StructureFunctionCalculator(ABC):
     """This is the base class from which all other Structure Function calculator
     methods inherit. Extend this class if you want to create a new Structure

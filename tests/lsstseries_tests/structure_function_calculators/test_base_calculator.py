@@ -1,10 +1,6 @@
 import numpy as np
 import pytest
 
-from lsstseries.analysis.structure_function.base_calculator import (
-    StructureFunctionCalculator,
-    register_sf_subclasses,
-)
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.basic.calculator import BasicStructureFunctionCalculator
 from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
@@ -157,30 +153,3 @@ def test_calculate_binned_statistics_raises_individual():
     with pytest.raises(AttributeError) as excinfo:
         _ = sf_method._calculate_binned_statistics(test_sample_values)
     assert "Length of self._lightcurves[lc_idx].sample_d_times" in str(excinfo.value)
-
-
-def test_register_sf_subclasses():
-    """Base test to ensure that we register the most basic subclass of
-    StructureFunctionCalculator
-    """
-    output = register_sf_subclasses()
-    assert output["basic"] == BasicStructureFunctionCalculator
-
-
-def test_register_sf_subclasses_duplicate_name():
-    """Create an child class of StructureFunctionCalculator with an intentionally
-    duplicate name to check the assertion of `register_sf_subclasses`.
-    """
-
-    class DuplicateStructureFunction(StructureFunctionCalculator):
-        def calculate(self):
-            return 1
-
-        @staticmethod
-        def name_id():
-            return "basic"
-
-    with pytest.raises(ValueError) as excinfo:
-        _ = register_sf_subclasses()
-
-    assert "Attempted to add duplicate Structure" in str(excinfo.value)
