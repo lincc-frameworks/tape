@@ -463,7 +463,7 @@ def test_select(dask_client):
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
     rows = {
-        "id": [8000 + 2 * i for i in range(num_points)],
+        "id": [8000 + (i % 5) for i in range(num_points)],
         "time": [float(i) for i in range(num_points)],
         "flux": [float(i % 4) for i in range(num_points)],
         "band": [all_bands[i % 4] for i in range(num_points)],

@@ -17,7 +17,7 @@ dynamic=["version"]
 dependencies = [
     'pandas',
     'numpy',
-    'dask',
+    'dask>=2023.5.1',
     'dask[distributed]',
     'pyarrow',
     'pyvo',
