@@ -6,7 +6,7 @@ from lsstseries.analysis.structure_function.bauer_2009a.calculator import (
     Bauer2009AStructureFunctionCalculator,
 )
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
+from lsstseries.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
 
 
 def test_basic_calculation():

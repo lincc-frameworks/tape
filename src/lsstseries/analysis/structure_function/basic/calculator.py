@@ -4,7 +4,6 @@ import numpy as np
 
 from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
-from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
 class BasicStructureFunctionCalculator(StructureFunctionCalculator):
@@ -13,17 +12,6 @@ class BasicStructureFunctionCalculator(StructureFunctionCalculator):
     variance of observations with observational errors subtracted.
     For reference, please see Equation 12 in https://arxiv.org/abs/1604.05858
     """
-
-    def __init__(
-        self,
-        lightcurves: List[StructureFunctionLightCurve],
-        argument_container: StructureFunctionArgumentContainer,
-    ):
-        # The only work done in the __init__ method should be input argument
-        # validation. Operating on data should only happen in the `calculate`
-        # method.
-
-        super().__init__(lightcurves, argument_container)
 
     def calculate(self):
         values_to_be_binned = [

@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from lsstseries.analysis.structure_function import SF_METHODS
-from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
+from lsstseries.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
 
 
 def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):

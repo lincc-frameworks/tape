@@ -7,4 +7,4 @@ from .macleod_2012.calculator import Macleod2012StructureFunctionCalculator  # n
 from .schmidt_2010.calculator import Schmidt2010StructureFunctionCalculator  # noqa
 
 from .calculator_registrar import SF_METHODS, register_sf_subclasses, update_sf_subclasses
-from .light_curve import StructureFunctionLightCurve
+from .sf_light_curve import StructureFunctionLightCurve
