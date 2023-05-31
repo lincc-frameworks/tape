@@ -18,11 +18,9 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
     """
 
     def calculate(self):
-        self._compute_difference_arrays()
-
         values_to_be_binned = [
-            SQRT_PI_OVER_2 * np.abs(d_flux) - np.sqrt(error_squared)
-            for d_flux, error_squared in zip(self._all_d_fluxes, self._sum_error_squared)
+            SQRT_PI_OVER_2 * np.abs(lc.sample_d_fluxes) - np.sqrt(lc.sample_sum_squared_error)
+            for lc in self._lightcurves
         ]
 
         dts, sfs = self._calculate_binned_statistics(sample_values=values_to_be_binned)

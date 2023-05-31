@@ -1,7 +1,10 @@
+from typing import List
+
 import numpy as np
 import pandas as pd
 
 from lsstseries.analysis.structure_function import SF_METHODS
+from lsstseries.analysis.structure_function.light_curve import StructureFunctionLightCurve
 
 
 def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):
@@ -67,6 +70,9 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
     dts = []
     bands = []
     sf2s = []
+    sf2_err = []
+    sf2_lower_error = []
+    sf2_upper_error = []
     for b in band_to_calc:
         if b in unq_band:
             band_mask = band == b
@@ -81,29 +87,106 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
 
             # Create stacks of critical quantities, indexed by id
             id_masks = [lc_ids == lc for lc in unq_ids]
-            times_2d = [times[mask] for mask in id_masks]
-            fluxes_2d = [fluxes[mask] for mask in id_masks]
-            errors_2d = [errors[mask] for mask in id_masks]
 
-            sf_calculator = SF_METHODS[sf_method](times_2d, fluxes_2d, errors_2d, argument_container)
+            lightcurves = []
+            for mask in id_masks:
+                try:
+                    sf_lc = StructureFunctionLightCurve(
+                        times=times[mask], fluxes=fluxes[mask], errors=errors[mask]
+                    )
+                    lightcurves.append(sf_lc)
+                except ValueError:
+                    # Exception raised by StructureFunctionLightCurve when there are too few data point.
+                    print("Attempted to create a Lightcurve with too few data points.")
 
-            res = sf_calculator.calculate()
+            if len(lightcurves):
+                sf_calculator = SF_METHODS[sf_method](lightcurves, argument_container)
 
-            res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res[0])]
-            res_bands = [[b] * len(arr) for arr in res[0]]
+                # `aggregated_dts` and `aggregated_sfs` will have the shape:
+                # [calc_rep(0:arg_container.calc_repetitions)][lc_id(0:num_lightcurves)][bin(0:num_dt_bins)]
+                aggregated_dts: List[np.ndarray] = []
+                aggregated_sfs: List[np.ndarray] = []
+                rng = np.random.default_rng(argument_container.random_seed)
+                for _ in range(argument_container.calculation_repetitions):
+                    if argument_container.equally_weight_lightcurves:
+                        sf_calculator._equally_weight_lightcurves(random_generator=rng)
 
-            ids.append(np.hstack(res_ids))
-            bands.append(np.hstack(res_bands))
-            dts.append(np.hstack(res[0]))
-            sf2s.append(np.hstack(res[1]))
+                    tmp_dts, tmp_sfs = sf_calculator.calculate()
+                    aggregated_dts.append(tmp_dts)
+                    aggregated_sfs.append(tmp_sfs)
 
-    if argument_container.combine:
-        idstack = ["combined"] * len(np.hstack(ids))
-    else:
-        idstack = np.hstack(ids)
-    sf2_df = pd.DataFrame(
-        {"lc_id": idstack, "band": np.hstack(bands), "dt": np.hstack(dts), "sf2": np.hstack(sf2s)}
-    )
+                # find the median value for each (lightcurve, dt_bin) coordinate
+                res_dts = np.nanmedian(aggregated_dts, axis=0)
+                res_sfs = np.nanmedian(aggregated_sfs, axis=0)
+
+                if _no_results_found(aggregated_sfs):
+                    res_err = np.zeros_like(res_sfs)
+                    lower_error = np.zeros_like(res_err)
+                    upper_error = np.zeros_like(res_err)
+                else:
+                    # Subtract the upper and lower quantiles and remove the outer
+                    # axis that has length 1. The resulting shape will be the same
+                    # as `res_dts`` and `res_sfs`.
+                    lower_quantile, upper_quantile = np.nanquantile(
+                        aggregated_sfs,
+                        (
+                            argument_container.lower_error_quantile,
+                            argument_container.upper_error_quantile,
+                        ),
+                        axis=0,
+                    )
+
+                    res_err = (upper_quantile - lower_quantile) / 2
+                    lower_error = res_sfs - lower_quantile
+                    upper_error = upper_quantile - res_sfs
+
+                res_ids = [[str(unq_ids[i])] * len(arr) for i, arr in enumerate(res_dts)]
+                res_bands = [[b] * len(arr) for arr in res_dts]
+
+                ids.append(np.hstack(res_ids))
+                bands.append(np.hstack(res_bands))
+                dts.append(np.hstack(res_dts))
+                sf2s.append(np.hstack(res_sfs))
+                sf2_err.append(np.hstack(res_err))
+                if argument_container.report_upper_lower_error_separately:
+                    sf2_lower_error.append(np.hstack(lower_error))
+                    sf2_upper_error.append(np.hstack(upper_error))
+
+    id_stack = []
+    band_stack = []
+    dts_stack = []
+    sf2_stack = []
+    sigma_stack = []
+    sf2_lower_stack = []
+    sf2_upper_stack = []
+
+    if len(ids):
+        id_stack = np.hstack(ids)
+        if argument_container.combine:
+            id_stack = ["combined"] * len(id_stack)
+
+        band_stack = np.hstack(bands)
+        dts_stack = np.hstack(dts)
+        sf2_stack = np.hstack(sf2s)
+        sigma_stack = np.hstack(sf2_err)
+
+        if argument_container.report_upper_lower_error_separately:
+            sf2_lower_stack = np.hstack(sf2_lower_error)
+            sf2_upper_stack = np.hstack(sf2_upper_error)
+
+    data_frame_dict = {
+        "lc_id": id_stack,
+        "band": band_stack,
+        "dt": dts_stack,
+        "sf2": sf2_stack,
+        "1_sigma": sigma_stack,
+    }
+
+    if argument_container.report_upper_lower_error_separately:
+        data_frame_dict["lower_error"] = sf2_lower_stack
+        data_frame_dict["upper_error"] = sf2_upper_stack
+
+    sf2_df = pd.DataFrame(data_frame_dict)
     return sf2_df
 
 
@@ -329,3 +412,34 @@ def _extract_error(err, band_mask):
         errors = np.array(err)[band_mask]
 
     return errors
+
+
+def _no_results_found(aggregated_sfs: List[np.ndarray]) -> bool:
+    """This helper function determines if there are results from calculating
+    the Structure Function for a given input. An example instances where there
+    might not be results would be calculating the SF for a Lightcurve object
+    that contains only 1 observation.
+
+    Parameters
+    ----------
+    aggregated_sfs : List[np.ndarray]
+        The output from the Structure Function calculation. This is a 3 dimensional
+        array with dimensions [calculation_repetitions][lightcurve_id][sf_result]
+        where calculation_repetition has range (0:arg_container.calc_repetitions)
+        lightcurve_id has range (0:num_lightcurves)
+        and sf_result has range (0:num_dt_bins)
+
+    Returns
+    -------
+    bool
+        True if no results were found.
+    """
+
+    no_results_found = False
+
+    # `shape[2]==0` implies that there wasn't enough data to perform the SF calculation
+    # For instance, only 1 observation.
+    if np.shape(aggregated_sfs)[2] == 0:
+        no_results_found = True
+
+    return no_results_found
