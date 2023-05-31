@@ -361,6 +361,43 @@ class Ensemble:
             self._source_dirty = True
         return self
 
+    def assign(self, table="object", **kwargs):
+        """Wrapper for dask.dataframe.DataFrame.assign()
+
+        Parameters
+        ----------
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
+        kwargs: dict of {str: callable or Series}
+            Each argument is the name of a new column to add and its value specifies
+            how to fill it. A callable is called for each row and a series is copied in.
+
+        Returns
+        -------
+        self: `lsstseries.ensemble.Ensemble`
+            The ensemble object.
+
+        Examples
+        --------
+        # Direct assignment of my_series to a column named "new_column".
+        ens.assign(table="object", new_column=my_series)
+
+        # Subtract the value in "err" from the value in "flux".
+        ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
+        """
+        self._lazy_sync_tables(table)
+
+        if table == "object":
+            self._object = self._object.assign(**kwargs)
+            self._object_dirty = True
+        elif table == "source":
+            self._source = self._source.assign(**kwargs)
+            self._source_dirty = True
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
+        return self
+
     def prune(self, threshold=50, col_name=None):
         """remove objects with less observations than a given threshold
 
@@ -373,7 +410,7 @@ class Ensemble:
             The name of the column to assess the threshold
 
         Returns
-        ----------
+        -------
         ensemble: `lsstseries.ensemble.Ensemble`
             The ensemble object with pruned rows removed
         """

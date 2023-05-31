@@ -463,7 +463,7 @@ def test_select(dask_client):
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
     rows = {
-        "id": [8000 + 2 * i for i in range(num_points)],
+        "id": [8000 + (i % 5) for i in range(num_points)],
         "time": [float(i) for i in range(num_points)],
         "flux": [float(i % 4) for i in range(num_points)],
         "band": [all_bands[i % 4] for i in range(num_points)],
@@ -488,6 +488,47 @@ def test_select(dask_client):
     assert "band" not in ens._source.columns
     assert "count" not in ens._source.columns
     assert "something_else" not in ens._source.columns
+
+
+def test_assign(dask_client):
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = ["r", "g", "b", "i"]
+    rows = {
+        "id": [8000 + (i % 10) for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [float(i % 4) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
+        "err": [0.1 * float((i + 2) % 5) for i in range(num_points)],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap, npartitions=1)
+    assert len(ens._source.columns) == 4
+    assert "lower_bnd" not in ens._source.columns
+
+    # Insert a new column for the "lower bound" computation.
+    ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
+    assert len(ens._source.columns) == 5
+    assert "lower_bnd" in ens._source.columns
+
+    # Check the values in the new column.
+    new_source = ens.compute(table="source")
+    assert new_source.shape[0] == 1000
+    for i in range(1000):
+        expected = new_source.iloc[i]["flux"] - 2.0 * new_source.iloc[i]["err"]
+        assert new_source.iloc[i]["lower_bnd"] == expected
+
+    # Create a series directly from the table.
+    res_col = ens._source["band"] + "2"
+    ens.assign(table="source", band2=res_col)
+    assert len(ens._source.columns) == 6
+    assert "band2" in ens._source.columns
+
+    # Check the values in the new column.
+    new_source = ens.compute(table="source")
+    for i in range(1000):
+        assert new_source.iloc[i]["band2"] == new_source.iloc[i]["band"] + "2"
 
 
 def test_find_day_gap_offset(dask_client):
