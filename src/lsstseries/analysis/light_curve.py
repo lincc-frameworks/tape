@@ -1,15 +1,38 @@
-from typing import Optional
 import numpy as np
-
-MIN_OBSERVATIONS_REQUIRED_FOR_SF = 3
 
 
 class LightCurve:
-    def __init__(self, times: np.ndarray, fluxes: np.ndarray, errors: np.ndarray):
+    """This base class is meant to support various analysis routines and be
+    extended as needed. (Hence it's location in the `analysis` package.)
+
+    The base class ensures that the data for a single lightcurve is well formed.
+    Namely that the input data is all of the same length, with NaN's removed and
+    that there are enough observations to perform a given analysis.
+    """
+
+    def __init__(
+        self, times: np.ndarray, fluxes: np.ndarray, errors: np.ndarray, minimum_observations: int = 0
+    ):
+        """Calls the processing functions to clean and validate the input data.
+        All of the input arrays should have the same length.
+
+        Parameters
+        ----------
+        times : np.ndarray
+            The timestamps values of the data.
+        fluxes : np.ndarray
+            The flux/magnitude values of the data.
+        errors : np.ndarray
+            The error in the measurements.
+        minimum_observations : int, optional
+            The minimum number of data points needed to successfully process
+            the lightcurve, by default 0
+        """
         # The primary data
         self._times = times
         self._fluxes = fluxes
         self._errors = errors
+        self._minimum_observations = minimum_observations
 
         self._process_input_data()
 
@@ -45,5 +68,5 @@ class LightCurve:
         """Make sure that we have enough data after cleaning and filtering
         to be able to perform Structure Function calculations.
         """
-        if self._times.size < MIN_OBSERVATIONS_REQUIRED_FOR_SF:
-            raise ValueError("Too few observations provided to calculate Structure Function differences.")
+        if self._times.size < self._minimum_observations:
+            raise ValueError("Too few observations provided to create `LightCurve`.")

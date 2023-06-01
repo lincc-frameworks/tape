@@ -3,10 +3,12 @@ import numpy as np
 
 from lsstseries.analysis.light_curve import LightCurve
 
+MIN_OBSERVATIONS_REQUIRED_FOR_SF = 3
+
 
 class StructureFunctionLightCurve(LightCurve):
     def __init__(self, times: np.ndarray, fluxes: np.ndarray, errors: np.ndarray):
-        super().__init__(times, fluxes, errors)
+        super().__init__(times, fluxes, errors, MIN_OBSERVATIONS_REQUIRED_FOR_SF)
 
         # The derived data from the primary data
         self._all_d_times: np.array = []

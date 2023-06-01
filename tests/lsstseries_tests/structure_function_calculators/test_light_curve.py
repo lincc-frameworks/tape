@@ -42,15 +42,29 @@ def test_lightcurve_validate_same_length():
     assert "Input np.arrays are expected to have the same size." in str(excinfo.value)
 
 
-def test_lightcurve_validate_sufficient_observations():
-    """Make sure that we raise an exception if there aren't enough
-    observations to calculate Structure Function differences.
+def test_lightcurve_minimum_length_raises():
+    """Make sure that we raise a ValueError if the input np.arrays don't
+    have enough data.
     """
-    test_t = np.array([1.11])
-    test_y = np.array([0.11])
-    test_yerr = np.array([0.1])
+    test_t = np.array([])
+    test_y = np.array([])
+    test_yerr = np.array([])
 
     with pytest.raises(ValueError) as excinfo:
-        _ = LightCurve(test_t, test_y, test_yerr)
+        _ = LightCurve(test_t, test_y, test_yerr, minimum_observations=1)
 
-    assert "Too few observations provided to calculate Structure Function differences." in str(excinfo.value)
+    assert "Too few observations provided to create `LightCurve`." in str(excinfo.value)
+
+
+def test_lightcurve_minimum_length_raises_after_nan_removal():
+    """Make sure that we raise a ValueError if the input np.arrays don't
+    have enough data after we remove NaN values.
+    """
+    test_t = np.array([np.nan])
+    test_y = np.array([np.nan])
+    test_yerr = np.array([np.nan])
+
+    with pytest.raises(ValueError) as excinfo:
+        _ = LightCurve(test_t, test_y, test_yerr, minimum_observations=1)
+
+    assert "Too few observations provided to create `LightCurve`." in str(excinfo.value)
