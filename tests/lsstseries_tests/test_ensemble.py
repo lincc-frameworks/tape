@@ -261,6 +261,50 @@ def test_persist(dask_client):
     new_graph_size = len(ens._source.dask)
     assert new_graph_size < old_graph_size
 
+def test_update_column_map(dask_client):
+    """
+    Test that we can update the column maps in an Ensemble.
+    """
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # and a few time steps. Leave out the flux data initially.
+    rows = {
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        "f2": [2.0, 1.0, 3.0, 5.0, 2.0, 1.0, 5.0, 4.0, 3.0],
+        "p": [1, 1, 1, 2, 2, 2, 0, 0, 0]
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(rows, column_mapper=cmap)
+
+    # Check that we can retrieve the correct column map.
+    cmap_1 = ens.make_column_map()
+    assert cmap_1.map["id_col"] == "id"
+    assert cmap_1.map["time_col"] == "time"
+    assert cmap_1.map["flux_col"] == "flux"
+    assert cmap_1.map["err_col"] == "err"
+    assert cmap_1.map["band_col"] == "band"
+    assert cmap_1.map["provenance_col"] is None
+
+    # Update the column map.
+    ens.update_column_mapping(flux_col="f2", provenance_col="p")
+
+    # Check that the flux and provenance columns have been updates.
+    assert ens._flux_col == "f2"
+    assert ens._provenance_col == "p"
+
+    # Check that we retrieve the updated column map.
+    cmap_2 = ens.make_column_map()
+    assert cmap_2.map["id_col"] == "id"
+    assert cmap_2.map["time_col"] == "time"
+    assert cmap_2.map["flux_col"] == "f2"
+    assert cmap_2.map["err_col"] == "err"
+    assert cmap_2.map["band_col"] == "band"
+    assert cmap_2.map["provenance_col"] == "p"
 
 def test_sync_tables(parquet_ensemble):
     """
