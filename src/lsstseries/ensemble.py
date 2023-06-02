@@ -718,8 +718,68 @@ class Ensemble:
             **kwargs,
         )
 
+    def make_column_map(self):
+        """Returns the current column mapping.
+
+        Returns
+        -------
+        result: `lsstseries.utils.ColumnMapper`
+            A new column mapper representing the Ensemble's current mappings.
+        """
+        result = ColumnMapper(
+            id_col=self._id_col,
+            time_col=self._time_col,
+            flux_col=self._flux_col,
+            err_col=self._err_col,
+            band_col=self._band_col,
+            provenance_col=self._provenance_col,
+            nobs_total_col=self._nobs_tot_col,
+            nobs_band_cols=self._nobs_band_cols,
+        )
+        return result
+
+    def update_column_mapping(self, column_mapper=None, **kwargs):
+        """Update the mapping of column names.
+
+        Parameters
+        ----------
+        column_mapper: `lsstseries.utils.ColumnMapper`, optional
+            An entirely new mapping of column names. If `None` then modifies the
+            current mapping using kwargs.
+        kwargs:
+            Individual column to name settings.
+
+        Returns
+        -------
+        self: `Ensemble`
+        """
+        if column_mapper is not None:
+            self._load_column_mapper(column_mapper, **kwargs)
+        else:
+            column_mapper = self.make_column_map()
+            column_mapper.assign(**kwargs)
+            self._load_column_mapper(column_mapper, **kwargs)
+        return self
+
     def _load_column_mapper(self, column_mapper, **kwargs):
-        """load a column mapper object"""
+        """Load a column mapper object.
+
+        Parameters
+        ----------
+        column_mapper: `lsstseries.utils.ColumnMapper` or None
+            The `ColumnMapper` to use. If `None` then the function
+            creates a new one from kwargs.
+        kwargs: optional
+            Individual column to name settings.
+
+        Returns
+        -------
+        self: `Ensemble`
+
+        Raises
+        ------
+        ValueError if a required column is missing.
+        """
         if column_mapper is None:
             column_mapper = ColumnMapper(**kwargs)
 
