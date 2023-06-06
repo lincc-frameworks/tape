@@ -1,7 +1,7 @@
 from typing import Optional
 import numpy as np
 
-from lsstseries.analysis.light_curve import LightCurve
+from tape.analysis.light_curve import LightCurve
 
 MIN_OBSERVATIONS_REQUIRED_FOR_SF = 3
 

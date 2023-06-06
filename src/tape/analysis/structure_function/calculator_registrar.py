@@ -1,4 +1,4 @@
-from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from tape.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
 
 def register_sf_subclasses():

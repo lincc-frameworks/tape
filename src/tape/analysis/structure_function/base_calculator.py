@@ -4,8 +4,8 @@ from typing import List
 import numpy as np
 from scipy.stats import binned_statistic
 
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
 
 
 class StructureFunctionCalculator(ABC):

@@ -1,7 +1,7 @@
 import numpy as np
 
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
 PI_OVER_2 = np.pi / 2.0
 

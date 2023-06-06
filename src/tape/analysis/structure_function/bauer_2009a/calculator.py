@@ -1,7 +1,7 @@
 import numpy as np
 
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
 
 class Bauer2009AStructureFunctionCalculator(StructureFunctionCalculator):
