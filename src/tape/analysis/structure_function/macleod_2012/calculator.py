@@ -2,8 +2,8 @@ from typing import List
 
 import numpy as np
 
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structure_function.base_calculator import StructureFunctionCalculator
 
 # MacLeod et al. 2012, Erratum 2014ApJ...782..119M
 CONVERSION_TO_SIGMA = 0.74
