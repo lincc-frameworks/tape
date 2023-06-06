@@ -1,7 +1,7 @@
 import pandas as pd
 
-from lsstseries.analysis.stetsonj import calc_stetson_J
-from lsstseries.analysis.structurefunction2 import calc_sf2
+from tape.analysis.stetsonj import calc_stetson_J
+from tape.analysis.structurefunction2 import calc_sf2
 
 
 class TimeSeries:
