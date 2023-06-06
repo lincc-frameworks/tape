@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from lsstseries.analysis.structurefunction2 import calc_sf2
-from lsstseries.analysis.structure_function.bauer_2009a.calculator import (
+from tape.analysis.structurefunction2 import calc_sf2
+from tape.analysis.structure_function.bauer_2009a.calculator import (
     Bauer2009AStructureFunctionCalculator,
 )
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
 
 
 def test_basic_calculation():

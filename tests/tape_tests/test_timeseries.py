@@ -1,7 +1,7 @@
 """Test ensemble manipulations"""
 import pandas as pd
 
-from lsstseries import TimeSeries
+from tape import TimeSeries
 
 
 def test_from_dict():

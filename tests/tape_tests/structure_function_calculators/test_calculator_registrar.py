@@ -1,12 +1,12 @@
 import pytest
 
-from lsstseries.analysis.structure_function.calculator_registrar import (
+from tape.analysis.structure_function.calculator_registrar import (
     SF_METHODS,
     register_sf_subclasses,
     update_sf_subclasses,
 )
-from lsstseries.analysis.structure_function.base_calculator import StructureFunctionCalculator
-from lsstseries.analysis.structure_function.basic.calculator import BasicStructureFunctionCalculator
+from tape.analysis.structure_function.base_calculator import StructureFunctionCalculator
+from tape.analysis.structure_function.basic.calculator import BasicStructureFunctionCalculator
 
 
 def test_register_sf_subclasses():

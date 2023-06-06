@@ -1,10 +1,10 @@
 import numpy as np
 
-from lsstseries.analysis.structure_function.macleod_2012.calculator import (
+from tape.analysis.structure_function.macleod_2012.calculator import (
     Macleod2012StructureFunctionCalculator,
 )
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
 
 
 def test_basic_calculation():

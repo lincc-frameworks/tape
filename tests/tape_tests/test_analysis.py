@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from lsstseries import TimeSeries, analysis
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape import TimeSeries, analysis
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 
 # pylint: disable=protected-access
 

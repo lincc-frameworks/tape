@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from lsstseries.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
+from tape.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
 
 
 def test_lightcurve_creation():

@@ -1,5 +1,5 @@
 import pytest
-from lsstseries.utils import ColumnMapper
+from tape.utils import ColumnMapper
 
 
 def test_column_mapper():

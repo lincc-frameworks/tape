@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from lsstseries.analysis.light_curve import LightCurve
+from tape.analysis.light_curve import LightCurve
 
 
 def test_lightcurve_creation():
