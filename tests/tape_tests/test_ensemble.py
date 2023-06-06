@@ -6,11 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from lsstseries import Ensemble
-from lsstseries.analysis.stetsonj import calc_stetson_J
-from lsstseries.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from lsstseries.analysis.structurefunction2 import calc_sf2
-from lsstseries.utils import ColumnMapper
+from tape import Ensemble
+from tape.analysis.stetsonj import calc_stetson_J
+from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
+from tape.analysis.structurefunction2 import calc_sf2
+from tape.utils import ColumnMapper
 
 
 # pylint: disable=protected-access
@@ -18,7 +18,7 @@ def test_with():
     """Test that we open and close a client on enter and exit."""
     with Ensemble() as ens:
         ens.from_parquet(
-            "tests/lsstseries_tests/data/source/test_source.parquet",
+            "tests/tape_tests/data/source/test_source.parquet",
             id_col="ps1_objid",
             band_col="filterName",
             flux_col="psFlux",
@@ -261,6 +261,7 @@ def test_persist(dask_client):
     new_graph_size = len(ens._source.dask)
     assert new_graph_size < old_graph_size
 
+
 def test_update_column_map(dask_client):
     """
     Test that we can update the column maps in an Ensemble.
@@ -276,7 +277,7 @@ def test_update_column_map(dask_client):
         "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
         "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
         "f2": [2.0, 1.0, 3.0, 5.0, 2.0, 1.0, 5.0, 4.0, 3.0],
-        "p": [1, 1, 1, 2, 2, 2, 0, 0, 0]
+        "p": [1, 1, 1, 2, 2, 2, 0, 0, 0],
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens.from_source_dict(rows, column_mapper=cmap)
@@ -305,6 +306,7 @@ def test_update_column_map(dask_client):
     assert cmap_2.map["err_col"] == "err"
     assert cmap_2.map["band_col"] == "band"
     assert cmap_2.map["provenance_col"] == "p"
+
 
 def test_sync_tables(parquet_ensemble):
     """

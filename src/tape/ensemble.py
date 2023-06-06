@@ -275,7 +275,7 @@ class Ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.Ensemble`
+        ensemble: `tape.ensemble.Ensemble`
             The ensemble object with nans removed according to the threshold
             scheme
         """
@@ -375,7 +375,7 @@ class Ensemble:
 
         Returns
         -------
-        self: `lsstseries.ensemble.Ensemble`
+        self: `tape.ensemble.Ensemble`
             The ensemble object.
 
         Examples
@@ -411,7 +411,7 @@ class Ensemble:
 
         Returns
         -------
-        ensemble: `lsstseries.ensemble.Ensemble`
+        ensemble: `tape.ensemble.Ensemble`
             The ensemble object with pruned rows removed
         """
         if not col_name:
@@ -508,7 +508,7 @@ class Ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.Ensemble`
+        ensemble: `tape.ensemble.Ensemble`
             The ensemble object with pruned rows removed
 
         Notes
@@ -573,7 +573,7 @@ class Ensemble:
         return self
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
-        """Run a function from lsstseries.TimeSeries on the available ids
+        """Run a function from tape.TimeSeries on the available ids
 
         Parameters
         ----------
@@ -581,11 +581,11 @@ class Ensemble:
             A function to apply to all objects in the ensemble
         *args:
             Denotes the ensemble columns to use as inputs for a function,
-            order must be correct for function. If passing a lsstseries
+            order must be correct for function. If passing a tape
             function, these are populated automatically.
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
             Dask's meta parameter, which lays down the expected structure of
-            the results. Overridden by lsstseries for lsstseries
+            the results. Overridden by tape for tape
             functions. If none, attempts to coerce the result to a
             pandas.series.
         use_map : `boolean`
@@ -610,7 +610,7 @@ class Ensemble:
         Example
         ----------
         `
-        from lsstseries.analysis.stetsonj import calc_stetson_J
+        from tape.analysis.stetsonj import calc_stetson_J
         ensemble.batch(calc_stetson_J, band_to_calc='i')
         `
         """
@@ -694,11 +694,11 @@ class Ensemble:
             information mapped from the input dataset.
         **kwargs:
             keyword arguments passed along to
-            `lsstseries.ensemble.Ensemble.from_parquet`
+            `tape.ensemble.Ensemble.from_parquet`
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.Ensemble`
+        ensemble: `tape.ensemble.Ensemble`
             The ensemble object with parquet data loaded
         """
 
@@ -723,7 +723,7 @@ class Ensemble:
 
         Returns
         -------
-        result: `lsstseries.utils.ColumnMapper`
+        result: `tape.utils.ColumnMapper`
             A new column mapper representing the Ensemble's current mappings.
         """
         result = ColumnMapper(
@@ -743,7 +743,7 @@ class Ensemble:
 
         Parameters
         ----------
-        column_mapper: `lsstseries.utils.ColumnMapper`, optional
+        column_mapper: `tape.utils.ColumnMapper`, optional
             An entirely new mapping of column names. If `None` then modifies the
             current mapping using kwargs.
         kwargs:
@@ -766,7 +766,7 @@ class Ensemble:
 
         Parameters
         ----------
-        column_mapper: `lsstseries.utils.ColumnMapper` or None
+        column_mapper: `tape.utils.ColumnMapper` or None
             The `ColumnMapper` to use. If `None` then the function
             creates a new one from kwargs.
         kwargs: optional
@@ -852,7 +852,7 @@ class Ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.Ensemble`
+        ensemble: `tape.ensemble.Ensemble`
             The ensemble object with parquet data loaded
         """
 
@@ -933,7 +933,7 @@ class Ensemble:
 
         Returns
         ----------
-        ensemble: `lsstseries.ensemble.Ensemble`
+        ensemble: `tape.ensemble.Ensemble`
             The ensemble object with dictionary data loaded
         """
         # load column mappings
