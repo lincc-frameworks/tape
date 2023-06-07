@@ -1,7 +1,7 @@
 
 <img src="https://www.lsstcorporation.org/lincc/sites/default/files/PastedGraphic-8.png" width="300" height="100">
 
-# lsstseries
+# TAPE (Timeseries Analysis & Processing Engine)
 
 [![Template](https://img.shields.io/badge/Template-LINCC%20Frameworks%20Python%20Project%20Template-brightgreen)](https://lincc-ppt.readthedocs.io/en/latest/)
 
@@ -15,7 +15,7 @@ In short term we are working on two main goals of the project:
 
 This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks)
 
-To learn about the usage of the package, consult the [Documentation](https://lsstseries.readthedocs.io/en/latest/index.html).
+To learn about the usage of the package, consult the [Documentation](https://tape.readthedocs.io/en/latest/index.html).
 
 ## Getting started - for developers
 
@@ -25,8 +25,8 @@ Download code and install dependencies in a conda environment. Run unit tests at
 $ conda create -n seriesenv python=3.10
 $ conda activate seriesenv
 
-$ git clone https://github.com/lincc-frameworks/lsstseries
-$ cd lsstseries/
+$ git clone https://github.com/lincc-frameworks/tape
+$ cd tape/
 $ pip install .
 
 $ pip install pytest

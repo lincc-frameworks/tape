@@ -1,5 +1,5 @@
 [project]
-name = "lsstseries"
+name = "tape"
 license = {file = "LICENSE"}
 readme = "README.md"
 authors = [
@@ -56,7 +56,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "src/lsstseries/_version.py"
+write_to = "src/tape/_version.py"
 
 [tool.black]
 line-length = 110

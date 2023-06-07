@@ -16,10 +16,10 @@ sys.path.insert(0, os.path.abspath('../src/'))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "lsstseries"
+project = "tape"
 copyright = "2023, LINCC Frameworks Team"
 author = "LINCC Frameworks Team"
-release = version("lsstseries")
+release = version("tape")
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
 
@@ -36,7 +36,7 @@ exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
 master_doc = "index"  # This assumes that sphinx-build is called from the root directory
 html_show_sourcelink = False  # Remove 'view source code' from top of page (for html, not python)
-add_module_names = False # Remove namespaces from class/method signatures
+add_module_names = False  # Remove namespaces from class/method signatures
 
 autoapi_type = "python"
 autoapi_dirs = ["../src"]
