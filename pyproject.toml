@@ -46,6 +46,7 @@ dev = [
     "ipython", # Also used in building notebooks into Sphinx
     "matplotlib", # Used in sample notebook intro_notebook.ipynb
     "numpy", # Used in sample notebook intro_notebook.ipynb
+    "eztao@git+https://github.com/ywx649999311/EzTao", # Used in Structure Function example notebook
 ]
 
 [build-system]
