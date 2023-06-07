@@ -581,11 +581,11 @@ class Ensemble:
             A function to apply to all objects in the ensemble
         *args:
             Denotes the ensemble columns to use as inputs for a function,
-            order must be correct for function. If passing a tape
+            order must be correct for function. If passing a TAPE
             function, these are populated automatically.
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
             Dask's meta parameter, which lays down the expected structure of
-            the results. Overridden by tape for tape
+            the results. Overridden by TAPE for TAPE
             functions. If none, attempts to coerce the result to a
             pandas.series.
         use_map : `boolean`
