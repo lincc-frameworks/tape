@@ -78,6 +78,20 @@ class ColumnMapper:
     def map_id() -> str:
         return None
 
+    def lookup(self, col):
+        """Look up the mapping for a column name.
+
+        Parameters
+        ----------
+        col: `str`
+            The column to lookup.
+
+        Returns
+        -------
+        A string with the column name or None.
+        """
+        return self.map[col]
+
     def use_known_map(self, map_id):
         """Use a known mapping scheme
 

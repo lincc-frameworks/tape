@@ -5,6 +5,40 @@ import pandas as pd
 
 from tape.analysis.structure_function import SF_METHODS
 from tape.analysis.structure_function.sf_light_curve import StructureFunctionLightCurve
+from tape.utils import ColumnMapper
+
+
+def sf2_required_columns(column_mapper):
+    """Get a list of required columns for the structure function.
+
+    Parameters
+    ----------
+    column_mapper: `ColumnMapper`
+        The object that provides a mapping from known column to name string.
+
+    Returns
+    -------
+    cols: list
+        A list of column names.
+    """
+    cols = [
+        column_mapper.lookup("time_col"),
+        column_mapper.lookup("flux_col"),
+        column_mapper.lookup("err_col"),
+        column_mapper.lookup("band_col"),
+        column_mapper.lookup("id_col"),
+    ]
+    return cols
+
+
+def sf2_meta():
+    """Return the meta data for the sf2 result.
+
+    Returns
+    -------
+    A dictionary mapping result column name to type.
+    """
+    return {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float", "1_sigma": "float"}
 
 
 def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", argument_container=None):

@@ -7,9 +7,9 @@ import pandas as pd
 import pytest
 
 from tape import Ensemble
-from tape.analysis.stetsonj import calc_stetson_J
+from tape.analysis.stetsonj import calc_stetson_J, stetson_J_required_columns
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
-from tape.analysis.structurefunction2 import calc_sf2
+from tape.analysis.structurefunction2 import calc_sf2, sf2_meta, sf2_required_columns
 from tape.utils import ColumnMapper
 
 
@@ -705,8 +705,17 @@ def test_batch(parquet_ensemble, use_map, on):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
+    column_map = parquet_ensemble.make_column_map()
     result = (
-        parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
+        parquet_ensemble.prune(10)
+        .dropna(1)
+        .batch(
+            calc_stetson_J,
+            *stetson_J_required_columns(column_map),
+            use_map=use_map,
+            on=on,
+            band_to_calc=None,
+        )
     )
 
     if on is None:
@@ -759,6 +768,7 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
     """
     Test calling sf2 from the ensemble
     """
+    column_map = parquet_ensemble.make_column_map()
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = method
@@ -766,7 +776,13 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
     arg_container.bin_count_target = sthresh
 
     res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
-    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+    res_batch = parquet_ensemble.batch(
+        calc_sf2,
+        *sf2_required_columns(column_map),
+        meta=sf2_meta(),
+        use_map=use_map,
+        argument_container=arg_container,
+    )
 
     if combine:
         assert not res_sf2.equals(res_batch)  # output should be different
@@ -779,6 +795,7 @@ def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
     """
     Test calling sf2 from the ensemble
     """
+    column_map = parquet_ensemble.make_column_map()
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "loglength"
@@ -787,6 +804,12 @@ def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
     arg_container.sf_method = sf_method
 
     res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
-    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+    res_batch = parquet_ensemble.batch(
+        calc_sf2,
+        *sf2_required_columns(column_map),
+        meta=sf2_meta(),
+        use_map=use_map,
+        argument_container=arg_container,
+    )
 
     assert res_sf2.equals(res_batch)  # output should be identical

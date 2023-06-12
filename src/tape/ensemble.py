@@ -10,7 +10,7 @@ import pyvo as vo
 from dask.distributed import Client
 
 from .analysis.structure_function import SF_METHODS
-from .analysis.structurefunction2 import calc_sf2
+from .analysis.structurefunction2 import calc_sf2, sf2_meta, sf2_required_columns
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
@@ -581,12 +581,12 @@ class Ensemble:
             A function to apply to all objects in the ensemble
         *args:
             Denotes the ensemble columns to use as inputs for a function,
-            order must be correct for function. If passing a TAPE
-            function, these are populated automatically.
+            order must be correct for function. TAPE functions provide helper
+            methods to automatically produce this list.
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
             Dask's meta parameter, which lays down the expected structure of
-            the results. Overridden by TAPE for TAPE
-            functions. If none, attempts to coerce the result to a
+            the results. TAPE functions provide helper methods to automatically
+            produce this list. If None, attempts to coerce the result to a
             pandas.series.
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
@@ -615,25 +615,6 @@ class Ensemble:
         `
         """
         self._lazy_sync_tables(table="all")
-
-        known_cols = {
-            "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
-            "calc_sf2": [
-                self._time_col,
-                self._flux_col,
-                self._err_col,
-                self._band_col,
-                self._id_col,
-            ],
-        }
-
-        known_meta = {
-            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float", "1_sigma": "float"},
-        }
-        if func.__name__ in known_cols:
-            args = known_cols[func.__name__]
-        if func.__name__ in known_meta:
-            meta = known_meta[func.__name__]
 
         if meta is None:
             meta = (self._id_col, type(self._id_col))  # return a series of ids
@@ -1344,6 +1325,13 @@ class Ensemble:
             )
             return result
         else:
-            result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
+            column_map = self.make_column_map()
+            result = self.batch(
+                calc_sf2,
+                *sf2_required_columns(column_map),
+                meta=sf2_meta(),
+                use_map=use_map,
+                argument_container=argument_container,
+            )
 
             return result

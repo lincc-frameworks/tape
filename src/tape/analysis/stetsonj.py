@@ -1,4 +1,26 @@
 import numpy as np
+from tape.utils import ColumnMapper
+
+
+def stetson_J_required_columns(column_mapper):
+    """Get a list of required columns for Stetson J.
+
+    Parameters
+    ----------
+    column_mapper: `ColumnMapper`
+        The object that provides a mapping from known column to name string.
+
+    Returns
+    -------
+    cols: list
+        A list of column names.
+    """
+    cols = [
+        column_mapper.lookup("flux_col"),
+        column_mapper.lookup("err_col"),
+        column_mapper.lookup("band_col"),
+    ]
+    return cols
 
 
 def calc_stetson_J(flux, err, band, band_to_calc=None, check_nans=True):
