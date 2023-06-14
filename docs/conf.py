@@ -16,10 +16,10 @@ sys.path.insert(0, os.path.abspath('../src/'))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "lincc-tape"
+project = "lf-tape"
 copyright = "2023, LINCC Frameworks Team"
 author = "LINCC Frameworks Team"
-release = version("lincc-tape")
+release = version("lf-tape")
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
 
