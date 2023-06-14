@@ -1,5 +1,5 @@
 [project]
-name = "tape"
+name = "lf-tape"
 license = {file = "LICENSE"}
 readme = "README.md"
 authors = [
