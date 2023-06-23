@@ -67,6 +67,64 @@ def test_from_parquet(data_fixture, request):
         assert parquet_ensemble._source[col] is not None
 
 
+def test_available_datasets(dask_client):
+    """
+    Test that the ensemble is able to successfully read in the list of available TAPE datasets
+    """
+    ens = Ensemble(client=dask_client)
+
+    datasets = ens.available_datasets()
+
+    assert isinstance(datasets, dict)
+    assert len(datasets) > 0  # Find at least one
+
+
+def test_from_rrl_dataset(dask_client):
+    """
+    Test a basic load and analyze workflow from the S82 RR Lyrae Dataset
+    """
+
+    ens = Ensemble(client=dask_client)
+    ens.from_dataset("s82_rrlyrae")
+
+    # larger dataset, let's just use a subset of ~100
+    ens.prune(350)
+
+    res = ens.batch(calc_stetson_J)
+
+    assert 377927 in res  # find a specific object
+
+    # Check Stetson J results for a specific object
+    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+
+
+def test_from_qso_dataset(dask_client):
+    """
+    Test a basic load and analyze workflow from the S82 QSO Dataset
+    """
+
+    ens = Ensemble(client=dask_client)
+    ens.from_dataset("s82_qso")
+
+    # larger dataset, let's just use a subset of ~100
+    ens.prune(650)
+
+    res = ens.batch(calc_stetson_J)
+
+    assert 1257836 in res  # find a specific object
+
+    # Check Stetson J results for a specific object
+    assert res[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+
+
 def test_from_source_dict(dask_client):
     """
     Test that ensemble.from_source_dict() successfully creates data from a dictionary.
