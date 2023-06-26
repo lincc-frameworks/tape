@@ -2,6 +2,8 @@ import glob
 import os
 import time
 import warnings
+import json
+import requests
 
 import dask.dataframe as dd
 import numpy as np
@@ -916,6 +918,60 @@ class Ensemble:
             self._source = self._source.repartition(partition_size=partition_size)
 
         return self
+
+    def from_dataset(self, dataset, **kwargs):
+        """Load the ensemble from a TAPE dataset.
+
+        Parameters
+        ----------
+        dataset: 'str'
+            The name of the dataset to import
+
+        Returns
+        -------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with the dataset loaded
+        """
+
+        req = requests.get(
+            "https://github.com/lincc-frameworks/tape_benchmarking/blob/main/data/datasets.json?raw=True"
+        )
+        datasets_file = req.json()
+        dataset_info = datasets_file[dataset]
+
+        # Make column map from dataset
+        dataset_map = dataset_info["column_map"]
+        col_map = ColumnMapper(
+            id_col=dataset_map["id"],
+            time_col=dataset_map["time"],
+            flux_col=dataset_map["flux"],
+            err_col=dataset_map["error"],
+            band_col=dataset_map["band"],
+        )
+
+        return self.from_parquet(
+            source_file=dataset_info["source_file"],
+            object_file=dataset_info["object_file"],
+            column_mapper=col_map,
+            provenance_label=dataset,
+            **kwargs,
+        )
+
+    def available_datasets(self):
+        """Retrieve descriptions of available TAPE datasets.
+
+        Returns
+        -------
+        `dict`
+            A dictionary of datasets with description information.
+        """
+
+        req = requests.get(
+            "https://github.com/lincc-frameworks/tape_benchmarking/blob/main/data/datasets.json?raw=True"
+        )
+        datasets_file = req.json()
+
+        return {key: datasets_file[key]["description"] for key in datasets_file.keys()}
 
     def from_source_dict(self, source_dict, column_mapper=None, npartitions=1, **kwargs):
         """Load the sources into an ensemble from a dictionary.

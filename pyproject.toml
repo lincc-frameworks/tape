@@ -23,6 +23,8 @@ dependencies = [
     'pyvo',
     'scipy',
     'matplotlib',
+    'requests',
+    'aiohttp',
     'coverage',
     "deprecated",
     "ipykernel", # Support for Jupyter notebooks
