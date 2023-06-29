@@ -432,33 +432,39 @@ def test_lazy_sync_tables(parquet_ensemble):
 
 
 def test_dropna(parquet_ensemble):
-    old_objects_pdf = parquet_ensemble._object.compute()
-    pdf = parquet_ensemble._source.compute()
-    parquet_length = len(pdf.index)
+    object_pdf = parquet_ensemble._object.compute()
+    object_length = len(object_pdf.index)
 
-    # Try dropping NaNs and confirm nothing is dropped (there are no NaNs).
-    parquet_ensemble.dropna(1)
-    assert len(parquet_ensemble._source.compute().index) == parquet_length
+    source_pdf = parquet_ensemble._source.compute()
+    source_length = len(source_pdf.index)
+
+    # Try dropping NaNs from source and confirm nothing is dropped (there are no NaNs).
+    parquet_ensemble.dropna(table="source") 
+    assert len(parquet_ensemble._source.compute().index) == source_length
+
+    # Try dropping NaNs from object and confirm nothing is dropped (there are no NaNs).
+    parquet_ensemble.dropna(table="object") 
+    assert len(parquet_ensemble._object.compute().index) == object_length
 
     # Get a valid ID to use and count its occurrences.
-    valid_id = pdf.index.values[1]
-    occurrences = len(pdf.loc[valid_id].values)
+    valid_id = source_pdf.index.values[1]
+    occurrences = len(source_pdf.loc[valid_id].values)
 
     # Set the psFlux values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
     # Dask DataFrame.
-    pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+    source_pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
+    parquet_ensemble._source = dd.from_pandas(source_pdf, npartitions=1)
 
     # Try dropping NaNs and confirm that we did.
-    parquet_ensemble.dropna(1)
-    assert len(parquet_ensemble._source.compute().index) == parquet_length - occurrences
+    parquet_ensemble.dropna(1, table="source")
+    assert len(parquet_ensemble._source.compute().index) == source_length - occurrences
 
     # Sync the table and check that the number of objects decreased.
     parquet_ensemble._sync_tables()
 
     new_objects_pdf = parquet_ensemble._object.compute()
-    assert len(new_objects_pdf.index) == len(old_objects_pdf.index) - 1
+    assert len(new_objects_pdf.index) == len(object_pdf.index) - 1
 
     # Assert the filtered ID is no longer in the objects.
     assert valid_id not in new_objects_pdf.index.values
@@ -466,7 +472,7 @@ def test_dropna(parquet_ensemble):
     # Check that none of the other counts have changed.
     for i in new_objects_pdf.index.values:
         for c in new_objects_pdf.columns.values:
-            assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
+            assert new_objects_pdf.loc[i, c] == object_pdf.loc[i, c]
 
 
 def test_keep_zeros(parquet_ensemble):

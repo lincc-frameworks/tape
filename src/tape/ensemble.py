@@ -266,11 +266,14 @@ class Ensemble:
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
-    def dropna(self, threshold=1):
+    def dropna(self, threshold=1, table="source"):
         """Removes rows with a >=`threshold` nan values.
 
         Parameters
         ----------
+        table: `str`, optional
+            A string indicating which table to filter.
+            Should be one of "object" or "source".
         threshold: `int`, optional
             The minimum number of nans present in a row needed to drop the row.
             Default is 1.
@@ -281,8 +284,15 @@ class Ensemble:
             The ensemble object with nans removed according to the threshold
             scheme
         """
-        self._source = self._source[self._source.isnull().sum(axis=1) < threshold]
-        self._source_dirty = True  # This operation modifies the source table
+        if table == "object":
+            self._object = self._object[self._object.isnull().sum(axis=1) < threshold]
+            self._object_dirty = True  # This operation modifies the object table
+        elif table == "source":
+            self._source = self._source[self._source.isnull().sum(axis=1) < threshold]
+            self._source_dirty = True  # This operation modifies the source table
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
+
         return self
 
     def select(self, columns, table="object"):
