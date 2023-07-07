@@ -17,6 +17,12 @@ This is a LINCC Frameworks project - find more information about LINCC Framework
 
 To learn about the usage of the package, consult the [Documentation](https://tape.readthedocs.io/en/latest/index.html).
 
+## Installation
+TAPE is available to install with pip, using the "lf-tape" package name:
+``` 
+pip install lf-tape
+```
+
 ## Getting started - for developers
 
 Download code and install dependencies in a conda environment. Run unit tests at the end as a verification that the packages are properly installed.

@@ -9,3 +9,4 @@ Notebooks
     Working with Structure Function <notebooks/working_with_structure_function>
     Binning Sources in the Ensemble <notebooks/binning_slowly_changing_sources>
     Structure Function Showcase <notebooks/structure_function_showcase>
+    Loading Data into the Ensemble <notebooks/tape_datasets>
