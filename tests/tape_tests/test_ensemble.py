@@ -377,7 +377,7 @@ def test_sync_tables(parquet_ensemble):
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
     assert parquet_ensemble._object_dirty  # Prune should set the object dirty flag
 
-    parquet_ensemble.dropna(1)
+    parquet_ensemble.dropna(table="source")
     assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
 
     parquet_ensemble._sync_tables()
@@ -415,7 +415,7 @@ def test_lazy_sync_tables(parquet_ensemble):
     assert not parquet_ensemble._source_dirty
 
     # Modify only the source table.
-    parquet_ensemble.dropna(1)
+    parquet_ensemble.dropna(table="source")
     assert not parquet_ensemble._object_dirty
     assert parquet_ensemble._source_dirty
 
@@ -440,11 +440,11 @@ def test_dropna(parquet_ensemble):
 
     # Try dropping NaNs from source and confirm nothing is dropped (there are no NaNs).
 
-    parquet_ensemble.dropna(table="source") 
+    parquet_ensemble.dropna(table="source")
     assert len(parquet_ensemble._source.compute().index) == source_length
 
     # Try dropping NaNs from object and confirm nothing is dropped (there are no NaNs).
-    parquet_ensemble.dropna(table="object") 
+    parquet_ensemble.dropna(table="object")
     assert len(parquet_ensemble._object.compute().index) == object_length
 
     # Get a valid ID to use and count its occurrences.
@@ -452,8 +452,8 @@ def test_dropna(parquet_ensemble):
     occurrences_source = len(source_pdf.loc[valid_source_id].values)
 
     valid_object_id = object_pdf.index.values[1]
-    occurrences_object = 1 
-    
+    occurrences_object = 1
+
     # Set the psFlux values for one source to NaN so we can drop it.
     # We do this on the instantiated source (pdf) and convert it back into a
     # Dask DataFrame.
@@ -503,7 +503,7 @@ def test_keep_zeros(parquet_ensemble):
     parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
 
     # Sync the table and check that the number of objects decreased.
-    parquet_ensemble.dropna(1)
+    parquet_ensemble.dropna(table="source")
     parquet_ensemble._sync_tables()
 
     new_objects_pdf = parquet_ensemble._object.compute()
@@ -782,7 +782,9 @@ def test_batch(parquet_ensemble, use_map, on):
     Test that ensemble.batch() returns the correct values of the first result
     """
     result = (
-        parquet_ensemble.prune(10).dropna(1).batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
+        parquet_ensemble.prune(10)
+        .dropna(table="source")
+        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
     )
 
     if on is None:
