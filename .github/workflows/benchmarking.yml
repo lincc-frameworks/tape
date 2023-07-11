@@ -33,8 +33,6 @@ jobs:
 
     - name: Run benchmark
       run: |
-        cd examples/pytest
-        pip install -r requirements.txt
         pytest tests/tape_tests/bench.py --benchmark-json output.json
 
     - name: Store benchmark result
