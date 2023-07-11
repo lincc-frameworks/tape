@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+import time
 
 from tape import TimeSeries, analysis
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
@@ -9,7 +10,13 @@ from tape.analysis.structure_function.base_argument_container import StructureFu
 # pylint: disable=protected-access
 
 
-def test_stetsonj():
+@pytest.mark.benchmark(
+    group="stetsonj",
+    timer=time.time,
+    disable_gc=True,
+    warmup=False
+)
+def test_stetsonj(benchmark):
     """
     Simple test of StetsonJ function for a known return value
     """
@@ -23,8 +30,10 @@ def test_stetsonj():
     }
     timseries = TimeSeries()
     test_ts = timseries.from_dict(data_dict=test_dict)
-    print("test StetsonJ value is: " + str(test_ts.stetson_J()["r"]))
-    assert test_ts.stetson_J()["r"] == 0.8
+    #result = test_ts.stetson_J()
+    result = benchmark(test_ts.stetson_J)
+    print("test StetsonJ value is: " + str(result["r"]))
+    assert result["r"] == 0.8
 
 
 @pytest.mark.parametrize("lc_id", [None, 1])

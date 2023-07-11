@@ -365,8 +365,8 @@ def test_update_column_map(dask_client):
     assert cmap_2.map["band_col"] == "band"
     assert cmap_2.map["provenance_col"] == "p"
 
-
-def test_sync_tables(parquet_ensemble):
+@pytest.mark.benchmark()
+def test_sync_tables(benchmark, parquet_ensemble):
     """
     Test that _sync_tables works as expected
     """
@@ -380,7 +380,7 @@ def test_sync_tables(parquet_ensemble):
     parquet_ensemble.dropna(1)
     assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
 
-    parquet_ensemble._sync_tables()
+    benchmark(parquet_ensemble._sync_tables)
 
     # both tables should have the expected number of rows after a sync
     assert len(parquet_ensemble.compute("object")) == 5
@@ -501,13 +501,13 @@ def test_keep_zeros(parquet_ensemble):
             else:
                 assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
 
-
-def test_prune(parquet_ensemble):
+@pytest.mark.benchmark
+def test_prune(benchmark, parquet_ensemble):
     """
     Test that ensemble.prune() appropriately filters the dataframe
     """
     threshold = 10
-    parquet_ensemble.prune(threshold)
+    benchmark(parquet_ensemble.prune, threshold)
 
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
