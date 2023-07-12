@@ -28,11 +28,16 @@ def test_my_stuff(benchmark):
     group="stetson-j",
     timer=time.time,
     disable_gc=True,
-    warmup=False
+    warmup=True,
+    warmup_iterations=10,
 )
-def test_stetson_j(benchmark, parquet_ensemble):
-    ens = parquet_ensemble
-    result = benchmark(ens.batch, calc_stetson_J)
+def test_stetson_j(benchmark, bench_ensemble):
+    ens = bench_ensemble.persist()
+    time.sleep(0.1)
+
+    #result = ens.batch(calc_stetson_J, compute=False)
+    result = benchmark(ens.batch, calc_stetson_J, compute=True)
+    #res = benchmark(result.compute)
 
     # Extra code, to verify that the run
     # completed correctly.
@@ -43,10 +48,13 @@ def test_stetson_j(benchmark, parquet_ensemble):
     group="stetson-j-oneband",
     timer=time.time,
     disable_gc=True,
-    warmup=False
+    warmup=True,
+    warmup_iterations=10,
 )
-def test_stetson_j_oneband(benchmark, parquet_ensemble):
-    ens = parquet_ensemble
+def test_stetson_j_oneband(benchmark, bench_ensemble):
+    ens = bench_ensemble.persist()
+    time.sleep(0.1)
+
     result = benchmark(ens.batch, calc_stetson_J, band_to_calc="i")
 
     # Extra code, to verify that the run
@@ -57,10 +65,16 @@ def test_stetson_j_oneband(benchmark, parquet_ensemble):
 
 
 @pytest.mark.parametrize("sf_method", ["basic", "macleod_2012", "bauer_2009a", "bauer_2009b", "schmidt_2010"])
-@pytest.mark.benchmark()
-def test_calc_sf2(benchmark, parquet_ensemble, sf_method, use_map=True):
+@pytest.mark.benchmark(
+    timer=time.time,
+    disable_gc=True,
+    warmup=True,
+    warmup_iterations=10,
+)
+def test_calc_sf2(benchmark, bench_ensemble, sf_method, use_map=True):
 
-    ens = parquet_ensemble
+    ens = bench_ensemble.persist()
+    time.sleep(0.1)
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = "loglength"

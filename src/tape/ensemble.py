@@ -235,6 +235,8 @@ class Ensemble:
         self._object = self._object.persist(**kwargs)
         self._source = self._source.persist(**kwargs)
 
+        return self
+
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
         if table == "object":
@@ -266,7 +268,7 @@ class Ensemble:
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
-    def dropna(self, threshold=1):
+    def dropna(self, threshold=1, **kwargs):
         """Removes rows with a >=`threshold` nan values.
 
         Parameters
