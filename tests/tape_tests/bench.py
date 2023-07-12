@@ -37,7 +37,6 @@ def test_stetson_j(benchmark, bench_ensemble):
 
     #result = ens.batch(calc_stetson_J, compute=False)
     result = benchmark(ens.batch, calc_stetson_J, compute=True)
-    #res = benchmark(result.compute)
 
     # Extra code, to verify that the run
     # completed correctly.
