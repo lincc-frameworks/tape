@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   benchmark:
-    if: github.event_name != 'pull_request'
+    # if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       matrix:
