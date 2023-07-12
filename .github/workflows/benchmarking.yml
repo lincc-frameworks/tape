@@ -36,6 +36,7 @@ jobs:
         pytest tests/tape_tests/bench.py --benchmark-json output.json
 
     - name: Store benchmark result
+      if: github.event_name != 'pull_request'
       uses: benchmark-action/github-action-benchmark@v1
       with:
         name: TAPE Benchmarking Monitor
