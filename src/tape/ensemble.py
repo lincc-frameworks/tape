@@ -274,6 +274,9 @@ class Ensemble:
         table: `str`, optional
             A string indicating which table to filter.
             Should be one of "object" or "source".
+        **kwargs:
+            keyword arguments passed along to
+            `dask.dataframe.DataFrame.dropna`
 
         Returns
         ----------
