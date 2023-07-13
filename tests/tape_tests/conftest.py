@@ -1,6 +1,7 @@
 """Test fixtures for Ensemble manipulations"""
 import pytest
 from dask.distributed import Client
+import numpy as np
 
 from tape import Ensemble
 from tape.utils import ColumnMapper
@@ -126,3 +127,30 @@ def bench_ensemble(dask_bench_client):
     )
 
     return ens
+
+@pytest.fixture
+def bench_ensemble_from_dict(dask_bench_client):
+
+    source_dict = {"id": np.array([]),
+                   "time": np.array([]),
+                   "flux": np.array([]),
+                   "error": np.array([]),
+                   "band": np.array([])}
+    lc_len = 100
+    for i in range(10):
+        source_dict["id"] = np.append(source_dict["id"], np.array([i]*lc_len)).astype(int)
+        source_dict["time"] = np.append(source_dict["time"], np.linspace(1, lc_len, lc_len))
+        source_dict["flux"] = np.append(source_dict["flux"], 100 + 50 * np.random.rand(lc_len))
+        source_dict["error"] = np.append(source_dict["error"], 10 + 5 * np.random.rand(lc_len))
+        source_dict["band"] = np.append(source_dict["band"], ["g"]*50+["r"]*50)
+
+    colmap = ColumnMapper(id_col="id",
+                          time_col="time",
+                          flux_col="flux",
+                          err_col="error",
+                          band_col="band")
+    ens = Ensemble(client=dask_bench_client)
+    ens.from_source_dict(source_dict, column_mapper=colmap)
+
+    return ens
+

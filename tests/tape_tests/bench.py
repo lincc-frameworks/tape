@@ -29,10 +29,10 @@ def test_my_stuff(benchmark):
     timer=time.time,
     disable_gc=True,
     warmup=True,
-    warmup_iterations=10,
+    warmup_iterations=5,
 )
-def test_stetson_j(benchmark, bench_ensemble):
-    ens = bench_ensemble.persist()
+def test_stetson_j(benchmark, bench_ensemble_from_dict):
+    ens = bench_ensemble_from_dict.persist()
     time.sleep(0.1)
 
     #result = ens.batch(calc_stetson_J, compute=False)
@@ -48,10 +48,10 @@ def test_stetson_j(benchmark, bench_ensemble):
     timer=time.time,
     disable_gc=True,
     warmup=True,
-    warmup_iterations=10,
+    warmup_iterations=5,
 )
-def test_stetson_j_oneband(benchmark, bench_ensemble):
-    ens = bench_ensemble.persist()
+def test_stetson_j_oneband(benchmark, bench_ensemble_from_dict):
+    ens = bench_ensemble_from_dict.persist()
     time.sleep(0.1)
 
     result = benchmark(ens.batch, calc_stetson_J, band_to_calc="i")
@@ -68,11 +68,11 @@ def test_stetson_j_oneband(benchmark, bench_ensemble):
     timer=time.time,
     disable_gc=True,
     warmup=True,
-    warmup_iterations=10,
+    warmup_iterations=5,
 )
-def test_calc_sf2(benchmark, bench_ensemble, sf_method, use_map=True):
+def test_calc_sf2(benchmark, bench_ensemble_from_dict, sf_method, use_map=True):
 
-    ens = bench_ensemble.persist()
+    ens = bench_ensemble_from_dict.persist()
     time.sleep(0.1)
 
     arg_container = StructureFunctionArgumentContainer()
