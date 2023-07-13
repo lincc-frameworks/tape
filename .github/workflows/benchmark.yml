@@ -14,10 +14,6 @@ jobs:
       matrix:
         python-version: ['3.8', '3.9', '3.10']
 
-    env:
-      KAFKA_API_URL: ${{ secrets.KAFKA_API_URL }}
-      PROJECT_NAME: ${{ github.event.repository.name }}
-
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
@@ -43,3 +39,6 @@ jobs:
         run: pip install -r benchmarking-scripts/requirements.txt
       - name: Extract and submit metrics to Sasquatch
         run: python benchmarking-scripts/metrics.py --metric=mean
+        env:
+          KAFKA_API_URL: ${{ secrets.KAFKA_API_URL }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
