@@ -432,7 +432,6 @@ def test_lazy_sync_tables(parquet_ensemble):
 
 
 def test_dropna(parquet_ensemble):
-
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
         parquet_ensemble.dropna(table="banana")
@@ -461,7 +460,7 @@ def test_dropna(parquet_ensemble):
     assert len(parquet_ensemble._source.compute().index) == source_length - occurrences_source
 
     # Sync the table and check that the number of objects decreased.
-    #parquet_ensemble._sync_tables()
+    # parquet_ensemble._sync_tables()
 
     # Now test dropping na from 'object' table
     #
