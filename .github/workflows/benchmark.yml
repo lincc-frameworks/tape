@@ -42,4 +42,4 @@ jobs:
       - name: Install benchmarking-scripts dependencies
         run: pip install -r benchmarking-scripts/requirements.txt
       - name: Extract and submit metrics to Sasquatch
-        run: python benchmarking-scripts/metrics.py --metric=avg
+        run: python benchmarking-scripts/metrics.py --metric=mean
