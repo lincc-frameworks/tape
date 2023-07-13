@@ -1,0 +1,42 @@
+# This workflow will install Python dependencies, run benchmarks and submit relevant metrics to Sasquatch.
+# It will perform benchmarking with a variety of Python versions.
+# Based on: https://github.com/benchmark-action/github-action-benchmark/blob/master/.github/workflows/pytest.yml
+
+name: Submit benchmarks to Sasquatch
+
+on: [push]
+
+jobs:
+  benchmark:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10']
+
+    env:
+      KAFKA_API_URL: ${{ secrets.KAFKA_API_URL }}
+      PROJECT_NAME: ${{ github.event.repository.name }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          python -m pip install --upgrade pip
+          pip install .
+          pip install .[dev]
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Run pytest benchmarks
+        run: pytest benchmarks/ --benchmark-json benchmarks/output.json
+      - name: Submit metrics to Sasquatch
+        uses: actions/checkout@v3
+        with:
+          repository: lincc-frameworks/benchmarking-scripts
+          ref: metrics-script
+          path: './benchmarking-scripts'
+        run: python benchmarking-scripts/metrics.py --metric=avg
