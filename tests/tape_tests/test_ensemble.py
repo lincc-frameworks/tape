@@ -479,7 +479,7 @@ def test_dropna(parquet_ensemble):
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
     # Dask DataFrame.
-    object_pdf.loc[valid_object_id, "nobs_g"] = pd.NA
+    object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
     parquet_ensemble._object = dd.from_pandas(object_pdf, npartitions=1)
 
     # Try dropping NaNs from object and confirm that we did.
