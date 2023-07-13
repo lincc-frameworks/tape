@@ -2,7 +2,7 @@
 # It will perform benchmarking with a variety of Python versions.
 # Based on: https://github.com/benchmark-action/github-action-benchmark/blob/master/.github/workflows/pytest.yml
 
-name: Submit benchmarks to Sasquatch
+name: Compute and submit benchmarks to Sasquatch
 
 on: [push]
 
@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+      - name: Install project dependencies
         run: |
           sudo apt-get update
           python -m pip install --upgrade pip
@@ -33,10 +33,13 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
       - name: Run pytest benchmarks
         run: pytest benchmarks/ --benchmark-json benchmarks/output.json
-      - name: Submit metrics to Sasquatch
+      - name: Checkout the benchmarking-scripts repository
         uses: actions/checkout@v3
         with:
           repository: lincc-frameworks/benchmarking-scripts
           ref: metrics-script
           path: './benchmarking-scripts'
+      - name: Install benchmarking-scripts dependencies
+        run: pip install -r benchmarking-scripts/requirements.txt
+      - name: Extract and submit metrics to Sasquatch
         run: python benchmarking-scripts/metrics.py --metric=avg
