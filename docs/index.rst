@@ -19,12 +19,11 @@ its "lazy evaluation" to only load data and run computations when needed.
 API-level information about TAPE is viewable in the 
 API Reference section.
 
-The Notebooks section features several tutorials that showcase the
-fundamental features of TAPE.
+The Tutorials section showcases the fundamental features of TAPE.
 
 .. toctree::
    :hidden:
 
    Home page <self>
    API Reference <autoapi/index>
-   Notebooks <notebooks>
+   Tutorials <tutorials>
