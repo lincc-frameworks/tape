@@ -16,15 +16,21 @@ at scale in a parallelized and/or distributed manner.
 TAPE is built on top of `Dask <https://www.dask.org/>`_, and leverages 
 its "lazy evaluation" to only load data and run computations when needed.
 
+Start with the Getting Started section to learn the basics of installation and
+walk through a simple example of using TAPE.
+
+The Tutorials section showcases the fundamental features of TAPE.
+
 API-level information about TAPE is viewable in the 
 API Reference section.
 
-The Notebooks section features several tutorials that showcase the
-fundamental features of TAPE.
+
 
 .. toctree::
    :hidden:
 
    Home page <self>
+   Getting Started <gettingstarted>
+   Tutorials <tutorials>
    API Reference <autoapi/index>
-   Notebooks <notebooks>
+

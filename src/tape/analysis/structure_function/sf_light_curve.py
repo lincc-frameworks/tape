@@ -83,8 +83,8 @@ class StructureFunctionLightCurve(LightCurve):
             random_generator = np.random.default_rng()
 
         # Stack the time and flux differences and errors.
-        data_block = np.vstack(
-            (self._all_d_times, self._all_d_fluxes, self._all_sum_squared_error), dtype=float
+        data_block = np.vstack((self._all_d_times, self._all_d_fluxes, self._all_sum_squared_error)).astype(
+            float
         )
 
         # Randomly choose `number_of_samples` from the data_block. Return the
