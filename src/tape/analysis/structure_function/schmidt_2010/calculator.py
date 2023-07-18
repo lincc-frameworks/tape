@@ -13,8 +13,6 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
 
     `SF(delta_t) = mean(sqrt(pi/2) * abs(delta_flux_i,j) - sqrt(err_i^2 + err_j^2))`
 
-    Note that the return value is structure function squared.
-
     Additional references:
     Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
     """
@@ -27,7 +25,7 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
 
         dts, sfs = self._calculate_binned_statistics(sample_values=values_to_be_binned)
 
-        return dts, sfs**2
+        return dts, sfs
 
     @staticmethod
     def name_id() -> str:

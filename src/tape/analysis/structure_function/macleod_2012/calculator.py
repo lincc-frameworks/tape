@@ -19,8 +19,6 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
     Where `IQR` is the interquartile range between 25% and 75% of the sorted
     (y(t) - y(t+delta_t)) distribution.
 
-    Note that the return value is structure function squared.
-
     Additional references:
     Kozlowski 2016, 2016ApJ...826..118K [https://arxiv.org/abs/1604.05858]
     """
@@ -49,7 +47,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
         # calculate interquartile range between 25% and 75%.
         iqr = np.subtract(*np.percentile(input, [75, 25]))
 
-        return (CONVERSION_TO_SIGMA * iqr)**2
+        return CONVERSION_TO_SIGMA * iqr
 
     @staticmethod
     def name_id() -> str:
