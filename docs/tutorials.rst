@@ -1,6 +1,9 @@
 Tutorials
 ========================================================================================
 
+These pages contain a set of tutorial notebooks for working through core and more advanced TAPE
+functionality.
+
 .. toctree::
 
     Working with the TAPE Ensemble object <tutorials/working_with_the_ensemble>
