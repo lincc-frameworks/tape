@@ -6,5 +6,4 @@ ipython
 jupytext
 jupyter
 matplotlib
-numpy
 eztao
