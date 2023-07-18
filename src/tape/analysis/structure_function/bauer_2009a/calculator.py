@@ -10,6 +10,8 @@ class Bauer2009AStructureFunctionCalculator(StructureFunctionCalculator):
 
     `SF(tau) = sqrt( mean(delta_flux^2) - mean(err^2) )`
 
+    Note that the return value is structure function squared.
+
     Additional references:
     Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
     """
@@ -23,8 +25,8 @@ class Bauer2009AStructureFunctionCalculator(StructureFunctionCalculator):
         values_to_be_binned = [lc.sample_sum_squared_error for lc in self._lightcurves]
         _, mean_err2_per_bin = self._calculate_binned_statistics(sample_values=values_to_be_binned)
 
-        # calculate the structure function
-        sfs = np.sqrt(np.asarray(mean_d_flux_per_bin) - np.asarray(mean_err2_per_bin))
+        # calculate the structure function squared
+        sfs = np.asarray(mean_d_flux_per_bin) - np.asarray(mean_err2_per_bin)
 
         return dts, sfs
 

@@ -12,6 +12,8 @@ class Bauer2009BStructureFunctionCalculator(StructureFunctionCalculator):
 
     `SF(tau) = sqrt( (pi/2) * mean(abs(delta_flux))^2 - mean(err^2) )`
 
+    Note that the return value is structure function squared.
+
     Additional references:
     Graham et al. 2014MNRAS.439..703G [https://arxiv.org/abs/1401.1785]
     """
@@ -26,7 +28,7 @@ class Bauer2009BStructureFunctionCalculator(StructureFunctionCalculator):
         _, mean_err2_per_bin = self._calculate_binned_statistics(sample_values=values_to_be_binned)
 
         # calculate the structure function
-        sfs = np.sqrt(PI_OVER_2 * np.square(mean_d_flux_per_bin) - mean_err2_per_bin)
+        sfs = PI_OVER_2 * np.square(mean_d_flux_per_bin) - mean_err2_per_bin
 
         return dts, sfs
 

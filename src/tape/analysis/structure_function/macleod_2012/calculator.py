@@ -47,7 +47,7 @@ class Macleod2012StructureFunctionCalculator(StructureFunctionCalculator):
         # calculate interquartile range between 25% and 75%.
         iqr = np.subtract(*np.percentile(input, [75, 25]))
 
-        return (CONVERSION_TO_SIGMA * iqr)**2
+        return (CONVERSION_TO_SIGMA * iqr) ** 2
 
     @staticmethod
     def name_id() -> str:
