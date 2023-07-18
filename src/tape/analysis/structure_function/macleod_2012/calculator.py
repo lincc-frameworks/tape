@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
