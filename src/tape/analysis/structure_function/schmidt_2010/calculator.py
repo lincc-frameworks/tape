@@ -24,6 +24,7 @@ class Schmidt2010StructureFunctionCalculator(StructureFunctionCalculator):
         ]
 
         dts, sfs = self._calculate_binned_statistics(sample_values=values_to_be_binned)
+        sfs = [i**2 for i in sfs]
 
         return dts, sfs
 
