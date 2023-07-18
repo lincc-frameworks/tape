@@ -52,4 +52,4 @@ def test_calculate_macleod_2012_method():
     # 0.74 * (75th - 25th) = 3.33
     output = sf_calculator.calculate_iqr_sf2_statistic(test_input)
 
-    assert output == 3.33
+    assert output == 11.0889

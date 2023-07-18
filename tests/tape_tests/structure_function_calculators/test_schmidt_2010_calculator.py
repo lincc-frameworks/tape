@@ -42,4 +42,4 @@ def test_sf2_base_case_schmidt_2010():
     )
 
     assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.1714, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.0294, rel=0.001)

@@ -556,7 +556,7 @@ def test_sf2_base_case_macleod_2012():
     )
 
     assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.4107, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.1687, rel=0.001)
 
 
 def test_sf2_multiple_bands():
