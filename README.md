@@ -4,6 +4,9 @@
 # TAPE (Timeseries Analysis & Processing Engine)
 
 [![Template](https://img.shields.io/badge/Template-LINCC%20Frameworks%20Python%20Project%20Template-brightgreen)](https://lincc-ppt.readthedocs.io/en/latest/)
+[![Documentation Status](https://readthedocs.org/projects/tape/badge/?version=latest)](https://tape.readthedocs.io/en/latest/?badge=latest)
+[![Unit test and code coverage](https://github.com/lincc-frameworks/tape/actions/workflows/testing-and-coverage.yml/badge.svg)](https://github.com/lincc-frameworks/tape/actions/workflows/testing-and-coverage.yml)
+[![codecov](https://codecov.io/gh/lincc-frameworks/tape/branch/main/graph/badge.svg?token=NFLCNEC55C)](https://codecov.io/gh/lincc-frameworks/tape)
 
 Package for working with LSST time series data
 
