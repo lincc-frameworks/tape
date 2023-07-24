@@ -648,7 +648,7 @@ class Ensemble:
             meta = known_meta[func.__name__]
 
         if meta is None:
-            meta = (self._id_col, type(self._id_col))  # return a series of ids
+            meta = (self._id_col, float)  # return a series of ids, default assume a float is returned
 
         if on is None:
             on = self._id_col  # Default grouping is by id_col
