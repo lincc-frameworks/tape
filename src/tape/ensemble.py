@@ -458,8 +458,16 @@ class Ensemble:
             current_map = self.make_column_map().map
             cols_to_update = [key for key in current_map if current_map[key] in input_cols]
 
+            # Theoretically a user could assign multiple critical columns in the input cols, this is very
+            # likely to be a mistake, so we throw a warning here to alert them.
+            if len(cols_to_update) > 1:
+                warnings.warn(
+                    """Warning: Coalesce (with column dropping) is needing to update more than one
+                critical column mapping, please check that the resulting mapping is set as intended"""
+                )
+
             # Update critical columns to the new output column as needed
-            if len(cols_to_update) != 0:
+            if len(cols_to_update):  # if not zero
                 new_map = current_map
                 for col in cols_to_update:
                     new_map[col] = output_col
@@ -469,14 +477,6 @@ class Ensemble:
 
                 # Update the mapping
                 self.update_column_mapping(new_colmap)
-
-            # Theoretically a user could assign multiple critical columns in the input cols, this is very
-            # likely to be a mistake, so we throw a warning here to alert them.
-            if len(cols_to_update) > 1:
-                warnings.warn(
-                    """Warning: Coalesce (with column dropping) is needing to update more than one
-                critical column mapping, please check that the resulting mapping is set as intended"""
-                )
 
             table_ddf = table_ddf.drop(columns=input_cols)
 
