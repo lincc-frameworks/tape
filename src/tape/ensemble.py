@@ -410,6 +410,83 @@ class Ensemble:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
         return self
 
+    def coalesce(self, input_cols, output_col, table="object", drop_inputs=False):
+        """Combines multiple input columns into a single output column, with
+        values equal to the first non-nan value encountered in the input cols.
+
+        Parameters
+        ----------
+        input_cols: `list`
+            The list of column names to coalesce into a single column.
+        output_col: `str`, optional
+            The name of the coalesced output column.
+        table: `str`, optional
+            "source" or "object", the table in which the input columns are
+            located.
+        drop_inputs: `bool`, optional
+            Determines whether the input columns are dropped or preserved. If
+            a mapped column is an input and dropped, the output column is
+            automatically assigned to replace that column mapping internally.
+
+        Returns
+        -------
+        ensemble: `tape.ensemble.Ensemble`
+            An ensemble object.
+
+        """
+        # we shouldn't need to sync for this
+        if table == "object":
+            table_ddf = self._object
+        elif table == "source":
+            table_ddf = self._source
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
+
+        # Coalesce each column iteratively
+        i = 0
+        coalesce_col = table_ddf[input_cols[0]]
+        while i < len(input_cols) - 1:
+            coalesce_col = coalesce_col.combine_first(table_ddf[input_cols[i + 1]])
+            i += 1
+
+        # assign the result to the desired column name
+        table_ddf = table_ddf.assign(**{output_col: coalesce_col})
+
+        # Drop the input columns if wanted
+        if drop_inputs:
+            # First check to see if any dropped columns were critical columns
+            current_map = self.make_column_map().map
+            cols_to_update = [key for key in current_map if current_map[key] in input_cols]
+
+            # Theoretically a user could assign multiple critical columns in the input cols, this is very
+            # likely to be a mistake, so we throw a warning here to alert them.
+            if len(cols_to_update) > 1:
+                warnings.warn(
+                    """Warning: Coalesce (with column dropping) is needing to update more than one
+                critical column mapping, please check that the resulting mapping is set as intended"""
+                )
+
+            # Update critical columns to the new output column as needed
+            if len(cols_to_update):  # if not zero
+                new_map = current_map
+                for col in cols_to_update:
+                    new_map[col] = output_col
+
+                new_colmap = self.make_column_map()
+                new_colmap.map = new_map
+
+                # Update the mapping
+                self.update_column_mapping(new_colmap)
+
+            table_ddf = table_ddf.drop(columns=input_cols)
+
+        if table == "object":
+            self._object = table_ddf
+        elif table == "source":
+            self._source = table_ddf
+
+        return self
+
     def prune(self, threshold=50, col_name=None):
         """remove objects with less observations than a given threshold
 

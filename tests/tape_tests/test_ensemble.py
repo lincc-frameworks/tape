@@ -664,6 +664,49 @@ def test_assign(dask_client):
         assert new_source.iloc[i]["band2"] == new_source.iloc[i]["band"] + "2"
 
 
+@pytest.mark.parametrize("drop_inputs", [True, False])
+def test_coalesce(dask_client, drop_inputs):
+    ens = Ensemble(client=dask_client)
+
+    # Generate some data that needs to be coalesced
+
+    source_dict = {
+        "id": [0, 0, 0, 0, 0],
+        "time": [1, 2, 3, 4, 5],
+        "flux1": [5, np.nan, np.nan, 10, np.nan],
+        "flux2": [np.nan, 3, np.nan, np.nan, 7],
+        "flux3": [np.nan, np.nan, 4, np.nan, np.nan],
+        "error": [1, 1, 1, 1, 1],
+        "band": ["g", "g", "g", "g", "g"],
+    }
+
+    # map flux_col to one of the flux columns at the start
+    col_map = ColumnMapper(id_col="id", time_col="time", flux_col="flux1", err_col="error", band_col="band")
+    ens.from_source_dict(source_dict, column_mapper=col_map)
+
+    ens.coalesce(["flux1", "flux2", "flux3"], "flux", table="source", drop_inputs=drop_inputs)
+
+    # Coalesce should return this exact flux array
+    assert list(ens._source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
+
+    if drop_inputs:
+        # The column mapping should be updated
+        assert ens.make_column_map().map["flux_col"] == "flux"
+
+        # The columns to drop should be dropped
+        for col in ["flux1", "flux2", "flux3"]:
+            assert col not in ens._source.columns
+
+        # Test for the drop warning
+        with pytest.warns(UserWarning):
+            ens.coalesce(["time", "flux"], "bad_col", table="source", drop_inputs=drop_inputs)
+
+    else:
+        # The input columns should still be present
+        for col in ["flux1", "flux2", "flux3"]:
+            assert col in ens._source.columns
+
+
 def test_find_day_gap_offset(dask_client):
     ens = Ensemble(client=dask_client)
 
