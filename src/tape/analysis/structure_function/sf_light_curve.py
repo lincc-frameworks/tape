@@ -90,5 +90,5 @@ class StructureFunctionLightCurve(LightCurve):
         # Randomly choose `number_of_samples` from the data_block. Return the
         # random samples into distinct arrays.
         self.sample_d_times, self.sample_d_fluxes, self.sample_sum_squared_error = random_generator.choice(
-            data_block, number_of_samples, replace=False, axis=1, shuffle=False
+            data_block, number_of_samples, replace=True, axis=1, shuffle=False
         )
