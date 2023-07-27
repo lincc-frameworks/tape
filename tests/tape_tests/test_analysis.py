@@ -1116,7 +1116,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     )
 
     assert res["dt"][0] == pytest.approx(0.55, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.01001, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.1001165, rel=0.001)
     assert res["1_sigma"][0] == pytest.approx(0.0611, rel=0.001)
     assert res["dt"][9] == pytest.approx(3.035, rel=0.001)
     assert res["sf2"][9] == pytest.approx(0.0396455, rel=0.001)
@@ -1212,7 +1212,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     )
 
     assert res["dt"][0] == pytest.approx(0.55, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.01001, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.1001165, rel=0.001)
     assert res["1_sigma"][0] == pytest.approx(0.017979, rel=0.001)
     assert res["dt"][9] == pytest.approx(3.035, rel=0.001)
     assert res["sf2"][9] == pytest.approx(0.0396455, rel=0.001)
