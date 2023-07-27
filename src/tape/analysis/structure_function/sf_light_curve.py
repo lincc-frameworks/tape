@@ -75,7 +75,8 @@ class StructureFunctionLightCurve(LightCurve):
 
         if number_of_samples > self.number_of_difference_values:
             raise ValueError(
-                f"Requesting {number_of_samples} samples, but only {self.number_of_difference_values} are present in the lightcurve"
+                f"Requesting {number_of_samples} samples, but only "
+                f"{self.number_of_difference_values} are present in the lightcurve"
             )
 
         # Initialize a random generator if one was not provided
@@ -90,5 +91,5 @@ class StructureFunctionLightCurve(LightCurve):
         # Randomly choose `number_of_samples` from the data_block. Return the
         # random samples into distinct arrays.
         self.sample_d_times, self.sample_d_fluxes, self.sample_sum_squared_error = random_generator.choice(
-            data_block, number_of_samples, replace=False, axis=1, shuffle=False
+            data_block, number_of_samples, replace=True, axis=1, shuffle=False
         )

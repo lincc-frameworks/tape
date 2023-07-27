@@ -644,7 +644,7 @@ def test_sf2_provide_bins_in_argument_container():
     assert res["sf2"][1] == pytest.approx(-0.001216, rel=0.001)
 
 
-def test_sf2_with_equal_weighting_one_lightcurve():
+def test_sf2_with_random_sampling_one_lightcurve():
     """
     Base case of using equal weighting passing only 1 light curve
     """
@@ -654,6 +654,7 @@ def test_sf2_with_equal_weighting_one_lightcurve():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
+    # TODO: Issue-180 will rename this
     test_arg_container.equally_weight_lightcurves = True
     test_arg_container.random_seed = 42
 
@@ -666,8 +667,8 @@ def test_sf2_with_equal_weighting_one_lightcurve():
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.4475, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(-0.0030716, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve():
@@ -751,10 +752,10 @@ def test_sf2_with_equal_weighting_multiple_lightcurve():
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
-    assert res["dt"][1] == pytest.approx(2.8671, rel=0.001)
-    assert res["sf2"][1] == pytest.approx(0.037911, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.4475, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(-0.0030716, rel=0.001)
+    assert res["dt"][1] == pytest.approx(2.75786, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(-0.01543, rel=0.001)
 
 
 def test_sf2_with_unequal_weighting_multiple_lightcurve():
@@ -841,7 +842,7 @@ def test_sf2_with_unequal_weighting_multiple_lightcurve():
         lc_id=lc_id,
         argument_container=test_arg_container,
     )
-
+    # change values
     assert res["lc_id"][0] == "1"
     assert res["band"][0] == "g"
     assert res["dt"][0] == pytest.approx(1.2533, rel=0.001)
@@ -934,10 +935,10 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings():
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(3.1482, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
-    assert res["dt"][1] == pytest.approx(2.9036, rel=0.001)
-    assert res["sf2"][1] == pytest.approx(0.04914, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.1473, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005837, rel=0.001)
+    assert res["dt"][1] == pytest.approx(2.87768, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(0.04912, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_bins():
@@ -1023,10 +1024,10 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(0.6625, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.0311, rel=0.001)
-    assert res["dt"][7] == pytest.approx(0.6600, rel=0.001)
-    assert res["sf2"][7] == pytest.approx(0.0705, rel=0.001)
+    assert res["dt"][0] == pytest.approx(0.64267, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.04018, rel=0.001)
+    assert res["dt"][7] == pytest.approx(0.6095, rel=0.001)
+    assert res["sf2"][7] == pytest.approx(0.08424, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_combining():
@@ -1114,12 +1115,12 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(0.5100, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.0402, rel=0.001)
-    assert res["1_sigma"][0] == pytest.approx(0.00961, rel=0.001)
-    assert res["dt"][9] == pytest.approx(3.2040, rel=0.001)
-    assert res["sf2"][9] == pytest.approx(0.1557, rel=0.001)
-    assert res["1_sigma"][9] == pytest.approx(0.01784, rel=0.001)
+    assert res["dt"][0] == pytest.approx(0.55, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.1001165, rel=0.001)
+    assert res["1_sigma"][0] == pytest.approx(0.0611, rel=0.001)
+    assert res["dt"][9] == pytest.approx(3.035, rel=0.001)
+    assert res["sf2"][9] == pytest.approx(0.0396455, rel=0.001)
+    assert res["1_sigma"][9] == pytest.approx(0.04501, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_combining_non_default_sigma():
@@ -1210,12 +1211,12 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(0.5100, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.0402, rel=0.001)
-    assert res["1_sigma"][0] == pytest.approx(0.00283, rel=0.001)
-    assert res["dt"][9] == pytest.approx(3.2040, rel=0.001)
-    assert res["sf2"][9] == pytest.approx(0.1557, rel=0.001)
-    assert res["1_sigma"][9] == pytest.approx(0.00525, rel=0.001)
+    assert res["dt"][0] == pytest.approx(0.55, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.1001165, rel=0.001)
+    assert res["1_sigma"][0] == pytest.approx(0.017979, rel=0.001)
+    assert res["dt"][9] == pytest.approx(3.035, rel=0.001)
+    assert res["sf2"][9] == pytest.approx(0.0396455, rel=0.001)
+    assert res["1_sigma"][9] == pytest.approx(0.0132388, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_bins_report_error_seperately():
@@ -1302,11 +1303,11 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(0.6625, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.0311, rel=0.001)
-    assert res["lower_error"][0] == pytest.approx(0, rel=0.001)
-    assert res["upper_error"][0] == pytest.approx(0, rel=0.001)
-    assert res["dt"][7] == pytest.approx(0.6600, rel=0.001)
-    assert res["sf2"][7] == pytest.approx(0.0705, rel=0.001)
-    assert res["lower_error"][7] == pytest.approx(0.03939, rel=0.001)
-    assert res["upper_error"][7] == pytest.approx(0.04983, rel=0.001)
+    assert res["dt"][0] == pytest.approx(0.64267, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.040187, rel=0.001)
+    assert res["lower_error"][0] == pytest.approx(0.07956, rel=0.001)
+    assert res["upper_error"][0] == pytest.approx(0.06126, rel=0.001)
+    assert res["dt"][7] == pytest.approx(0.6095, rel=0.001)
+    assert res["sf2"][7] == pytest.approx(0.08424, rel=0.001)
+    assert res["lower_error"][7] == pytest.approx(0.0962, rel=0.001)
+    assert res["upper_error"][7] == pytest.approx(0.051476, rel=0.001)
