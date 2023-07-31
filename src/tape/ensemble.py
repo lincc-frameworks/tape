@@ -1094,6 +1094,44 @@ class Ensemble:
         self._object_dirty = False
         return self
 
+    def convert_flux_to_mag(self, flux_col, zero_point, zp_form, out_col_name=None):
+        """Converts a flux column into a magnitude.
+
+        Parameters
+        ----------
+        flux_col: 'str'
+            The name of the ensemble flux column to convert into magnitudes
+        zero_point: 'str'
+            The name of the ensemble column containing the zero point
+            information for column transformation.
+        zp_form: `str`
+            The form of the zero point column, either "flux" or
+            "magnitude"/"mag". Determines how the zero point (zp) is applied in
+            the conversion. If "flux", then the function is applied as
+            Mag=-2.5*log10(flux/zp), or if "magnitude", then
+            Mag=-2.5*log10(flux)+zp.
+        out_col_name: 'str', optional
+            The name of the output magnitude column, if None then the output
+            is just the flux column name + "_mag".
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with a new mag column.
+
+        """
+
+        if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
+            self._source = self._source.assign(
+                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
+            )
+        elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
+            self._source = self._source.assign(
+                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
+            )
+        else:
+            raise ValueError(f"{zp_form} is not a valid zero_point format.")
+
     def _generate_object_table(self):
         """Generate the object table from the source table."""
         counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
