@@ -886,7 +886,7 @@ class Ensemble:
             if column_mapper.map["provenance_col"] is not None:
                 self._provenance_col = column_mapper.map["provenance_col"]
             if column_mapper.map["nobs_total_col"] is not None:
-                self._nobs_total_col = column_mapper.map["nobs_total_col"]
+                self._nobs_tot_col = column_mapper.map["nobs_total_col"]
             if column_mapper.map["nobs_band_cols"] is not None:
                 self._nobs_band_cols = column_mapper.map["nobs_band_cols"]
 
@@ -955,8 +955,8 @@ class Ensemble:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
             if self._provenance_col is not None:
                 columns.append(self._provenance_col)
-            if self._nobs_total_col is not None:
-                columns.append(self._nobs_total_col)
+            if self._nobs_tot_col is not None:
+                columns.append(self._nobs_tot_col)
             if self._nobs_band_cols is not None:
                 for col in self._nobs_band_cols:
                     columns.append(col)
