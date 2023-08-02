@@ -654,8 +654,7 @@ def test_sf2_with_random_sampling_one_lightcurve():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
-    # TODO: Issue-180 will rename this
-    test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
 
     res = analysis.calc_sf2(
@@ -1101,6 +1100,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
     test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 3
     test_arg_container.bin_count_target = 4
@@ -1195,6 +1195,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
     test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 3
     test_arg_container.bin_count_target = 4
@@ -1289,6 +1290,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
     test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 100
     test_arg_container.bin_count_target = 4

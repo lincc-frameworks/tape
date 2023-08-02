@@ -108,8 +108,8 @@ def calc_sf2(time, flux, err=None, band=None, lc_id=None, sf_method="basic", arg
                 aggregated_sfs: List[np.ndarray] = []
                 rng = np.random.default_rng(argument_container.random_seed)
                 for _ in range(argument_container.calculation_repetitions):
-                    if argument_container.equally_weight_lightcurves:
-                        sf_calculator._equally_weight_lightcurves(random_generator=rng)
+                    if argument_container.estimate_err:
+                        sf_calculator._estimate_error(random_generator=rng)
 
                     tmp_dts, tmp_sfs = sf_calculator.calculate()
                     aggregated_dts.append(tmp_dts)
