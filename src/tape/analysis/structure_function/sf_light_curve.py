@@ -49,7 +49,7 @@ class StructureFunctionLightCurve(LightCurve):
         self.sample_sum_squared_error = self._all_sum_squared_error
 
     def select_difference_samples(
-        self, number_of_samples: int, random_generator: Optional[np.random.Generator] = None
+        self, number_of_samples: Optional[int] = None, random_generator: Optional[np.random.Generator] = None
     ):
         """Take a random sample of time and flux differences and the sum of squared
         errors. The samples are selected without replacement. The resulting
@@ -58,9 +58,10 @@ class StructureFunctionLightCurve(LightCurve):
 
         Parameters
         ----------
-        number_of_samples : int
+        number_of_samples : int, optional
             Defines the number of samples to be randomly selected from the total
-            number of difference values.
+            number of difference values. If not specified, take all of the 
+            avaliable values
         random_generator: np.random.Generator, optional
             A Numpy random.Generator to sample the lightcurve difference. This
             allows for repeatable random samples to be selected. By default None.
@@ -72,6 +73,9 @@ class StructureFunctionLightCurve(LightCurve):
             ValueError.
 
         """
+
+        if number_of_samples is None:
+            number_of_samples = self.number_of_difference_values
 
         if number_of_samples > self.number_of_difference_values:
             raise ValueError(
