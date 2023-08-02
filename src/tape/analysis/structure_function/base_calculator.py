@@ -194,7 +194,8 @@ class StructureFunctionCalculator(ABC):
                         )
                     except AttributeError:
                         raise AttributeError(
-                            "Length of self._lightcurves[lc_idx].sample_d_times array must equal length of corresponding sample_value array."
+                            "Length of self._lightcurves[lc_idx].sample_d_times array \
+                                must equal length of corresponding sample_value array."
                         )
 
                     sfs_all.append(sfs)

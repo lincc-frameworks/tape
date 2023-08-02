@@ -60,7 +60,7 @@ class StructureFunctionLightCurve(LightCurve):
         ----------
         number_of_samples : int, optional
             Defines the number of samples to be randomly selected from the total
-            number of difference values. If not specified, take all of the 
+            number of difference values. If not specified, take all of the
             avaliable values
         random_generator: np.random.Generator, optional
             A Numpy random.Generator to sample the lightcurve difference. This

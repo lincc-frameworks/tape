@@ -646,7 +646,7 @@ def test_sf2_provide_bins_in_argument_container():
 
 def test_sf2_with_random_sampling_one_lightcurve():
     """
-    Base case of using equal weighting passing only 1 light curve
+    Base case of passing only one light curve
     """
     lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
     test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
