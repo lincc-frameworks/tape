@@ -37,7 +37,7 @@ class StructureFunctionCalculator(ABC):
         """Abstract method that must be implemented by the child class."""
         raise (NotImplementedError, "Must be implemented by the child class")
 
-    def _estimate_error(self, random_generator=None):
+    def _bootstrap(self, random_generator=None):
         """This method creates the boostraped samples of difference values"""
         self._get_difference_values_per_lightcurve()
 
