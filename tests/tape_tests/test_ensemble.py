@@ -709,7 +709,8 @@ def test_coalesce(dask_client, drop_inputs):
 
 @pytest.mark.parametrize("zp_form", ["flux", "mag", "magnitude", "lincc"])
 @pytest.mark.parametrize("err_col", [None, "error"])
-def test_convert_flux_to_mag(dask_client, zp_form, err_col):
+@pytest.mark.parametrize("out_col_name", [None, "mag"])
+def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
     ens = Ensemble(client=dask_client)
 
     source_dict = {
@@ -722,33 +723,38 @@ def test_convert_flux_to_mag(dask_client, zp_form, err_col):
         "band": ["g", "g", "g", "g", "g"],
     }
 
+    if out_col_name is None:
+        output_column = "flux_mag"
+    else:
+        output_column = out_col_name
+
     # map flux_col to one of the flux columns at the start
     col_map = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="error", band_col="band")
     ens.from_source_dict(source_dict, column_mapper=col_map)
 
     if zp_form == "flux":
-        ens.convert_flux_to_mag("flux", "zp_flux", err_col, zp_form, "mag")
+        ens.convert_flux_to_mag("flux", "zp_flux", err_col, zp_form, out_col_name)
 
-        res_mag = ens._source.compute()["mag"].to_list()[0]
+        res_mag = ens._source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
 
         if err_col is not None:
-            res_err = ens._source.compute()["mag_err"].to_list()[0]
+            res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
             assert pytest.approx(res_err, 0.001) == 0.355979
         else:
-            assert "mag_err" not in ens._source.columns
+            assert output_column + "_err" not in ens._source.columns
 
     elif zp_form == "mag" or zp_form == "magnitude":
-        ens.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, "mag")
+        ens.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, out_col_name)
 
-        res_mag = ens._source.compute()["mag"].to_list()[0]
+        res_mag = ens._source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
 
         if err_col is not None:
-            res_err = ens._source.compute()["mag_err"].to_list()[0]
+            res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
             assert pytest.approx(res_err, 0.001) == 0.355979
         else:
-            assert "mag_err" not in ens._source.columns
+            assert output_column + "_err" not in ens._source.columns
 
     else:
         with pytest.raises(ValueError):
