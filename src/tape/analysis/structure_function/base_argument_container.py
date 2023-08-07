@@ -61,10 +61,15 @@ class StructureFunctionArgumentContainer:
             If a value is not provided here, then the default number of
             lightcurve samples will be equal to the least number of differences
             in the available lightcurves. By default None.
+        estimate_err: `bool`, optional
+            Specifies if the structure function errors are to be estimated,
+            via bootstraping the sample and taking note of 16 and 84 percentile
+            of the resulting distribution
         calculation_repetitions: `int`, optional
             Specifies the number of times to repeat the structure function
             calculation. Typically this would be used when setting
-            `equally_weight_lightcurves = True`. By default 1.
+            `estimate_err = True`. By default 1 when not estimating errors,
+            and 100 when estimating errors.
         lower_error_quantile: `float`, optional
             When calculation_repetitions > 1 we will calculate the
             `lower_error_quantile` and `upper_error_quantile` quantiles of the
@@ -101,7 +106,11 @@ class StructureFunctionArgumentContainer:
     random_seed: int = None
     equally_weight_lightcurves: bool = False
     number_lightcurve_samples: int = None
-    calculation_repetitions: int = 1
+    estimate_err: bool = False
+    if estimate_err:
+        calculation_repetitions: int = 100
+    else:
+        calculation_repetitions: int = 1
     lower_error_quantile: float = 0.16
     upper_error_quantile: float = 0.84
     report_upper_lower_error_separately: bool = False

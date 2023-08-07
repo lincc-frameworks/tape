@@ -646,7 +646,7 @@ def test_sf2_provide_bins_in_argument_container():
 
 def test_sf2_with_random_sampling_one_lightcurve():
     """
-    Base case of using equal weighting passing only 1 light curve
+    Base case of passing only one light curve
     """
     lc_id = [1, 1, 1, 1, 1, 1, 1, 1]
     test_t = [1.11, 2.23, 3.45, 4.01, 5.67, 6.32, 7.88, 8.2]
@@ -654,8 +654,7 @@ def test_sf2_with_random_sampling_one_lightcurve():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
-    # TODO: Issue-180 will rename this
-    test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
 
     res = analysis.calc_sf2(
@@ -752,10 +751,10 @@ def test_sf2_with_equal_weighting_multiple_lightcurve():
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(3.4475, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(-0.0030716, rel=0.001)
-    assert res["dt"][1] == pytest.approx(2.75786, rel=0.001)
-    assert res["sf2"][1] == pytest.approx(-0.01543, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.148214, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+    assert res["dt"][1] == pytest.approx(2.891860, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(0.048904, rel=0.001)
 
 
 def test_sf2_with_unequal_weighting_multiple_lightcurve():
@@ -846,7 +845,7 @@ def test_sf2_with_unequal_weighting_multiple_lightcurve():
     assert res["lc_id"][0] == "1"
     assert res["band"][0] == "g"
     assert res["dt"][0] == pytest.approx(1.2533, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(-0.1641, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(-0.164149, rel=0.001)
     assert res["lc_id"][5] == "2"
     assert res["band"][5] == "r"
     assert res["dt"][5] == pytest.approx(0.8875, rel=0.001)
@@ -935,10 +934,10 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings():
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(3.1473, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.005837, rel=0.001)
-    assert res["dt"][1] == pytest.approx(2.87768, rel=0.001)
-    assert res["sf2"][1] == pytest.approx(0.04912, rel=0.001)
+    assert res["dt"][0] == pytest.approx(3.148214, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.005365, rel=0.001)
+    assert res["dt"][1] == pytest.approx(2.891860, rel=0.001)
+    assert res["sf2"][1] == pytest.approx(0.048904, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_bins():
@@ -1024,10 +1023,10 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
         argument_container=test_arg_container,
     )
 
-    assert res["dt"][0] == pytest.approx(0.64267, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.04018, rel=0.001)
-    assert res["dt"][7] == pytest.approx(0.6095, rel=0.001)
-    assert res["sf2"][7] == pytest.approx(0.08424, rel=0.001)
+    assert res["dt"][0] == pytest.approx(0.662500, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.031108, rel=0.001)
+    assert res["dt"][7] == pytest.approx(0.643333, rel=0.001)
+    assert res["sf2"][7] == pytest.approx(0.070499, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_combining():
@@ -1101,6 +1100,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
     test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 3
     test_arg_container.bin_count_target = 4
@@ -1116,11 +1116,11 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     )
 
     assert res["dt"][0] == pytest.approx(0.55, rel=0.001)
-    assert res["sf2"][0] == pytest.approx(0.1001165, rel=0.001)
-    assert res["1_sigma"][0] == pytest.approx(0.0611, rel=0.001)
-    assert res["dt"][9] == pytest.approx(3.035, rel=0.001)
-    assert res["sf2"][9] == pytest.approx(0.0396455, rel=0.001)
-    assert res["1_sigma"][9] == pytest.approx(0.04501, rel=0.001)
+    assert res["sf2"][0] == pytest.approx(0.100116, rel=0.001)
+    assert res["1_sigma"][0] == pytest.approx(0.061128, rel=0.001)
+    assert res["dt"][9] == pytest.approx(3.035000, rel=0.001)
+    assert res["sf2"][9] == pytest.approx(0.039646, rel=0.001)
+    assert res["1_sigma"][9] == pytest.approx(0.045012, rel=0.001)
 
 
 def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_combining_non_default_sigma():
@@ -1195,6 +1195,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
     test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 3
     test_arg_container.bin_count_target = 4
@@ -1289,6 +1290,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
     test_band = np.array(["r"] * len(test_y))
     test_arg_container = StructureFunctionArgumentContainer()
     test_arg_container.equally_weight_lightcurves = True
+    test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 100
     test_arg_container.bin_count_target = 4

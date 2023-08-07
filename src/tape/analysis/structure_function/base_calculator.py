@@ -25,6 +25,7 @@ class StructureFunctionCalculator(ABC):
         self._bins = argument_container.bins  # defaults to None
         self._binning_method = argument_container.bin_method
         self._bin_count_target = argument_container.bin_count_target
+        self._equally_weight_lightcurves = argument_container.equally_weight_lightcurves
         self._dts = []
         self._all_d_fluxes = []
         self._sum_error_squared = []
@@ -36,17 +37,16 @@ class StructureFunctionCalculator(ABC):
         """Abstract method that must be implemented by the child class."""
         raise (NotImplementedError, "Must be implemented by the child class")
 
-    def _equally_weight_lightcurves(self, random_generator=None):
-        """This method reduces the number of difference samples for all light
-        curves to prevent a few from dominating the calculation.
-        """
+    def _bootstrap(self, random_generator=None):
+        """This method creates the boostraped samples of difference values"""
         self._get_difference_values_per_lightcurve()
 
-        # if the user defined number_lightcurve_samples in the argument container,
-        # use that, otherwise, default to the minimum number of difference values.
-        least_lightcurve_differences = self._argument_container.number_lightcurve_samples or min(
-            self._difference_values_per_lightcurve
-        )
+        # if the user defined equal weight in the argument container,
+        # use that, otherwise, go to specified number of difference values.
+        if self._equally_weight_lightcurves is True:
+            least_lightcurve_differences = min(self._difference_values_per_lightcurve)
+        else:
+            least_lightcurve_differences = self._argument_container.number_lightcurve_samples
 
         for lc in self._lightcurves:
             lc.select_difference_samples(least_lightcurve_differences, random_generator=random_generator)
@@ -194,7 +194,8 @@ class StructureFunctionCalculator(ABC):
                         )
                     except AttributeError:
                         raise AttributeError(
-                            "Length of self._lightcurves[lc_idx].sample_d_times array must equal length of corresponding sample_value array."
+                            "Length of self._lightcurves[lc_idx].sample_d_times array \
+                                must equal length of corresponding sample_value array."
                         )
 
                     sfs_all.append(sfs)
