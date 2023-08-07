@@ -68,7 +68,7 @@ class StructureFunctionArgumentContainer:
         calculation_repetitions: `int`, optional
             Specifies the number of times to repeat the structure function
             calculation. Typically this would be used when setting
-            `estimate_err = True`. By default 1 when not estimating erros,
+            `estimate_err = True`. By default 1 when not estimating errors,
             and 100 when estimating errors.
         lower_error_quantile: `float`, optional
             When calculation_repetitions > 1 we will calculate the
