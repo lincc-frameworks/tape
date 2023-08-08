@@ -1095,7 +1095,7 @@ class Ensemble:
         return self
 
     def convert_flux_to_mag(self, flux_col, zero_point, err_col=None, zp_form="mag", out_col_name=None):
-        """Converts a flux column into a magnitude.
+        """Converts a flux column into a magnitude column.
 
         Parameters
         ----------
@@ -1106,12 +1106,15 @@ class Ensemble:
             information for column transformation.
         err_col: 'str', optional
             The name of the ensemble column containing the errors to propagate.
-        zp_form: `str`
+            Errors are propagated using the following approximation:
+            Err= (2.5/log(10))*(flux_error/flux), which holds mainly when the
+            error in flux is much smaller than the flux.
+        zp_form: `str`, optional
             The form of the zero point column, either "flux" or
             "magnitude"/"mag". Determines how the zero point (zp) is applied in
             the conversion. If "flux", then the function is applied as
-            Mag=-2.5*log10(flux/zp), or if "magnitude", then
-            Mag=-2.5*log10(flux)+zp.
+            mag=-2.5*log10(flux/zp), or if "magnitude", then
+            mag=-2.5*log10(flux)+zp.
         out_col_name: 'str', optional
             The name of the output magnitude column, if None then the output
             is just the flux column name + "_mag". The error column is also
@@ -1120,7 +1123,7 @@ class Ensemble:
         Returns
         ----------
         ensemble: `tape.ensemble.Ensemble`
-            The ensemble object with a new mag column.
+            The ensemble object with a new magnitude (and error) column.
 
         """
         if out_col_name is None:
