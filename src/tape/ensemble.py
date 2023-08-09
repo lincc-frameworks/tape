@@ -886,7 +886,7 @@ class Ensemble:
             if column_mapper.map["provenance_col"] is not None:
                 self._provenance_col = column_mapper.map["provenance_col"]
             if column_mapper.map["nobs_total_col"] is not None:
-                self._nobs_total_col = column_mapper.map["nobs_total_col"]
+                self._nobs_tot_col = column_mapper.map["nobs_total_col"]
             if column_mapper.map["nobs_band_cols"] is not None:
                 self._nobs_band_cols = column_mapper.map["nobs_band_cols"]
 
@@ -955,8 +955,8 @@ class Ensemble:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
             if self._provenance_col is not None:
                 columns.append(self._provenance_col)
-            if self._nobs_total_col is not None:
-                columns.append(self._nobs_total_col)
+            if self._nobs_tot_col is not None:
+                columns.append(self._nobs_tot_col)
             if self._nobs_band_cols is not None:
                 for col in self._nobs_band_cols:
                     columns.append(col)
@@ -1092,6 +1092,62 @@ class Ensemble:
         # Now synced and clean
         self._source_dirty = False
         self._object_dirty = False
+        return self
+
+    def convert_flux_to_mag(self, flux_col, zero_point, err_col=None, zp_form="mag", out_col_name=None):
+        """Converts a flux column into a magnitude column.
+
+        Parameters
+        ----------
+        flux_col: 'str'
+            The name of the ensemble flux column to convert into magnitudes.
+        zero_point: 'str'
+            The name of the ensemble column containing the zero point
+            information for column transformation.
+        err_col: 'str', optional
+            The name of the ensemble column containing the errors to propagate.
+            Errors are propagated using the following approximation:
+            Err= (2.5/log(10))*(flux_error/flux), which holds mainly when the
+            error in flux is much smaller than the flux.
+        zp_form: `str`, optional
+            The form of the zero point column, either "flux" or
+            "magnitude"/"mag". Determines how the zero point (zp) is applied in
+            the conversion. If "flux", then the function is applied as
+            mag=-2.5*log10(flux/zp), or if "magnitude", then
+            mag=-2.5*log10(flux)+zp.
+        out_col_name: 'str', optional
+            The name of the output magnitude column, if None then the output
+            is just the flux column name + "_mag". The error column is also
+            generated as the out_col_name + "_err".
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with a new magnitude (and error) column.
+
+        """
+        if out_col_name is None:
+            out_col_name = flux_col + "_mag"
+
+        if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
+            self._source = self._source.assign(
+                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
+            )
+
+        elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
+            self._source = self._source.assign(
+                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
+            )
+
+        else:
+            raise ValueError(f"{zp_form} is not a valid zero_point format.")
+
+        # Calculate Errors
+        if err_col is not None:
+            self._source = self._source.assign(
+                **{out_col_name + "_err": lambda x: (2.5 / np.log(10)) * (x[err_col] / x[flux_col])}
+            )
+
         return self
 
     def _generate_object_table(self):
