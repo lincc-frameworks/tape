@@ -47,6 +47,7 @@ dev = [
     "ipython", # Also used in building notebooks into Sphinx
     "matplotlib", # Used in sample notebook intro_notebook.ipynb
     "eztao==0.4.1", # Used in Structure Function example notebook
+    "bokeh", # Used to render dask client dashboard in Scaling to Large Data notebook 
 ]
 
 [build-system]
