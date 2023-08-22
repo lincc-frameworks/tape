@@ -12,6 +12,7 @@ import pyvo as vo
 from dask.distributed import Client
 
 from .analysis.base import AnalysisFunction
+from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
@@ -705,6 +706,10 @@ class Ensemble:
         """
         self._lazy_sync_tables(table="all")
 
+        # Convert light-curve package feature into analysis function
+        if isinstance(func, BaseLightCurveFeature):
+            func = FeatureExtractor(func)
+        # Extract function information if TAPE analysis function
         if isinstance(func, AnalysisFunction):
             args = func.cols(self)
             meta = func.meta(self)

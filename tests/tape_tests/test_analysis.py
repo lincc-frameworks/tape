@@ -14,6 +14,12 @@ def test_analysis_function(cls):
     """
     Test AnalysisFunction child classes
     """
+    # We skip child classes with non-trivial constructors
+    try:
+        obj = cls()
+    except TypeError:
+        pytest.skip(f"Class {cls} has non-trivial constructor")
+
     rows = {
         "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
         "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
@@ -23,8 +29,6 @@ def test_analysis_function(cls):
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens = Ensemble().from_source_dict(rows, column_mapper=cmap)
-
-    obj = cls()
 
     assert isinstance(obj.cols(ens), list)
     assert len(obj.cols(ens)) > 0
