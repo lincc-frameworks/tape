@@ -92,7 +92,7 @@ def test_from_rrl_dataset(dask_client):
 
     res = ens.batch(calc_stetson_J)
 
-    assert 377927 in res  # find a specific object
+    assert 377927 in res.index  # find a specific object
 
     # Check Stetson J results for a specific object
     assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
@@ -118,11 +118,11 @@ def test_from_qso_dataset(dask_client):
     assert 1257836 in res  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
-    assert res[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
-    assert res[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
-    assert res[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
-    assert res[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
 
 
 def test_from_source_dict(dask_client):

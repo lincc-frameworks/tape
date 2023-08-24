@@ -37,7 +37,7 @@ def test_sf2_base_case_schmidt_2010():
     test_band = np.array(["r"] * len(test_y))
     test_sf_method = "schmidt_2010"
 
-    res = calc_sf2(
+    res = calc_sf2.calculate(
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, sf_method=test_sf_method
     )
 

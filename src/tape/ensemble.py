@@ -11,6 +11,7 @@ import pandas as pd
 import pyvo as vo
 from dask.distributed import Client
 
+from .analysis.base import AnalysisFunction
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 from .timeseries import TimeSeries
@@ -704,24 +705,11 @@ class Ensemble:
         """
         self._lazy_sync_tables(table="all")
 
-        known_cols = {
-            "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
-            "calc_sf2": [
-                self._time_col,
-                self._flux_col,
-                self._err_col,
-                self._band_col,
-                self._id_col,
-            ],
-        }
-
-        known_meta = {
-            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float", "1_sigma": "float"},
-        }
-        if func.__name__ in known_cols:
-            args = known_cols[func.__name__]
-        if func.__name__ in known_meta:
-            meta = known_meta[func.__name__]
+        if isinstance(func, AnalysisFunction):
+            args = func.cols(self)
+            meta = func.meta(self)
+            on = func.on(self)
+            func = func.calculate
 
         if meta is None:
             meta = (self._id_col, float)  # return a series of ids, default assume a float is returned
@@ -1370,7 +1358,7 @@ class Ensemble:
             argument_container = argument_container_type()
 
         if argument_container.combine:
-            result = calc_sf2(
+            result = calc_sf2.calculate(
                 self._source[self._time_col],
                 self._source[self._flux_col],
                 self._source[self._err_col],
