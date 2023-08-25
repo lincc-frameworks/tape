@@ -728,6 +728,8 @@ class Ensemble:
 
         if on is None:
             on = self._id_col  # Default grouping is by id_col
+        if isinstance(on, str):
+            on = [on]  # Convert to list if only one column is passed
 
         # Handle object columns to group on
         source_cols = list(self._source.columns)
