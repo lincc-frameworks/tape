@@ -16,7 +16,7 @@ In short term we are working on two main goals of the project:
   - Enable ease of access to TimeSeries objects in LSST
   - Enable efficient and scalable evaluation of algorithm on time-domain data
 
-This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks)
+This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks).
 
 To learn about the usage of the package, consult the [Documentation](https://tape.readthedocs.io/en/latest/index.html).
 
