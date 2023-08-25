@@ -906,6 +906,15 @@ def test_batch(parquet_ensemble, use_map, on):
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
 
+def test_batch_with_custom_func(parquet_ensemble):
+    """
+    Test Ensemble.batch with a custom analysis function
+    """
+
+    result = parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col)
+    assert len(result) > 0
+
+
 def test_to_timeseries(parquet_ensemble):
     """
     Test that ensemble.to_timeseries() runs and assigns the correct metadata
