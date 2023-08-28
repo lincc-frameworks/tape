@@ -21,7 +21,7 @@ class StetsonJ(AnalysisFunction):
     def on(self, ens: "Ensemble") -> List[str]:
         return [ens._id_col]
 
-    def calculate(
+    def __call__(
         self,
         flux: np.ndarray,
         err: np.ndarray,
@@ -90,6 +90,7 @@ class StetsonJ(AnalysisFunction):
 
 
 calc_stetson_J = StetsonJ()
+calc_stetson_J.__doc__ = StetsonJ.__call__.__doc__
 
 
 def _stetson_J_single(fluxes, errors):

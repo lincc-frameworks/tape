@@ -709,7 +709,6 @@ class Ensemble:
             args = func.cols(self)
             meta = func.meta(self)
             on = func.on(self)
-            func = func.calculate
 
         if meta is None:
             meta = (self._id_col, float)  # return a series of ids, default assume a float is returned
@@ -1358,7 +1357,7 @@ class Ensemble:
             argument_container = argument_container_type()
 
         if argument_container.combine:
-            result = calc_sf2.calculate(
+            result = calc_sf2(
                 self._source[self._time_col],
                 self._source[self._flux_col],
                 self._source[self._err_col],

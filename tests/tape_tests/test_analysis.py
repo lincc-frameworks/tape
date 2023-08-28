@@ -142,7 +142,7 @@ def test_sf2_base_case():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -165,7 +165,7 @@ def test_sf2_base_case_time_as_none_array():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -188,7 +188,7 @@ def test_sf2_base_case_time_as_none_scalar():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -215,7 +215,7 @@ def test_sf2_base_case_string_for_band_to_calc():
     arg_container = StructureFunctionArgumentContainer()
     arg_container.band_to_calc = test_band_to_calc
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, argument_container=arg_container
     )
 
@@ -234,7 +234,7 @@ def test_sf2_base_case_error_as_scalar():
     test_yerr = 0.1
     test_band = np.array(["r"] * len(test_y))
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -257,7 +257,7 @@ def test_sf2_base_case_error_as_none():
     test_yerr = None
     test_band = np.array(["r"] * len(test_y))
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -279,7 +279,7 @@ def test_sf2_no_lightcurve_ids():
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
     test_band = np.array(["r"] * len(test_y))
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -300,7 +300,7 @@ def test_sf2_no_band_information():
     test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
     test_yerr = [0.1, 0.023, 0.045, 0.1, 0.067, 0.032, 0.8, 0.02]
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -319,7 +319,7 @@ def test_sf2_least_possible_information():
     """
     test_y = [0.11, 0.23, 0.45, 0.01, 0.67, 0.32, 0.88, 0.2]
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=None,
         flux=test_y,
     )
@@ -336,7 +336,7 @@ def test_sf2_least_possible_information_constant_flux():
     """
     test_y = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
-    res = analysis.calc_sf2.calculate(time=None, flux=test_y)
+    res = analysis.calc_sf2(time=None, flux=test_y)
 
     assert res["dt"][0] == pytest.approx(3.0, rel=0.001)
     assert res["sf2"][0] == pytest.approx(0.0, rel=0.001)
@@ -356,7 +356,7 @@ def test_sf2_flux_and_band_different_lengths():
     test_band = np.array(["r"] * len(test_t))
 
     with pytest.raises(ValueError) as execinfo:
-        analysis.calc_sf2.calculate(
+        analysis.calc_sf2(
             time=test_t,
             flux=test_y,
             err=test_yerr,
@@ -380,7 +380,7 @@ def test_sf2_flux_and_lc_id_different_lengths():
     test_band = np.array(["r"] * len(test_t))
 
     with pytest.raises(ValueError) as execinfo:
-        analysis.calc_sf2.calculate(
+        analysis.calc_sf2(
             time=test_t,
             flux=test_y,
             err=test_yerr,
@@ -579,7 +579,7 @@ def test_sf2_base_case_macleod_2012():
     test_band = np.array(["r"] * len(test_y))
     test_sf_method = "macleod_2012"
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, sf_method=test_sf_method
     )
 
@@ -634,7 +634,7 @@ def test_sf2_multiple_bands():
         ]
     )
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -662,7 +662,7 @@ def test_sf2_provide_bins_in_argument_container():
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bins = [0.0, 3.1, 9.0]
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t, flux=test_y, err=test_yerr, band=test_band, lc_id=lc_id, argument_container=arg_container
     )
 
@@ -685,7 +685,7 @@ def test_sf2_with_random_sampling_one_lightcurve():
     test_arg_container.estimate_err = True
     test_arg_container.random_seed = 42
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -770,7 +770,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve():
     test_arg_container.equally_weight_lightcurves = True
     test_arg_container.random_seed = 42
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -861,7 +861,7 @@ def test_sf2_with_unequal_weighting_multiple_lightcurve():
     test_arg_container.random_seed = 42
     test_arg_container.bin_count_target = 4
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -953,7 +953,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings():
     test_arg_container.random_seed = 42
     test_arg_container.calculation_repetitions = 100
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -1042,7 +1042,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
     test_arg_container.calculation_repetitions = 100
     test_arg_container.bin_count_target = 4
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -1134,7 +1134,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     test_arg_container.bin_count_target = 4
     test_arg_container.combine = True
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -1231,7 +1231,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_and_com
     test_arg_container.lower_error_quantile = 0.4
     test_arg_container.upper_error_quantile = 0.6
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,
@@ -1324,7 +1324,7 @@ def test_sf2_with_equal_weighting_multiple_lightcurve_multiple_samplings_small_b
     test_arg_container.bin_count_target = 4
     test_arg_container.report_upper_lower_error_separately = True
 
-    res = analysis.calc_sf2.calculate(
+    res = analysis.calc_sf2(
         time=test_t,
         flux=test_y,
         err=test_yerr,

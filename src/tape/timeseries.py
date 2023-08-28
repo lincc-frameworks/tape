@@ -157,7 +157,7 @@ class TimeSeries:
         In case that no value for band is passed, the function is executed
         on all available bands.
         """
-        return calc_stetson_J.calculate(self.flux, self.flux_err, self.band, band_to_calc=band)
+        return calc_stetson_J(self.flux, self.flux_err, self.band, band_to_calc=band)
 
     def sf2(self, sf_method="basic", argument_container=None):
         """Compute the structure function squared statistic on data
@@ -191,7 +191,7 @@ class TimeSeries:
             lc_id = [self.meta["id"]] * len(self.time)
         else:
             lc_id = [0] * len(self.time)
-        return calc_sf2.calculate(
+        return calc_sf2(
             time=self.time,
             flux=self.flux,
             err=self.flux_err,

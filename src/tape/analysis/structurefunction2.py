@@ -29,7 +29,7 @@ class StructureFunction2(AnalysisFunction):
     def on(self, ens: "Ensemble") -> List[str]:
         return [ens._id_col]
 
-    def calculate(
+    def __call__(
         self, time, flux, err=None, band=None, lc_id=None, *, sf_method="basic", argument_container=None
     ) -> pd.DataFrame:
         """Calculate structure function squared using one of a variety of structure
@@ -215,6 +215,7 @@ class StructureFunction2(AnalysisFunction):
 
 
 calc_sf2 = StructureFunction2()
+calc_sf2.__doc__ = StructureFunction2.__call__.__doc__
 
 
 def _create_arg_container_if_needed(sf_method, argument_container):

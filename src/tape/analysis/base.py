@@ -3,12 +3,12 @@ Contains the base class for analysis functions.
 """
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import Callable, List
 
 import pandas as pd
 
 
-class AnalysisFunction(ABC):
+class AnalysisFunction(ABC, Callable):
     """Base class for analysis functions.
 
     Analysis functions are functions that take few arrays representing
@@ -25,7 +25,7 @@ class AnalysisFunction(ABC):
     on(ens) -> List[str]
         Return the columns to group source table by.
         Typically, `[ens._id_col]`.
-    calculate(*cols, **kwargs) -> pd.Series
+    __call__(*cols, **kwargs)
         Calculate the analysis function.
     """
 
@@ -84,7 +84,7 @@ class AnalysisFunction(ABC):
         return [ens._id_col]
 
     @abstractmethod
-    def calculate(self, *cols, **kwargs):
+    def __call__(self, *cols, **kwargs):
         """Calculate the analysis function.
 
         Parameters
