@@ -3,10 +3,38 @@
 import numpy as np
 import pytest
 
-from tape import TimeSeries, analysis
+from tape import ColumnMapper, Ensemble, TimeSeries, analysis
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 
 # pylint: disable=protected-access
+
+
+@pytest.mark.parametrize("cls", analysis.AnalysisFunction.__subclasses__())
+def test_analysis_function(cls):
+    """
+    Test AnalysisFunction child classes
+    """
+    rows = {
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens = Ensemble().from_source_dict(rows, column_mapper=cmap)
+
+    obj = cls()
+
+    assert isinstance(obj.cols(ens), list)
+    assert len(obj.cols(ens)) > 0
+    assert isinstance(obj.on(ens), list)
+    assert len(obj.on(ens)) > 0
+
+    # We assume that there are no mandatory keyword arguments
+    result = ens.batch(obj)
+
+    assert len(result) == len(set(rows["id"]))
 
 
 def test_stetsonj():

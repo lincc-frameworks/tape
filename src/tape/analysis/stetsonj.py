@@ -1,64 +1,96 @@
+from typing import Iterable, List, Optional, Union
+
 import numpy as np
+import pandas as pd
+
+from tape.analysis.base import AnalysisFunction
 
 
-def calc_stetson_J(flux, err, band, band_to_calc=None, check_nans=True):
-    """Compute the StetsonJ statistic on data from one or several bands
+__all__ = ["calc_stetson_J", "StetsonJ"]
 
-    Parameters
-    ----------
-    flux : `numpy.ndarray` (N,)
-        Array of flux/magnitude measurements
-    err : `numpy.ndarray` (N,)
-        Array of associated flux/magnitude errors
-    band : `numpy.ndarray` (N,)
-        Array of associated band labels
-    band_to_calc : `str` or `list` of `str`
-        Bands to calculate StetsonJ on. Single band descriptor, or list
-        of such descriptors.
-    check_nans : `bool`
-        Boolean to run a check for NaN values and filter them out.
 
-    Returns
-    -------
-    stetsonJ : `dict`
-        StetsonJ statistic for each of input bands.
+class StetsonJ(AnalysisFunction):
+    """Compute the StetsonJ statistic on data from one or several bands"""
 
-    Notes
-    ----------
-    In case that no value for `band_to_calc` is passed, the function is
-    executed on all available bands in `band`.
-    """
+    def cols(self, ens: "Ensemble") -> List[str]:
+        return [ens._flux_col, ens._err_col, ens._band_col]
 
-    # NaN filtering
-    if check_nans:
-        f_mask = np.isnan(flux)
-        e_mask = np.isnan(err)  # always mask out nan errors?
-        nan_mask = np.logical_or(f_mask, e_mask)
+    def meta(self, ens: "Ensemble"):
+        return "stetsonJ", float
 
-        flux = flux[~nan_mask]
-        err = err[~nan_mask]
-        band = band[~nan_mask]
+    def on(self, ens: "Ensemble") -> List[str]:
+        return [ens._id_col]
 
-    unq_band = np.unique(band)
+    def __call__(
+        self,
+        flux: np.ndarray,
+        err: np.ndarray,
+        band: np.ndarray,
+        *,
+        band_to_calc: Union[str, Iterable[str], None] = None,
+        check_nans: bool = False,
+    ):
+        """Compute the StetsonJ statistic on data from one or several bands
 
-    if band_to_calc is None:
-        band_to_calc = unq_band
-    if isinstance(band_to_calc, str):
-        band_to_calc = [band_to_calc]
+        Parameters
+        ----------
+        flux : `numpy.ndarray` (N,)
+            Array of flux/magnitude measurements
+        err : `numpy.ndarray` (N,)
+            Array of associated flux/magnitude errors
+        band : `numpy.ndarray` (N,)
+            Array of associated band labels
+        band_to_calc : `str` or `list` of `str`
+            Bands to calculate StetsonJ on. Single band descriptor, or list
+            of such descriptors.
+        check_nans : `bool`
+            Boolean to run a check for NaN values and filter them out.
 
-    assert hasattr(band_to_calc, "__iter__") is True
+        Returns
+        -------
+        stetsonJ : `dict`
+            StetsonJ statistic for each of input bands.
 
-    stetsonJ = {}
-    for b in band_to_calc:
-        if b in unq_band:
-            mask = band == b
-            fluxes = flux[mask]
-            errors = err[mask]
-            stetsonJ[b] = _stetson_J_single(fluxes, errors)
-        else:
-            stetsonJ[b] = np.nan
+        Notes
+        ----------
+        In case that no value for `band_to_calc` is passed, the function is
+        executed on all available bands in `band`.
+        """
 
-    return stetsonJ
+        # NaN filtering
+        if check_nans:
+            f_mask = np.isnan(flux)
+            e_mask = np.isnan(err)  # always mask out nan errors?
+            nan_mask = np.logical_or(f_mask, e_mask)
+
+            flux = flux[~nan_mask]
+            err = err[~nan_mask]
+            band = band[~nan_mask]
+
+        unq_band = np.unique(band)
+
+        if band_to_calc is None:
+            band_to_calc = unq_band
+        if isinstance(band_to_calc, str):
+            band_to_calc = [band_to_calc]
+
+        assert isinstance(band_to_calc, Iterable) is True
+
+        stetsonJ = {}
+        for b in band_to_calc:
+            if b in unq_band:
+                mask = band == b
+                fluxes = flux[mask]
+                errors = err[mask]
+                stetsonJ[b] = _stetson_J_single(fluxes, errors)
+            else:
+                stetsonJ[b] = np.nan
+
+        return stetsonJ
+
+
+calc_stetson_J = StetsonJ()
+calc_stetson_J.__doc__ = StetsonJ.__call__.__doc__
 
 
 def _stetson_J_single(fluxes, errors):
