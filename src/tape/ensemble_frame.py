@@ -1,15 +1,8 @@
 import dask.dataframe as dd
 
-from packaging.version import Version
 import dask
-DASK_2021_06_0 = Version(dask.__version__) >= Version("2021.06.0")
-DASK_2022_06_0 = Version(dask.__version__) >= Version("2022.06.0")
-if DASK_2021_06_0:
-    from dask.dataframe.dispatch import make_meta_dispatch
-    from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe
-else:
-    from dask.dataframe.core import make_meta as make_meta_dispatch
-    from dask.dataframe.utils import _nonempty_index, meta_nonempty, meta_nonempty_dataframe
+from dask.dataframe.dispatch import make_meta_dispatch
+from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe
 
 from dask.dataframe.core import get_parallel_type
 from dask.dataframe.extensions import make_array_nonempty
@@ -129,49 +122,10 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
         """
-        result = dd.from_pandas(data, npartitions=npartitions, chunksize=chunksize, sort=sort, name="fdsafdfasd")
+        result = dd.from_pandas(data, npartitions=npartitions, chunksize=chunksize, sort=sort)
         result.label = label
         result.ensemble = ensemble
         return result
-
-    @classmethod
-    def from_dict(
-        cls, data, npartitions=None, orient="columns", dtype=None, columns=None, label=None, 
-        ensemble=None,
-    ):
-        """Returns an EnsembleFrame constructed from a Python Dictionary.
-        Parameters
-        ----------
-        data: `TapeFrame`
-            Frame containing the underlying data fro the EnsembleFram
-        npartitions: `int`, optional
-            The number of partitions of the index to create. Note that depending on
-            the size and index of the dataframe, the output may have fewer
-            partitions than requested.
-        orient: `str`, optional
-            The "orientation" of the data. If the keys of the passed dict
-            should be the columns of the resulting DataFrame, pass 'columns'
-            (default). Otherwise if the keys should be rows, pass 'index'.
-            If 'tight', assume a dict with keys
-            ['index', 'columns', 'data', 'index_names', 'column_names'].
-        dtype: `bool`, optional
-            Data type to force, otherwise infer.
-        columns: `str`, optional
-            Column labels to use when ``orient='index'``. Raises a ValueError
-            if used with ``orient='columns'`` or ``orient='tight'``.
-        label: `str`, optional
-        |   The label used to by the Ensemble to identify the frame.
-        ensemble: `tape.Ensemble`, optional
-        |   A linnk to the Ensmeble object that owns this frame.
-        Returns
-        result: `tape.EnsembleFrame`
-            The constructed EnsembleFrame object.
-        """
-        frame = TapeFrame.from_dict(data, orient, dtype, columns)
-        return EnsembleFrame.from_tapeframe(frame,
-            label=label, ensemble=ensemble, npartitions=npartitions
-        )
-
 """
 Dask Dataframes are constructed indirectly using method dispatching and inference on the
 underlying data. So to ensure our subclasses behave correctly, we register the methods

@@ -100,3 +100,23 @@ def parquet_ensemble_from_hipscat(dask_client):
     )
 
     return ens
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def ensemble_from_source_dict(dask_client):
+    """Create an Ensemble from a source dict, returning the ensemble and the source dict."""
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # a few time steps, and flux.
+    source_dict = {
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens.from_source_dict(source_dict, column_mapper=cmap)
+
+    return ens, source_dict
