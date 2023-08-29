@@ -108,15 +108,18 @@ def ensemble_from_source_dict(dask_client):
     ens = Ensemble(client=dask_client)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
-    # a few time steps, and flux.
+    # a few time steps, flux, and data for zero point calculations.
     source_dict = {
-        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
-        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
-        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
-        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-        "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        "id": [8001, 8001, 8002, 8002, 8002],
+        "time": [1, 2, 3, 4, 5],
+        "flux": [30.5, 70, 80.6, 30.2, 60.3],
+        "zp_mag": [25.0, 25.0, 25.0, 25.0, 25.0],
+        "zp_flux": [10**10, 10**10, 10**10, 10**10, 10**10],
+        "error": [10, 10, 10, 10, 10],
+        "band": ["g", "g", "b", "b", "b"],
     }
-    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    # map flux_col to one of the flux columns at the start
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="error", band_col="band")
     ens.from_source_dict(source_dict, column_mapper=cmap)
 
     return ens, source_dict

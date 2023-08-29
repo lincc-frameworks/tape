@@ -1,6 +1,6 @@
 """ Test EnsembleFrame (inherited from Dask.DataFrame) creation and manipulations. """
 import pandas as pd
-from tape import Ensemble, EnsembleFrame, TapeFrame
+from tape import ColumnMapper, EnsembleFrame, TapeFrame
 
 import pytest
 
@@ -26,7 +26,7 @@ def test_from_dict(data_fixture, request):
 
     # The calculation for finding the max flux from the data. Note that the
     # inherited dask compute method must be called to obtain the result. 
-    assert ens_frame.flux.max().compute() == 5.0
+    assert ens_frame.flux.max().compute() == 80.6
 
 @pytest.mark.parametrize(
     "data_fixture",
@@ -52,7 +52,7 @@ def test_from_pandas(data_fixture, request):
 
     # The calculation for finding the max flux from the data. Note that the
     # inherited dask compute method must be called to obtain the result. 
-    assert ens_frame.flux.max().compute() == 5.0
+    assert ens_frame.flux.max().compute() == 80.6
 
 
 @pytest.mark.parametrize(
@@ -103,3 +103,55 @@ def test_frame_propagation(data_fixture, request):
     # the underlying TapeFrame. 
     assert isinstance(ens_frame.compute(), TapeFrame)
     assert len(ens_frame) == len(ens_frame.compute())
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "ensemble_from_source_dict",
+    ],
+)
+@pytest.mark.parametrize("err_col", [None, "error"])
+@pytest.mark.parametrize("zp_form", ["flux", "mag", "magnitude", "lincc"])
+@pytest.mark.parametrize("out_col_name", [None, "mag"])
+def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_name):
+    ens, data = request.getfixturevalue(data_fixture)
+
+    if out_col_name is None:
+        output_column = "flux_mag"
+    else:
+        output_column = out_col_name
+
+    ens_frame = EnsembleFrame.from_dict(data, npartitions=1)
+    ens_frame.label = TEST_LABEL
+    ens_frame.ensemble = ens
+
+    if zp_form == "flux":
+        ens_frame = ens_frame.convert_flux_to_mag("flux", "zp_flux", err_col, zp_form, out_col_name)
+
+        res_mag = ens_frame.compute()[output_column].to_list()[0]
+        assert pytest.approx(res_mag, 0.001) == 21.28925
+
+        if err_col is not None:
+            res_err = ens_frame.compute()[output_column + "_err"].to_list()[0]
+            assert pytest.approx(res_err, 0.001) == 0.355979
+        else:
+            assert output_column + "_err" not in ens_frame.columns
+
+    elif zp_form == "mag" or zp_form == "magnitude":
+        ens_frame = ens_frame.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, out_col_name)
+
+        res_mag = ens_frame.compute()[output_column].to_list()[0]
+        assert pytest.approx(res_mag, 0.001) == 21.28925
+
+        if err_col is not None:
+            res_err = ens_frame.compute()[output_column + "_err"].to_list()[0]
+            assert pytest.approx(res_err, 0.001) == 0.355979
+        else:
+            assert output_column + "_err" not in ens_frame.columns
+
+    else:
+        with pytest.raises(ValueError):
+            ens_frame.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, "mag")
+
+    # Verify that if we converted to a new frame, it's still an EnsembleFrame.
+    assert isinstance(ens_frame, EnsembleFrame)
