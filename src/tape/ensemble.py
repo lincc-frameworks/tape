@@ -443,15 +443,22 @@ class Ensemble:
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
+        # Create a subset dataframe with the coalesced columns
+        # Drop index for dask series operations - unfortunate
+        coal_ddf = table_ddf[input_cols].reset_index()
+
         # Coalesce each column iteratively
         i = 0
-        coalesce_col = table_ddf[input_cols[0]]
+        coalesce_col = coal_ddf[input_cols[0]]
         while i < len(input_cols) - 1:
-            coalesce_col = coalesce_col.combine_first(table_ddf[input_cols[i + 1]])
+            coalesce_col = coalesce_col.combine_first(coal_ddf[input_cols[i + 1]])
             i += 1
+        print("am I using this code")
+        # Assign the new column to the subset df, and reintroduce index
+        coal_ddf = coal_ddf.assign(**{output_col: coalesce_col}).set_index(self._id_col)
 
         # assign the result to the desired column name
-        table_ddf = table_ddf.assign(**{output_col: coalesce_col})
+        table_ddf = table_ddf.assign(**{output_col: coal_ddf[output_col]})
 
         # Drop the input columns if wanted
         if drop_inputs:
