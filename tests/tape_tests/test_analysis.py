@@ -10,7 +10,7 @@ from tape.analysis.structure_function.base_argument_container import StructureFu
 
 
 @pytest.mark.parametrize("cls", analysis.AnalysisFunction.__subclasses__())
-def test_analysis_function(cls):
+def test_analysis_function(cls, dask_client):
     """
     Test AnalysisFunction child classes
     """
@@ -28,7 +28,7 @@ def test_analysis_function(cls):
         "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
-    ens = Ensemble().from_source_dict(rows, column_mapper=cmap)
+    ens = Ensemble(client=dask_client).from_source_dict(rows, column_mapper=cmap)
 
     assert isinstance(obj.cols(ens), list)
     assert len(obj.cols(ens)) > 0
