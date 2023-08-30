@@ -14,7 +14,7 @@ from tape.utils import ColumnMapper
 
 
 # pylint: disable=protected-access
-def test_with():
+def test_with_client():
     """Test that we open and close a client on enter and exit."""
     with Ensemble() as ens:
         ens.from_parquet(
@@ -31,6 +31,7 @@ def test_with():
     "data_fixture",
     [
         "parquet_ensemble",
+        "parquet_ensemble_with_client",
         "parquet_ensemble_from_source",
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
@@ -67,11 +68,11 @@ def test_from_parquet(data_fixture, request):
         assert parquet_ensemble._source[col] is not None
 
 
-def test_available_datasets(dask_client):
+def test_available_datasets():
     """
     Test that the ensemble is able to successfully read in the list of available TAPE datasets
     """
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     datasets = ens.available_datasets()
 
@@ -79,12 +80,12 @@ def test_available_datasets(dask_client):
     assert len(datasets) > 0  # Find at least one
 
 
-def test_from_rrl_dataset(dask_client):
+def test_from_rrl_dataset():
     """
     Test a basic load and analyze workflow from the S82 RR Lyrae Dataset
     """
 
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_dataset("s82_rrlyrae")
 
     # larger dataset, let's just use a subset of ~100
@@ -102,12 +103,12 @@ def test_from_rrl_dataset(dask_client):
     assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
 
 
-def test_from_qso_dataset(dask_client):
+def test_from_qso_dataset():
     """
     Test a basic load and analyze workflow from the S82 QSO Dataset
     """
 
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_dataset("s82_qso")
 
     # larger dataset, let's just use a subset of ~100
@@ -125,11 +126,11 @@ def test_from_qso_dataset(dask_client):
     assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
 
 
-def test_from_source_dict(dask_client):
+def test_from_source_dict():
     """
     Test that ensemble.from_source_dict() successfully creates data from a dictionary.
     """
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps. Leave out the flux data initially.
@@ -222,8 +223,8 @@ def test_insert(parquet_ensemble):
     assert new_source.shape[0] == old_size + 10
 
 
-def test_insert_paritioned(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_insert_paritioned():
+    ens = Ensemble(client=False)
 
     # Create all fake source data with known divisions.
     num_points = 1000
@@ -297,7 +298,7 @@ def test_core_wrappers(parquet_ensemble):
     parquet_ensemble.compute()
 
 
-def test_persist(dask_client):
+def test_persist():
     # Create some fake data.
     rows = {
         "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
@@ -307,7 +308,7 @@ def test_persist(dask_client):
         "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_source_dict(rows, column_mapper=cmap)
 
     # Perform an operation that will build out the task graph.
@@ -320,11 +321,11 @@ def test_persist(dask_client):
     assert new_graph_size < old_graph_size
 
 
-def test_update_column_map(dask_client):
+def test_update_column_map():
     """
     Test that we can update the column maps in an Ensemble.
     """
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps. Leave out the flux data initially.
@@ -541,8 +542,8 @@ def test_prune(parquet_ensemble):
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
 
-def test_query(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_query():
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
@@ -565,8 +566,8 @@ def test_query(dask_client):
         assert new_source.iloc[i][ens._flux_col] <= 1.5
 
 
-def test_filter_from_series(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_filter_from_series():
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
@@ -590,8 +591,8 @@ def test_filter_from_series(dask_client):
         assert new_source.iloc[i][ens._time_col] >= 250.0
 
 
-def test_select(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_select():
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
@@ -623,8 +624,8 @@ def test_select(dask_client):
     assert "something_else" not in ens._source.columns
 
 
-def test_assign(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_assign():
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
@@ -665,8 +666,8 @@ def test_assign(dask_client):
 
 
 @pytest.mark.parametrize("drop_inputs", [True, False])
-def test_coalesce(dask_client, drop_inputs):
-    ens = Ensemble(client=dask_client)
+def test_coalesce(drop_inputs):
+    ens = Ensemble(client=False)
 
     # Generate some data that needs to be coalesced
 
@@ -710,8 +711,8 @@ def test_coalesce(dask_client, drop_inputs):
 @pytest.mark.parametrize("zp_form", ["flux", "mag", "magnitude", "lincc"])
 @pytest.mark.parametrize("err_col", [None, "error"])
 @pytest.mark.parametrize("out_col_name", [None, "mag"])
-def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
-    ens = Ensemble(client=dask_client)
+def test_convert_flux_to_mag(zp_form, err_col, out_col_name):
+    ens = Ensemble(client=False)
 
     source_dict = {
         "id": [0, 0, 0, 0, 0],
@@ -761,8 +762,8 @@ def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
             ens.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, "mag")
 
 
-def test_find_day_gap_offset(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_find_day_gap_offset():
+    ens = Ensemble(client=False)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps.
@@ -792,8 +793,8 @@ def test_find_day_gap_offset(dask_client):
     assert ens.find_day_gap_offset() == -1
 
 
-def test_bin_sources_day(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_bin_sources_day():
+    ens = Ensemble(client=False)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps.
@@ -843,8 +844,8 @@ def test_bin_sources_day(dask_client):
         assert res[ens._bin_count_col] == expected_count[i]
 
 
-def test_bin_sources_two_days(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_bin_sources_two_days():
+    ens = Ensemble(client=False)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # and a few time steps.
@@ -883,12 +884,22 @@ def test_bin_sources_two_days(dask_client):
         assert res[ens._band_col] == expected_band[i]
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_client",
+    ],
+)
 @pytest.mark.parametrize("use_map", [True, False])
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["nobs_total", "ps1_objid"]])
-def test_batch(parquet_ensemble, use_map, on):
+def test_batch(data_fixture, request, use_map, on):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
+
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
@@ -924,7 +935,7 @@ def test_to_timeseries(parquet_ensemble):
     assert ts.meta["id"] == 88480000290704349
 
 
-def test_build_index(dask_client):
+def test_build_index():
     """
     Test that ensemble indexing returns expected behavior
     """
@@ -932,7 +943,7 @@ def test_build_index(dask_client):
     obj_ids = [1, 1, 1, 2, 1, 2, 2]
     bands = ["u", "u", "u", "g", "g", "u", "u"]
 
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     result = ens._build_index(obj_ids, bands)
     assert len(result.levels) == 3
 

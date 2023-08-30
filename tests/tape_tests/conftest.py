@@ -16,7 +16,25 @@ def dask_client():
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble(dask_client):
+def parquet_ensemble():
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=False)
+    ens.from_parquet(
+        "tests/tape_tests/data/source/test_source.parquet",
+        "tests/tape_tests/data/object/test_object.parquet",
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        band_col="filterName",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def parquet_ensemble_with_client(dask_client):
     """Create an Ensemble from parquet data."""
     ens = Ensemble(client=dask_client)
     ens.from_parquet(
@@ -34,9 +52,9 @@ def parquet_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_from_source(dask_client):
+def parquet_ensemble_from_source():
     """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_parquet(
         "tests/tape_tests/data/source/test_source.parquet",
         id_col="ps1_objid",
@@ -51,9 +69,9 @@ def parquet_ensemble_from_source(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_with_column_mapper(dask_client):
+def parquet_ensemble_with_column_mapper():
     """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     colmap = ColumnMapper().assign(
         id_col="ps1_objid",
@@ -72,9 +90,9 @@ def parquet_ensemble_with_column_mapper(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_with_known_column_mapper(dask_client):
+def parquet_ensemble_with_known_column_mapper():
     """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     colmap = ColumnMapper().use_known_map("ZTF")
     ens.from_parquet(
@@ -87,9 +105,9 @@ def parquet_ensemble_with_known_column_mapper(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_from_hipscat(dask_client):
+def parquet_ensemble_from_hipscat():
     """Create an Ensemble from a hipscat/hive-style directory."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_hipscat(
         "tests/tape_tests/data",
         id_col="ps1_objid",
