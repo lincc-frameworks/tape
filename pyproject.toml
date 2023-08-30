@@ -51,6 +51,10 @@ dev = [
     "bokeh", # Used to render dask client dashboard in Scaling to Large Data notebook 
 ]
 
+[project.urls]
+"Source code" = "https://github.com/lincc-frameworks/tape"
+"Documentation" = "https://tape.readthedocs.io/"
+
 [build-system]
 requires = [
     "setuptools>=45", # Used to build and package the Python project
