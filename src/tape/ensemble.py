@@ -668,16 +668,24 @@ class Ensemble:
         Parameters
         ----------
         func : `function`
-            A function to apply to all objects in the ensemble
+            A function to apply to all objects in the ensemble. The function
+            could be a TAPE function, an initialized feature extractor from
+            `light-curve` package or a user-defined function. In the least
+            case the function must have the following signature:
+            `func(*cols, **kwargs)`, where the names of the `cols` are
+            specified in `args`, `kwargs` are keyword arguments passed to the
+            function, and the return value schema is described by `meta`.
+            For TAPE and `light-curve` functions `args`, `meta` and `on` are
+            populated automatically.
         *args:
             Denotes the ensemble columns to use as inputs for a function,
             order must be correct for function. If passing a TAPE
-            function, these are populated automatically.
+            or `light-curve` function, these are populated automatically.
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
             Dask's meta parameter, which lays down the expected structure of
-            the results. Overridden by TAPE for TAPE
+            the results. Overridden by TAPE for TAPE and `light-curve`
             functions. If none, attempts to coerce the result to a
-            pandas.series.
+            pandas.Series.
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -688,21 +696,43 @@ class Ensemble:
             later compute call.
         on: 'str' or 'list'
             Designates which column(s) to groupby. Columns may be from the
-            source or object tables.
+            source or object tables. For TAPE and `light-curve` functions
+            this is populated automatically.
         **kwargs:
             Additional optional parameters passed for the selected function
 
         Returns
-        ----------
+        -------
         result: `Dask.Series`
             Series of function results
 
-        Example
-        ----------
-        `
+        Examples
+        --------
+        Run a TAPE function on the ensemble:
+        ```
         from tape.analysis.stetsonj import calc_stetson_J
+        ens = Ensemble().from_dataset('rrlyr82')
         ensemble.batch(calc_stetson_J, band_to_calc='i')
-        `
+        ```
+
+        Run a light-curve function on the ensemble:
+        ```
+        from light_curve import EtaE
+        ens.batch(EtaE(), band_to_calc='g')
+        ```
+
+        Run a custom function on the ensemble:
+        ```
+        def s2n_inter_quartile_range(flux, err):
+             first, third = np.quantile(flux / err, [0.25, 0.75])
+             return third - first
+
+        ens.batch(s2n_inter_quartile_range, ens._flux_col, ens._err_col)
+        ```
+        Or even a numpy built-in function:
+        ```
+        amplitudes = ens.batch(np.ptp, ens._flux_col)
+        ```
         """
         self._lazy_sync_tables(table="all")
 
