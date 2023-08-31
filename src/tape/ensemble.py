@@ -1,16 +1,15 @@
 import glob
 import os
-import time
 import warnings
-import json
 import requests
 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-import pyvo as vo
 from dask.distributed import Client
 
+from .analysis.base import AnalysisFunction
+from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 from .ensemble_frame import EnsembleFrame, TapeFrame
@@ -23,7 +22,18 @@ OBJECT_FRAME_LABEL = "object"
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, client=True, **kwargs):
+        """Constructor of an Ensemble instance.
+
+        Parameters
+        ----------
+        client: `dask.distributed.client` or `bool`, optional
+            Accepts an existing `dask.distributed.Client`, or creates one if
+            `client=True`, passing any additional kwargs to a
+             dask.distributed.Client constructor call. If `client=False`, the
+             Ensemble is created without a distributed client.
+
+        """
         self.result = None  # holds the latest query
 
         self._source = None  # Source Table
@@ -56,10 +66,12 @@ class Ensemble:
 
         self.client = None
         self.cleanup_client = False
-        # Setup Dask Distributed Client
-        if client:
+
+        # Setup Dask Distributed Client if Provided
+        if isinstance(client, Client):
             self.client = client
-        else:
+            self.cleanup_client = True
+        elif client:
             self.client = Client(**kwargs)  # arguments passed along to Client
             self.cleanup_client = True
 
@@ -595,15 +607,22 @@ class Ensemble:
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
+        # Create a subset dataframe with the coalesced columns
+        # Drop index for dask series operations - unfortunate
+        coal_ddf = table_ddf[input_cols].reset_index()
+
         # Coalesce each column iteratively
         i = 0
-        coalesce_col = table_ddf[input_cols[0]]
+        coalesce_col = coal_ddf[input_cols[0]]
         while i < len(input_cols) - 1:
-            coalesce_col = coalesce_col.combine_first(table_ddf[input_cols[i + 1]])
+            coalesce_col = coalesce_col.combine_first(coal_ddf[input_cols[i + 1]])
             i += 1
+        print("am I using this code")
+        # Assign the new column to the subset df, and reintroduce index
+        coal_ddf = coal_ddf.assign(**{output_col: coalesce_col}).set_index(self._id_col)
 
         # assign the result to the desired column name
-        table_ddf = table_ddf.assign(**{output_col: coalesce_col})
+        table_ddf = table_ddf.assign(**{output_col: coal_ddf[output_col]})
 
         # Drop the input columns if wanted
         if drop_inputs:
@@ -820,16 +839,24 @@ class Ensemble:
         Parameters
         ----------
         func : `function`
-            A function to apply to all objects in the ensemble
+            A function to apply to all objects in the ensemble. The function
+            could be a TAPE function, an initialized feature extractor from
+            `light-curve` package or a user-defined function. In the least
+            case the function must have the following signature:
+            `func(*cols, **kwargs)`, where the names of the `cols` are
+            specified in `args`, `kwargs` are keyword arguments passed to the
+            function, and the return value schema is described by `meta`.
+            For TAPE and `light-curve` functions `args`, `meta` and `on` are
+            populated automatically.
         *args:
             Denotes the ensemble columns to use as inputs for a function,
             order must be correct for function. If passing a TAPE
-            function, these are populated automatically.
+            or `light-curve` function, these are populated automatically.
         meta : `pd.Series`, `pd.DataFrame`, `dict`, or `tuple-like`
             Dask's meta parameter, which lays down the expected structure of
-            the results. Overridden by TAPE for TAPE
+            the results. Overridden by TAPE for TAPE and `light-curve`
             functions. If none, attempts to coerce the result to a
-            pandas.series.
+            pandas.Series.
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -840,42 +867,54 @@ class Ensemble:
             later compute call.
         on: 'str' or 'list'
             Designates which column(s) to groupby. Columns may be from the
-            source or object tables.
+            source or object tables. For TAPE and `light-curve` functions
+            this is populated automatically.
         **kwargs:
             Additional optional parameters passed for the selected function
 
         Returns
-        ----------
+        -------
         result: `Dask.Series`
             Series of function results
 
-        Example
-        ----------
-        `
+        Examples
+        --------
+        Run a TAPE function on the ensemble:
+        ```
         from tape.analysis.stetsonj import calc_stetson_J
+        ens = Ensemble().from_dataset('rrlyr82')
         ensemble.batch(calc_stetson_J, band_to_calc='i')
-        `
+        ```
+
+        Run a light-curve function on the ensemble:
+        ```
+        from light_curve import EtaE
+        ens.batch(EtaE(), band_to_calc='g')
+        ```
+
+        Run a custom function on the ensemble:
+        ```
+        def s2n_inter_quartile_range(flux, err):
+             first, third = np.quantile(flux / err, [0.25, 0.75])
+             return third - first
+
+        ens.batch(s2n_inter_quartile_range, ens._flux_col, ens._err_col)
+        ```
+        Or even a numpy built-in function:
+        ```
+        amplitudes = ens.batch(np.ptp, ens._flux_col)
+        ```
         """
         self._lazy_sync_tables(table="all")
 
-        known_cols = {
-            "calc_stetson_J": [self._flux_col, self._err_col, self._band_col],
-            "calc_sf2": [
-                self._time_col,
-                self._flux_col,
-                self._err_col,
-                self._band_col,
-                self._id_col,
-            ],
-        }
-
-        known_meta = {
-            "calc_sf2": {"lc_id": "int", "band": "str", "dt": "float", "sf2": "float", "1_sigma": "float"},
-        }
-        if func.__name__ in known_cols:
-            args = known_cols[func.__name__]
-        if func.__name__ in known_meta:
-            meta = known_meta[func.__name__]
+        # Convert light-curve package feature into analysis function
+        if isinstance(func, BaseLightCurveFeature):
+            func = FeatureExtractor(func)
+        # Extract function information if TAPE analysis function
+        if isinstance(func, AnalysisFunction):
+            args = func.cols(self)
+            meta = func.meta(self)
+            on = func.on(self)
 
         if meta is None:
             meta = (self._id_col, float)  # return a series of ids, default assume a float is returned

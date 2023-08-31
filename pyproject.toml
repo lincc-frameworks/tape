@@ -27,6 +27,7 @@ dependencies = [
     'coverage',
     "deprecated",
     "ipykernel", # Support for Jupyter notebooks
+    "light-curve>=0.7.3,<0.8.0",
 ]
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
@@ -49,6 +50,10 @@ dev = [
     "eztao==0.4.1", # Used in Structure Function example notebook
     "bokeh", # Used to render dask client dashboard in Scaling to Large Data notebook 
 ]
+
+[project.urls]
+"Source code" = "https://github.com/lincc-frameworks/tape"
+"Documentation" = "https://tape.readthedocs.io/"
 
 [build-system]
 requires = [
