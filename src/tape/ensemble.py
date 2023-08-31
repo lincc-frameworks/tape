@@ -13,9 +13,12 @@ from dask.distributed import Client
 
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
+from .ensemble_frame import EnsembleFrame, TapeFrame
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
+SOURCE_FRAME_LABEL = "source"
+OBJECT_FRAME_LABEL = "object"
 
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
@@ -25,6 +28,12 @@ class Ensemble:
 
         self._source = None  # Source Table
         self._object = None  # Object Table
+
+        self.frames = {} # Frames managed by this Ensemble, keyed by label
+
+        # TODO(wbeebe@uw.edu) Replace self._source and self._object with these 
+        self.source = None # Source Table EnsembleFrame
+        self.object = None # Object Table EnsembleFrame
 
         self._source_dirty = False  # Source Dirty Flag
         self._object_dirty = False  # Object Dirty Flag
@@ -66,6 +75,152 @@ class Ensemble:
         if self.cleanup_client:
             self.client.close()
         return self
+
+    def add_frame(self, frame, label):
+        """Adds a new frame for the Ensemble to track.
+
+        Parameters
+        ----------
+        frame: `tape.ensemble.EnsembleFrame`
+            The frame object for the Ensemble to track.
+        label: `str`
+        |   The label for the Ensemble to use to track the frame.    
+
+        Returns
+        -------
+        self: `Ensemble`
+
+        Raises
+        ------
+        ValueError if the label is "source", "object", or already tracked by the Ensemble.
+        """
+        if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
+            raise ValueError(
+                f"Unable to add frame with reserved label " f"'{label}'"
+                )
+        if label in self.frames:
+            raise ValueError(
+                f"Unable to add frame: a frame with label " f"'{label}'" f"is in the Ensemble."
+                )
+        # Assign the frame to the requested tracking label.
+        frame.label = label
+        # Update the ensemble to track this labeled frame.
+        self.update_frame(frame)
+        return self
+
+    def update_frame(self, frame):
+        """Updates a frame tracked by the Ensemble or otherwise adds it to the Ensemble.
+        The frame is tracked by its `EnsembleFrame.label` field.
+
+        Parameters
+        ----------
+        frame: `tape.ensemble.EnsembleFrame`
+            The frame for the Ensemble to update. If not already tracked, it is added.
+
+        Returns
+        -------
+        self: `Ensemble`
+
+        Raises
+        ------
+        ValueError if the `frame.label` is unpopulated, "source", or "object".
+        """
+        if frame.label is None:
+            raise ValueError(
+                f"Unable to update frame with no populated `EnsembleFrame.label`."
+                )
+        if frame.label == SOURCE_FRAME_LABEL or frame.label == OBJECT_FRAME_LABEL:
+            raise ValueError(
+                f"Unable to update frame with reserved label " f"'{frame.label}'"
+                )
+        # Ensure this frame is assigned to this Ensemble.
+        frame.ensemble = self
+        self.frames[frame.label] = frame
+        return self
+    
+    def drop_frame(self, label):
+        """Drops a frame tracked by the Ensemble.
+
+        Parameters
+        ----------
+        label: `str`
+        |   The label of the frame to be dropped by the Ensemble.
+
+        Returns
+        -------
+        self: `Ensemble`
+
+        Raises
+        ------
+        ValueError if the label is "source", or "object".
+        KeyError if the label is not tracked by the Ensemble.
+        """
+        if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
+            raise ValueError(
+                f"Unable to drop frame with reserved label " f"'{label}'"
+                )
+        if label not in self.frames:
+            raise KeyError(
+                f"Unable to drop frame: no frame with label " f"'{label}'" f"is in the Ensemble."
+                )
+        del self.frames[label]
+        return self
+
+    def select_frame(self, label):
+        """Selects and returns frame tracked by the Ensemble.
+
+        Parameters
+        ----------
+        label: `str`
+        |   The label of a frame tracked by the Ensemble to be selected.
+
+        Returns
+        -------
+        result: `tape.ensemeble.EnsembleFrame`
+
+        Raises
+        ------
+        KeyError if the label is not tracked by the Ensemble.
+        """
+        if label not in self.frames:
+            raise KeyError(
+                f"Unable to select frame: no frame with label" f"'{label}'" f" is in the Ensemble."
+                )
+        return self.frames[label]
+
+    def frame_info(self, labels=None, verbose=True, memory_usage=True, **kwargs):
+        """Wrapper for calling dask.dataframe.DataFrame.info() on frames tracked by the Ensemble.
+
+        Parameters
+        ----------
+        labels: `list`, optional
+            A list of labels for Ensemble frames to summarize.
+            If None, info is printed for all tracked frames.
+        verbose: `bool`, optional
+            Whether to print the whole summary
+        memory_usage: `bool`, optional
+            Specifies whether total memory usage of the DataFrame elements
+            (including the index) should be displayed.
+        **kwargs:
+            keyword arguments passed along to
+            `dask.dataframe.DataFrame.info()`
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        KeyError if a label in labels is not tracked by the Ensemble.
+        """
+        if labels is None:
+            labels = self.frames.keys()
+        for label in labels:
+            if label not in self.frames:
+                raise KeyError(
+                    f"Unable to get frame info: no frame with label " f"'{label}'" f" is in the Ensemble."
+                    )
+            print(label, "Frame")
+            print(self.frames[label].info(verbose=verbose, memory_usage=memory_usage, **kwargs))
 
     def insert_sources(
         self,
@@ -174,7 +329,7 @@ class Ensemble:
         return self.client  # Prints Dask dashboard to screen
 
     def info(self, verbose=True, memory_usage=True, **kwargs):
-        """Wrapper for dask.dataframe.DataFrame.info()
+        """Wrapper for dask.dataframe.DataFrame.info() for the Source and Object tables
 
         Parameters
         ----------
@@ -185,8 +340,7 @@ class Ensemble:
             (including the index) should be displayed.
         Returns
         ----------
-        counts: `pandas.series`
-            A series of counts by object
+        None
         """
         # Sync tables if user wants to retrieve their information
         self._lazy_sync_tables(table="all")

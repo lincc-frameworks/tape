@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tape import Ensemble
+from tape import Ensemble, EnsembleFrame, TapeFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -78,6 +78,97 @@ def test_available_datasets(dask_client):
     assert isinstance(datasets, dict)
     assert len(datasets) > 0  # Find at least one
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "ensemble_from_source_dict",
+    ],
+)
+def test_frame_tracking(data_fixture, request):
+    """
+    Tests a workflow of adding and removing the frames tracked by the Ensemble.
+    """
+    ens, data = request.getfixturevalue(data_fixture)
+
+    # Construct frames for the Ensemble to track. For this test, the underlying data is irrelevant.
+    ens_frame1 = EnsembleFrame.from_dict(data, npartitions=1)
+    ens_frame2 = EnsembleFrame.from_dict(data, npartitions=1)
+    ens_frame3 = EnsembleFrame.from_dict(data, npartitions=1)
+    ens_frame4 = EnsembleFrame.from_dict(data, npartitions=1)
+
+    # Labels to give the EnsembleFrames
+    label1, label2, label3, label4 = "frame1", "frame2", "frame3", "frame4"
+
+    assert not ens.frames
+
+    # TODO(wbeebe@uw.edu) Remove once Ensemble.source and Ensemble.object are populated by loaders
+    ens.source = EnsembleFrame.from_tapeframe(
+        TapeFrame(ens._source), label="source", npartitions=1)
+    ens.object = EnsembleFrame.from_tapeframe(
+        TapeFrame(ens._source), label="object", npartitions=1)
+    ens.frames["source"] = ens.source
+    ens.frames["object"] = ens.object
+
+    # Check that we can select source and object frames
+    assert len(ens.frames) == 2
+    assert ens.select_frame("source") is ens.source
+    assert ens.select_frame("object") is ens.object
+
+    # Validate that new source and object frames can't be added or updated.
+    with pytest.raises(ValueError):
+        ens.add_frame(ens_frame1, "source")
+    with pytest.raises(ValueError):
+        ens.add_frame(ens_frame1, "object")
+    with pytest.raises(ValueError):
+        ens.update_frame(ens.source)
+    with pytest.raises(ValueError):
+        ens.update_frame(ens.object)
+
+    # Test that we can add and select a new ensemble frame
+    assert ens.add_frame(ens_frame1, label1).select_frame(label1) is ens_frame1
+    assert len(ens.frames) == 3
+
+    # Validate that we can't add a new frame that uses an exisiting label
+    with pytest.raises(ValueError):
+        ens.add_frame(ens_frame2, label1)
+
+    # We add two more frames to track
+    ens.add_frame(ens_frame2, label2).add_frame(ens_frame3, label3)
+    assert ens.select_frame(label2) is ens_frame2
+    assert ens.select_frame(label3) is ens_frame3
+    assert len(ens.frames) == 5
+
+    # Now we begin dropping frames. First verifyt that we can't drop object or source.
+    with pytest.raises(ValueError):
+        ens.drop_frame("source")
+    with pytest.raises(ValueError):
+        ens.drop_frame("object")
+
+    # And verify that we can't call drop with an unknown label.
+    with pytest.raises(KeyError):
+        ens.drop_frame("nonsense")
+
+    # Drop an existing frame and that it can no longer be selected.
+    ens.drop_frame(label3)
+    assert len(ens.frames) == 4
+    with pytest.raises(KeyError):
+        ens.select_frame(label3)
+    
+    # Update the ensemble with the dropped frame, and then select the frame
+    assert ens.update_frame(ens_frame3).select_frame(label3) is ens_frame3
+    assert len(ens.frames) == 5
+
+    # Update the ensemble with a new frame, verifying a missing label generates an error.
+    with pytest.raises(ValueError):
+        ens.update_frame(ens_frame4)
+    ens_frame4.label = label4
+    assert ens.update_frame(ens_frame4).select_frame(label4) is ens_frame4
+    assert len(ens.frames) == 6
+
+    # Change the label of the 4th ensemble frame to verify update overrides an existing frame
+    ens_frame4.label = label3
+    assert ens.update_frame(ens_frame4).select_frame(label3) is ens_frame4
+    assert len(ens.frames) == 6
 
 def test_from_rrl_dataset(dask_client):
     """
@@ -291,6 +382,9 @@ def test_core_wrappers(parquet_ensemble):
     # Just test if these execute successfully
     parquet_ensemble.client_info()
     parquet_ensemble.info()
+    parquet_ensemble.frame_info()
+    with pytest.raises(KeyError):
+        parquet_ensemble.frame_info(labels=["source", "invalid_label"])
     parquet_ensemble.columns()
     parquet_ensemble.head(n=5)
     parquet_ensemble.tail(n=5)
