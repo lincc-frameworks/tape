@@ -44,6 +44,32 @@ class _Frame(dd.core._Frame):
     def copy(self):
         self_copy = super().copy()
         return self._propagate_metadata(self_copy)
+    
+    def assign(self, **kwargs):
+        """Assign new columns to a DataFrame.
+
+        This docstring was copied from dask.dataframe.DataFrame.assign.
+
+        Some inconsistencies with the Dask version may exist.
+
+        Returns a new object with all original columns in addition to new ones. Existing columns
+        that are re-assigned will be overwritten.
+
+        Parameters
+        ----------
+        **kwargs: `dict`
+            The column names are keywords. If the values are callable, they are computed on the
+            DataFrame and assigned to the new columns. The callable must not change input DataFrame
+            (though pandas doesn’t check it). If the values are not callable, (e.g. a Series,
+            scalar, or array), they are simply assigned.
+
+        Returns
+        ----------
+        result: `tape._Frame`
+            The modifed frame
+        """
+        result = super().assign(**kwargs)
+        return self._propagate_metadata(result)
 
 class TapeSeries(pd.Series):
     """A barebones extension of a Pandas series to be used for underlying Ensmeble data.
