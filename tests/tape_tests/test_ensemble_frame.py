@@ -151,7 +151,9 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
 
     else:
         with pytest.raises(ValueError):
-            ens_frame.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, "mag")
+            ens_frame = ens_frame.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, "mag")
 
     # Verify that if we converted to a new frame, it's still an EnsembleFrame.
     assert isinstance(ens_frame, EnsembleFrame)
+    assert ens_frame.label == TEST_LABEL
+    assert ens_frame.ensemble is ens
