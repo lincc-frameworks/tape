@@ -14,7 +14,7 @@ from tape.utils import ColumnMapper
 
 
 # pylint: disable=protected-access
-def test_with():
+def test_with_client():
     """Test that we open and close a client on enter and exit."""
     with Ensemble() as ens:
         ens.from_parquet(
@@ -31,6 +31,7 @@ def test_with():
     "data_fixture",
     [
         "parquet_ensemble",
+        "parquet_ensemble_without_client",
         "parquet_ensemble_from_source",
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
@@ -883,12 +884,22 @@ def test_bin_sources_two_days(dask_client):
         assert res[ens._band_col] == expected_band[i]
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_without_client",
+    ],
+)
 @pytest.mark.parametrize("use_map", [True, False])
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["nobs_total", "ps1_objid"]])
-def test_batch(parquet_ensemble, use_map, on):
+def test_batch(data_fixture, request, use_map, on):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
+
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")

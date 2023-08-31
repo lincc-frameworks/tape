@@ -1,14 +1,11 @@
 import glob
 import os
-import time
 import warnings
-import json
 import requests
 
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
-import pyvo as vo
 from dask.distributed import Client
 
 from .analysis.base import AnalysisFunction
@@ -22,7 +19,18 @@ from .utils import ColumnMapper
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, client=True, **kwargs):
+        """Constructor of an Ensemble instance.
+
+        Parameters
+        ----------
+        client: `dask.distributed.client` or `bool`, optional
+            Accepts an existing `dask.distributed.Client`, or creates one if
+            `client=True`, passing any additional kwargs to a
+             dask.distributed.Client constructor call. If `client=False`, the
+             Ensemble is created without a distributed client.
+
+        """
         self.result = None  # holds the latest query
 
         self._source = None  # Source Table
@@ -49,10 +57,12 @@ class Ensemble:
 
         self.client = None
         self.cleanup_client = False
-        # Setup Dask Distributed Client
-        if client:
+
+        # Setup Dask Distributed Client if Provided
+        if isinstance(client, Client):
             self.client = client
-        else:
+            self.cleanup_client = True
+        elif client:
             self.client = Client(**kwargs)  # arguments passed along to Client
             self.cleanup_client = True
 
