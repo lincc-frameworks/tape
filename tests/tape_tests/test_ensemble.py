@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tape import Ensemble, EnsembleFrame, TapeFrame
+from tape import Ensemble, ObjectFrame, SourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -82,38 +82,38 @@ def test_available_datasets(dask_client):
 @pytest.mark.parametrize(
     "data_fixture",
     [
-        "ensemble_from_source_dict",
+        "parquet_files_and_ensemble_without_client",
     ],
 )
 def test_frame_tracking(data_fixture, request):
     """
     Tests a workflow of adding and removing the frames tracked by the Ensemble.
     """
-    ens, data = request.getfixturevalue(data_fixture)
+    ens, source_file, object_file, colmap = request.getfixturevalue(data_fixture)
 
-    # Construct frames for the Ensemble to track. For this test, the underlying data is irrelevant.
-    ens_frame1 = EnsembleFrame.from_dict(data, npartitions=1)
-    ens_frame2 = EnsembleFrame.from_dict(data, npartitions=1)
-    ens_frame3 = EnsembleFrame.from_dict(data, npartitions=1)
-    ens_frame4 = EnsembleFrame.from_dict(data, npartitions=1)
+    ens = ens.objsor_from_parquet(source_file, object_file, column_mapper=colmap)
 
-    # Labels to give the EnsembleFrames
-    label1, label2, label3, label4 = "frame1", "frame2", "frame3", "frame4"
-
-    assert not ens.frames
-
-    # TODO(wbeebe@uw.edu) Remove once Ensemble.source and Ensemble.object are populated by loaders
-    ens.source = EnsembleFrame.from_tapeframe(
-        TapeFrame(ens._source), label="source", npartitions=1)
-    ens.object = EnsembleFrame.from_tapeframe(
-        TapeFrame(ens._source), label="object", npartitions=1)
-    ens.frames["source"] = ens.source
-    ens.frames["object"] = ens.object
+    # Since we load the ensemble from a parquet, we expect the Source and Object frames to be populated.
+    assert len(ens.frames) == 2
+    assert isinstance(ens.select_frame("source"), SourceFrame)
+    assert isinstance(ens.select_frame("object"), ObjectFrame)
 
     # Check that we can select source and object frames
     assert len(ens.frames) == 2
     assert ens.select_frame("source") is ens.source
+    assert isinstance(ens.select_frame("source"), SourceFrame)
     assert ens.select_frame("object") is ens.object
+    assert isinstance(ens.select_frame("object"), ObjectFrame)
+
+    # Construct some result frames for the Ensemble to track. Underlying data is irrelevant for 
+    # this test.
+    ens_frame1 = ens.select_frame("source").copy()
+    ens_frame2 = ens.select_frame("source").copy()
+    ens_frame3 = ens.select_frame("source").copy()
+    ens_frame4 = ens.select_frame("source").copy()
+
+    # Labels to give the EnsembleFrames
+    label1, label2, label3, label4 = "frame1", "frame2", "frame3", "frame4"
 
     # Validate that new source and object frames can't be added or updated.
     with pytest.raises(ValueError):
@@ -139,7 +139,7 @@ def test_frame_tracking(data_fixture, request):
     assert ens.select_frame(label3) is ens_frame3
     assert len(ens.frames) == 5
 
-    # Now we begin dropping frames. First verifyt that we can't drop object or source.
+    # Now we begin dropping frames. First verify that we can't drop object or source.
     with pytest.raises(ValueError):
         ens.drop_frame("source")
     with pytest.raises(ValueError):

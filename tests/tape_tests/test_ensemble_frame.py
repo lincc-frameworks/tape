@@ -1,10 +1,14 @@
 """ Test EnsembleFrame (inherited from Dask.DataFrame) creation and manipulations. """
+import numpy as np
 import pandas as pd
-from tape import ColumnMapper, EnsembleFrame, TapeFrame
+from tape import ColumnMapper, EnsembleFrame, ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame, TapeFrame
 
 import pytest
 
 TEST_LABEL = "test_frame"
+SOURCE_LABEL = "source"
+OBJECT_LABEL = "object"
+
 
 # pylint: disable=protected-access
 @pytest.mark.parametrize(
@@ -61,7 +65,7 @@ def test_from_pandas(data_fixture, request):
         "ensemble_from_source_dict",
     ],
 )
-def test_frame_propagation(data_fixture, request):
+def test_ensemble_frame_propagation(data_fixture, request):
     """
     Test ensuring that slices and copies of an EnsembleFrame or still the same class.
     """
@@ -90,9 +94,9 @@ def test_frame_propagation(data_fixture, request):
     # Test that the output of an EnsembleFrame query is still an EnsembleFrame
     queried_rows = ens_frame.query("flux > 3.0")
     assert isinstance(queried_rows, EnsembleFrame)
-    assert isinstance(filtered_frame._meta, TapeFrame)
-    assert filtered_frame.label == TEST_LABEL
-    assert filtered_frame.ensemble == ens
+    assert isinstance(queried_rows._meta, TapeFrame)
+    assert queried_rows.label == TEST_LABEL
+    assert queried_rows.ensemble == ens
 
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)
@@ -157,3 +161,62 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
     assert isinstance(ens_frame, EnsembleFrame)
     assert ens_frame.label == TEST_LABEL
     assert ens_frame.ensemble is ens
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_files_and_ensemble_without_client",
+    ],
+)
+def test_object_and_source_frame_propagation(data_fixture, request):
+    """
+    Test that SourceFrame and ObjectFrame metadata and class type is correctly preserved across
+    typical Pandas operations. 
+    """
+    ens, source_file, object_file, _ = request.getfixturevalue(data_fixture)
+
+    assert ens is not None
+
+    # Create a SourceFrame from a parquet file
+    source_frame = SourceFrame.from_parquet(source_file, ensemble=ens)
+
+    assert isinstance(source_frame, EnsembleFrame)
+    assert isinstance(source_frame, SourceFrame)
+    assert isinstance(source_frame._meta, TapeSourceFrame)
+
+    assert source_frame.ensemble is not None
+    assert source_frame.ensemble == ens
+    assert source_frame.ensemble is ens
+
+    # Perform a series of operations on the SourceFrame and then verify the result is still a
+    # proper SourceFrame with appropriate metadata propagated.
+    mean_ps_flux = source_frame["psFlux"].mean().compute()
+    result_source_frame = source_frame.copy()[["psFlux", "psFluxErr"]]#.query("psFlux > " + str(mean_ps_flux))
+    assert isinstance(result_source_frame, SourceFrame)
+    assert isinstance(result_source_frame._meta, TapeSourceFrame)
+    assert len(result_source_frame) > 0
+    assert result_source_frame.label == SOURCE_LABEL
+    assert result_source_frame.ensemble is not None
+    assert result_source_frame.ensemble is ens
+
+    """
+    # Create an ObjectFrame from a parquet file
+    object_frame = ObjectFrame.from_parquet(
+        object_file,
+        ensemble=ens,
+        index="ps1_objid",
+    )
+
+    assert isinstance(object_frame, EnsembleFrame)
+    assert isinstance(object_frame, ObjectFrame)
+    assert isinstance(object_frame._meta, TapeObjectFrame)
+
+    # Perform a series of operations on the ObjectFrame and then verify the result is still a
+    # proper ObjectFrame with appropriate metadata propagated.
+    result_object_frame = object_frame.copy()[["nobs_g", "nobs_total"]].query("nobs_total > 3.0")
+    assert isinstance(result_object_frame, ObjectFrame)
+    assert isinstance(result_object_frame._meta, TapeObjectFrame)
+    assert result_object_frame.label == OBJECT_LABEL
+    assert result_object_frame.ensemble is ens
+
+    """

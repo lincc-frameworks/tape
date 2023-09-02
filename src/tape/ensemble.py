@@ -12,10 +12,11 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import EnsembleFrame, TapeFrame
+from .ensemble_frame import ObjectFrame, SourceFrame
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
+# TODO import from EnsembleFrame...?
 SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
 
@@ -1108,7 +1109,7 @@ class Ensemble:
         source_file: 'str'
             Path to a parquet file, or multiple parquet files that contain
             source information to be read into the ensemble
-        object_file: 'str'
+        object_file: 'str', optional
             Path to a parquet file, or multiple parquet files that contain
             object information. If not specified, it is generated from the
             source table
@@ -1198,6 +1199,114 @@ class Ensemble:
         elif partition_size:
             self._source = self._source.repartition(partition_size=partition_size)
 
+        return self
+    
+    def objsor_from_parquet(
+        self,
+        source_file,
+        object_file,
+        column_mapper=None,
+        provenance_label="survey_1",
+        sync_tables=True,
+        additional_cols=True,
+        npartitions=None,
+        partition_size=None,
+        **kwargs,
+    ):
+        """Read in parquet file(s) into an ensemble object
+
+        Parameters
+        ----------
+        source_file: 'str'
+            Path to a parquet file, or multiple parquet files that contain
+            source information to be read into the ensemble
+        object_file: 'str'
+            Path to a parquet file, or multiple parquet files that contain
+            object information.
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
+        provenance_label: 'str', optional
+            Determines the label to use if a provenance column is generated
+        sync_tables: 'bool', optional
+            In the case where object files are loaded in, determines whether an
+            initial sync is performed between the object and source tables. If
+            not performed, dynamic information like the number of observations
+            may be out of date until a sync is performed internally.
+        additional_cols: 'bool', optional
+            Boolean to indicate whether to carry in columns beyond the
+            critical columns, true will, while false will only load the columns
+            containing the critical quantities (id,time,flux,err,band)
+        npartitions: `int`, optional
+            If specified, attempts to repartition the ensemble to the specified
+            number of partitions
+        partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with parquet data loaded
+        """
+
+        # load column mappings
+        self._load_column_mapper(column_mapper, **kwargs)
+
+        # Handle additional columnss
+        if additional_cols:
+            columns = None  # None will prompt read_parquet to read in all cols
+        else:
+            columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
+            if self._provenance_col is not None:
+                columns.append(self._provenance_col)
+            if self._nobs_tot_col is not None:
+                columns.append(self._nobs_tot_col)
+            if self._nobs_band_cols is not None:
+                for col in self._nobs_band_cols:
+                    columns.append(col)
+
+        # Read in the source parquet file(s)
+        self.source = SourceFrame.from_parquet(source_file, index=self._id_col, columns=columns, 
+                                        ensemble=self)
+
+        # Read in the object file(s)
+        self.object = ObjectFrame.from_parquet(
+            object_file, index=self._id_col, ensemble=self)
+
+        if self._nobs_band_cols is None:
+            # sets empty nobs cols in object
+            unq_filters = np.unique(self.source[self._band_col])
+            self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
+            for col in self._nobs_band_cols:
+                self.object[col] = np.nan
+
+        # Handle nobs_total column
+        if self._nobs_tot_col is None:
+            self.object["nobs_total"] = np.nan
+            self._nobs_tot_col = "nobs_total"
+
+        # Optionally sync the tables, recalculates nobs columns
+        if sync_tables:
+            # TODO(wbeebe@uw.edu) Make this meaningful as part of milestone 4
+            self._source_dirty = True
+            self._object_dirty = True
+            self._sync_tables()
+
+        # Generate a provenance column if not provided
+        if self._provenance_col is None:
+            self.source["provenance"] = self.source.apply(
+                lambda x: provenance_label, axis=1, meta=pd.Series(name="provenance", dtype=str)
+            )
+            self._provenance_col = "provenance"
+
+        if npartitions and npartitions > 1:
+            self.source = self.source.repartition(npartitions=npartitions)
+        elif partition_size:
+            self.source = self.source.repartition(partition_size=partition_size)
+
+        self.frames[self.source.label] = self.source
+        self.frames[self.object.label] = self.object
         return self
 
     def from_dataset(self, dataset, **kwargs):
@@ -1318,7 +1427,7 @@ class Ensemble:
                 zero_pdf = pd.DataFrame(rows, dtype=int).set_index(self._id_col)
                 zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=1)
 
-                # Concatonate the zero dataframe onto the results.
+                # Concatenate the zero dataframe onto the results.
                 res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
                 res = res.repartition(npartitions=prev_partitions)
 
