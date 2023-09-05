@@ -379,6 +379,9 @@ class Ensemble:
         A single pandas data frame for the specified table or a tuple of (object, source)
         data frames.
         """
+        # TODO(wbeebe@uw.edu): Merge this duplicate logic as part of milestone 4
+        if self.object is not None and self.source is not None:
+            return (self.object.compute(**kwargs), self.source.compute(**kwargs))
         if table:
             self._lazy_sync_tables(table)
             if table == "object":
@@ -1213,7 +1216,7 @@ class Ensemble:
         partition_size=None,
         **kwargs,
     ):
-        """Read in parquet file(s) into an ensemble object
+        """Read in parquet file(s) for the object and source tables into an Ensemble object.
 
         Parameters
         ----------
@@ -1268,11 +1271,10 @@ class Ensemble:
 
         # Read in the source parquet file(s)
         self.source = SourceFrame.from_parquet(source_file, index=self._id_col, columns=columns, 
-                                        ensemble=self)
+                                               ensemble=self)
 
         # Read in the object file(s)
-        self.object = ObjectFrame.from_parquet(
-            object_file, index=self._id_col, ensemble=self)
+        self.object = ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self)
 
         if self._nobs_band_cols is None:
             # sets empty nobs cols in object
@@ -1286,13 +1288,8 @@ class Ensemble:
             self.object["nobs_total"] = np.nan
             self._nobs_tot_col = "nobs_total"
 
-        # Optionally sync the tables, recalculates nobs columns
-        if sync_tables:
-            # TODO(wbeebe@uw.edu) Make this meaningful as part of milestone 4
-            self._source_dirty = True
-            self._object_dirty = True
-            self._sync_tables()
-
+        # TODO(wbeebe@uw.edu) Add in table syncing logic as part of milestone 4
+            
         # Generate a provenance column if not provided
         if self._provenance_col is None:
             self.source["provenance"] = self.source.apply(

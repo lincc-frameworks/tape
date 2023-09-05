@@ -44,12 +44,10 @@ def parquet_files_and_ensemble_without_client():
         err_col="psFluxErr",
         band_col="filterName",
     )
-    ens.from_parquet(
+    ens = ens.objsor_from_parquet(
         source_file,
         object_file,
-        column_mapper=colmap
-    )
-
+        column_mapper=colmap)
     return ens, source_file, object_file, colmap
 
 # pylint: disable=redefined-outer-name

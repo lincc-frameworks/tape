@@ -15,8 +15,8 @@ from dask.dataframe.io.parquet.arrow import (
         ArrowDatasetEngine as DaskArrowDatasetEngine,
     )
 
-SOURCE_FRAME_LABEL = "source"
-OBJECT_FRAME_LABEL = "object"
+SOURCE_FRAME_LABEL = "source" # Reserved label for source table
+OBJECT_FRAME_LABEL = "object" # Reserved label for object table.
 
 class TapeArrowEngine(DaskArrowDatasetEngine):
     """

@@ -67,6 +67,49 @@ def test_from_parquet(data_fixture, request):
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
 
+ 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_files_and_ensemble_without_client",
+    ],
+)
+def test_objsor_from_parquet(data_fixture, request):
+    """
+    Test that the ensemble successfully loads a SourceFrame and ObjectFrame form parquet files.
+    """
+    _, source_file, object_file, colmap = request.getfixturevalue(data_fixture)
+
+    ens = Ensemble(client=False)
+    ens = ens.objsor_from_parquet(source_file, object_file, column_mapper=colmap)
+
+    assert ens is not None
+
+    # Check to make sure the source and object tables were created
+    assert ens.source is not None
+    assert ens.object is not None
+    assert isinstance(ens.source, SourceFrame)
+    assert isinstance(ens.object, ObjectFrame)
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 2000
+    assert len(obj) == 15
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+        ens._provenance_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens.source[col] is not None
+
 
 def test_available_datasets(dask_client):
     """
