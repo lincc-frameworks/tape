@@ -93,10 +93,10 @@ def test_ensemble_frame_propagation(data_fixture, request):
 
     # Test that the output of an EnsembleFrame query is still an EnsembleFrame
     queried_rows = ens_frame.query("flux > 3.0")
-    assert isinstance(queried_rows, EnsembleFrame)
-    assert isinstance(queried_rows._meta, TapeFrame)
-    assert queried_rows.label == TEST_LABEL
-    assert queried_rows.ensemble == ens
+    assert isinstance(filtered_frame, EnsembleFrame)
+    assert isinstance(filtered_frame._meta, TapeFrame)
+    assert filtered_frame.label == TEST_LABEL
+    assert filtered_frame.ensemble == ens
 
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)
@@ -191,7 +191,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     # Perform a series of operations on the SourceFrame and then verify the result is still a
     # proper SourceFrame with appropriate metadata propagated.
     mean_ps_flux = source_frame["psFlux"].mean().compute()
-    result_source_frame = source_frame.copy()[["psFlux", "psFluxErr"]]#.query("psFlux > " + str(mean_ps_flux))
+    result_source_frame = source_frame.copy()[["psFlux", "psFluxErr"]]
     assert isinstance(result_source_frame, SourceFrame)
     assert isinstance(result_source_frame._meta, TapeSourceFrame)
     assert len(result_source_frame) > 0
@@ -199,7 +199,6 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert result_source_frame.ensemble is not None
     assert result_source_frame.ensemble is ens
 
-    """
     # Create an ObjectFrame from a parquet file
     object_frame = ObjectFrame.from_parquet(
         object_file,
@@ -213,10 +212,8 @@ def test_object_and_source_frame_propagation(data_fixture, request):
 
     # Perform a series of operations on the ObjectFrame and then verify the result is still a
     # proper ObjectFrame with appropriate metadata propagated.
-    result_object_frame = object_frame.copy()[["nobs_g", "nobs_total"]].query("nobs_total > 3.0")
+    result_object_frame = object_frame.copy()[["nobs_g", "nobs_total"]]
     assert isinstance(result_object_frame, ObjectFrame)
     assert isinstance(result_object_frame._meta, TapeObjectFrame)
     assert result_object_frame.label == OBJECT_LABEL
     assert result_object_frame.ensemble is ens
-
-    """
