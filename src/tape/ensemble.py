@@ -1293,9 +1293,6 @@ class Ensemble:
             
         # Generate a provenance column if not provided
         if self._provenance_col is None:
-            self.source["provenance"] = self.source.apply(
-                lambda x: provenance_label, axis=1, meta=pd.Series(name="provenance", dtype=str)
-            )
             self.source["provenance"] = provenance_label
             self._provenance_col = "provenance"
 
