@@ -26,9 +26,9 @@ class TapeArrowEngine(DaskArrowDatasetEngine):
     """
 
     @classmethod
-    def _update_meta(cls, meta, schema):
+    def _creates_meta(cls, meta, schema):
         """
-        Convert meta to a TapeFrame
+        Converts the meta to a TapeFrame.
         """
         return TapeFrame(meta)
 
@@ -44,7 +44,7 @@ class TapeArrowEngine(DaskArrowDatasetEngine):
                     "No dataset parts discovered. Use dask.dataframe.read_parquet "
                     "to read it as an empty DataFrame"
                 )
-        meta = cls._update_meta(meta, schema)
+        meta = cls._creates_meta(meta, schema)
         return meta
 
 class TapeSourceArrowEngine(TapeArrowEngine):
@@ -54,7 +54,7 @@ class TapeSourceArrowEngine(TapeArrowEngine):
     """
 
     @classmethod
-    def _update_meta(cls, meta, schema):
+    def _creates_meta(cls, meta, schema):
         """
         Convert meta to a TapeSourceFrame
         """
@@ -67,7 +67,7 @@ class TapeObjectArrowEngine(TapeArrowEngine):
     """
 
     @classmethod
-    def _update_meta(cls, meta, schema):
+    def _creates_meta(cls, meta, schema):
         """
         Convert meta to a TapeObjectFrame
         """
@@ -132,6 +132,45 @@ class _Frame(dd.core._Frame):
             The modifed frame
         """
         result = super().assign(**kwargs)
+        return self._propagate_metadata(result)
+    
+    def query(self, expr, **kwargs):
+        """Filter dataframe with complex expression
+
+        Doc string below derived from dask.dataframe.core
+
+        Blocked version of pd.DataFrame.query
+
+        Parameters
+        ----------
+        expr: str
+            The query string to evaluate.
+            You can refer to column names that are not valid Python variable names
+            by surrounding them in backticks.
+            Dask does not fully support referring to variables using the '@' character,
+            use f-strings or the ``local_dict`` keyword argument instead.
+        **kwargs: `dict`
+            See the documentation for eval() for complete details on the keyword arguments accepted
+            by pandas.DataFrame.query().
+
+        Returns
+        ----------
+        result: `tape._Frame`
+            The modifed frame
+            
+        Notes
+        -----
+        This is like the sequential version except that this will also happen
+        in many threads.  This may conflict with ``numexpr`` which will use
+        multiple threads itself.  We recommend that you set ``numexpr`` to use a
+        single thread:
+
+        .. code-block:: python
+
+            import numexpr
+            numexpr.set_num_threads(1)
+        """
+        result = super().query(expr, **kwargs)
         return self._propagate_metadata(result)
 
 class TapeSeries(pd.Series):
@@ -207,7 +246,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         label: `str`, optional
         |   The label used to by the Ensemble to identify the frame.
         ensemble: `tape.Ensemble`, optional
-        |   A linnk to the Ensmeble object that owns this frame.
+        |   A link to the Ensemble object that owns this frame.
         Returns
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
@@ -303,7 +342,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             inferred from the pandas parquet file metadata, if present. Use False to read all
             fields as columns.
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensmeble object that owns this frame.
+        |   A link to the Ensemble object that owns this frame.
         Returns
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
@@ -385,7 +424,7 @@ class SourceFrame(EnsembleFrame):
             inferred from the pandas parquet file metadata, if present. Use False to read all
             fields as columns.
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensmeble object that owns this frame.
+        |   A link to the Ensemble object that owns this frame.
         Returns
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
@@ -419,6 +458,28 @@ class ObjectFrame(EnsembleFrame):
         columns=None,
         ensemble=None,
     ):
+        """ Returns an ObjectFrame constructed from loading a parquet file.
+        Parameters
+        ----------
+        path: `str` or `list`
+            Source directory for data, or path(s) to individual parquet files. Prefix with a
+            protocol like s3:// to read from alternative filesystems. To read from multiple
+            files you can pass a globstring or a list of paths, with the caveat that they must all
+            have the same protocol.
+        columns: `str` or `list`, optional
+            Field name(s) to read in as columns in the output. By default all non-index fields will
+            be read (as determined by the pandas parquet metadata, if present). Provide a single
+            field name instead of a list to read in the data as a Series.
+        index: `str`, `list`, `False`, optional
+            Field name(s) to use as the output frame index. Default is None and index will be
+            inferred from the pandas parquet file metadata, if present. Use False to read all
+            fields as columns.
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        Returns
+        result: `tape.ObjectFrame`
+            The constructed ObjectFrame object.
+        """
         # Read in the object Parquet file
         result = dd.read_parquet(
             path, index=index, columns=columns, split_row_groups=True, engine=TapeObjectArrowEngine,

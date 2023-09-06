@@ -93,10 +93,10 @@ def test_ensemble_frame_propagation(data_fixture, request):
 
     # Test that the output of an EnsembleFrame query is still an EnsembleFrame
     queried_rows = ens_frame.query("flux > 3.0")
-    assert isinstance(filtered_frame, EnsembleFrame)
-    assert isinstance(filtered_frame._meta, TapeFrame)
-    assert filtered_frame.label == TEST_LABEL
-    assert filtered_frame.ensemble == ens
+    assert isinstance(queried_rows, EnsembleFrame)
+    assert isinstance(queried_rows._meta, TapeFrame)
+    assert queried_rows.label == TEST_LABEL
+    assert queried_rows.ensemble == ens
 
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)

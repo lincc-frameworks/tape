@@ -379,7 +379,7 @@ class Ensemble:
         A single pandas data frame for the specified table or a tuple of (object, source)
         data frames.
         """
-        # TODO(wbeebe@uw.edu): Merge this duplicate logic as part of milestone 4
+        # TODO(wbeebe@uw.edu): Remove this logic as part of milestone 4's removal of the _source and _object fields
         if self.object is not None and self.source is not None:
             return (self.object.compute(**kwargs), self.source.compute(**kwargs))
         if table:
@@ -1238,14 +1238,15 @@ class Ensemble:
             may be out of date until a sync is performed internally.
         additional_cols: 'bool', optional
             Boolean to indicate whether to carry in columns beyond the
-            critical columns, true will, while false will only load the columns
+            critical columns, True will, while Talse will only load the columns
             containing the critical quantities (id,time,flux,err,band)
         npartitions: `int`, optional
             If specified, attempts to repartition the ensemble to the specified
             number of partitions
         partition_size: `int`, optional
             If specified, attempts to repartition the ensemble to partitions
-            of size `partition_size`.
+            of size `partition_size`, the maximum number of bytes for partition
+            as computed by `pandas.Dataframe.memory_usage`.
 
         Returns
         ----------
@@ -1295,6 +1296,7 @@ class Ensemble:
             self.source["provenance"] = self.source.apply(
                 lambda x: provenance_label, axis=1, meta=pd.Series(name="provenance", dtype=str)
             )
+            self.source["provenance"] = provenance_label
             self._provenance_col = "provenance"
 
         if npartitions and npartitions > 1:
@@ -1302,6 +1304,7 @@ class Ensemble:
         elif partition_size:
             self.source = self.source.repartition(partition_size=partition_size)
 
+        # Add the source and object tables to the frames tracked by the Ensemble
         self.frames[self.source.label] = self.source
         self.frames[self.object.label] = self.object
         return self
