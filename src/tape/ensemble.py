@@ -1238,7 +1238,7 @@ class Ensemble:
             may be out of date until a sync is performed internally.
         additional_cols: 'bool', optional
             Boolean to indicate whether to carry in columns beyond the
-            critical columns, True will, while Talse will only load the columns
+            critical columns, True will, while False will only load the columns
             containing the critical quantities (id,time,flux,err,band)
         npartitions: `int`, optional
             If specified, attempts to repartition the ensemble to the specified
