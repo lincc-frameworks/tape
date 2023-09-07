@@ -31,6 +31,24 @@ def parquet_ensemble_without_client():
 
     return ens
 
+@pytest.fixture
+def parquet_files_and_ensemble_without_client():
+    """Create an Ensemble from parquet data without a dask client."""
+    ens = Ensemble(client=False)
+    source_file = "tests/tape_tests/data/source/test_source.parquet"
+    object_file = "tests/tape_tests/data/object/test_object.parquet"
+    colmap = ColumnMapper().assign(
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+        band_col="filterName",
+    )
+    ens = ens.objsor_from_parquet(
+        source_file,
+        object_file,
+        column_mapper=colmap)
+    return ens, source_file, object_file, colmap
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
