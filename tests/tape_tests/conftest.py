@@ -1,4 +1,5 @@
 """Test fixtures for Ensemble manipulations"""
+import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 
@@ -130,15 +131,15 @@ def dask_dataframe_ensemble(dask_client):
     ens = Ensemble(client=dask_client)
 
     num_points = 1000
-    all_bands = ["r", "g", "b", "i"]
+    all_bands = np.array(["r", "g", "b", "i"])
     rows = {
-        "id": [8000 + (i % 5) for i in range(num_points)],
-        "time": [float(i) for i in range(num_points)],
-        "flux": [float(i % 4) for i in range(num_points)],
-        "band": [all_bands[i % 4] for i in range(num_points)],
-        "err": [0.1*(i % 10) for i in range(num_points)],
-        "count": [i for i in range(num_points)],
-        "something_else": [None for _ in range(num_points)],
+        "id": 8000 + (np.arange(num_points) % 5),
+        "time": np.arange(num_points),
+        "flux": np.arange(num_points) % len(all_bands),
+        "band": np.repeat(all_bands, num_points / len(all_bands)),
+        "err": 0.1 * (np.arange(num_points) % 10),
+        "count": np.arange(num_points),
+        "something_else": np.full(num_points, None),
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
 
@@ -157,15 +158,15 @@ def pandas_ensemble(dask_client):
     ens = Ensemble(client=dask_client)
 
     num_points = 1000
-    all_bands = ["r", "g", "b", "i"]
+    all_bands = np.array(["r", "g", "b", "i"])
     rows = {
-        "id": [8000 + (i % 5) for i in range(num_points)],
-        "time": [float(i) for i in range(num_points)],
-        "flux": [float(i % 4) for i in range(num_points)],
-        "band": [all_bands[i % 4] for i in range(num_points)],
-        "err": [0.1*(i % 10) for i in range(num_points)],
-        "count": [i for i in range(num_points)],
-        "something_else": [None for _ in range(num_points)],
+        "id": 8000 + (np.arange(num_points) % 5),
+        "time": np.arange(num_points),
+        "flux": np.arange(num_points) % len(all_bands),
+        "band": np.repeat(all_bands, num_points / len(all_bands)),
+        "err": 0.1 * (np.arange(num_points) % 10),
+        "count": np.arange(num_points),
+        "something_else": np.full(num_points, None),
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
 

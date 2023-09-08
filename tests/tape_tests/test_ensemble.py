@@ -90,7 +90,7 @@ def test_from_dataframe(data_fixture, request):
     assert len(obj) == 5
 
     # Check that source and object both have the same ids present
-    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+    np.testing.assert_array_equal(np.unique(source.index), np.sort(obj.index))
 
     # Check the we loaded the correct columns.
     for col in [
