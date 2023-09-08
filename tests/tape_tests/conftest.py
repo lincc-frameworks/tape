@@ -1,4 +1,8 @@
 """Test fixtures for Ensemble manipulations"""
+import numpy as np
+import pandas as pd
+import dask.dataframe as dd
+
 import pytest
 from dask.distributed import Client
 
@@ -115,6 +119,61 @@ def parquet_ensemble_from_hipscat(dask_client):
         band_col="filterName",
         flux_col="psFlux",
         err_col="psFluxErr",
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def dask_dataframe_ensemble(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = np.array(["r", "g", "b", "i"])
+    rows = {
+        "id": 8000 + (np.arange(num_points) % 5),
+        "time": np.arange(num_points),
+        "flux": np.arange(num_points) % len(all_bands),
+        "band": np.repeat(all_bands, num_points / len(all_bands)),
+        "err": 0.1 * (np.arange(num_points) % 10),
+        "count": np.arange(num_points),
+        "something_else": np.full(num_points, None),
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens.from_dask_dataframe(
+        dd.from_dict(rows, npartitions=1),
+        column_mapper=cmap,
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def pandas_ensemble(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = np.array(["r", "g", "b", "i"])
+    rows = {
+        "id": 8000 + (np.arange(num_points) % 5),
+        "time": np.arange(num_points),
+        "flux": np.arange(num_points) % len(all_bands),
+        "band": np.repeat(all_bands, num_points / len(all_bands)),
+        "err": 0.1 * (np.arange(num_points) % 10),
+        "count": np.arange(num_points),
+        "something_else": np.full(num_points, None),
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens.from_pandas(
+        pd.DataFrame(rows),
+        column_mapper=cmap,
+        npartitions=1,
     )
 
     return ens
