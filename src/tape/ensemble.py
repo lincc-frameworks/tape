@@ -896,7 +896,7 @@ class Ensemble:
         ensemble: `tape.ensemble.Ensemble`
             The ensemble object with the Dask dataframe data loaded.
         """
-        self.update_column_mapping(column_mapper, override=False, **kwargs)
+        self._load_column_mapper(column_mapper, **kwargs)
 
         # Set the index of the source frame and save the resulting table
         self._source = source_frame.set_index(self._id_col, drop=True)
@@ -991,7 +991,7 @@ class Ensemble:
         )
         return result
 
-    def update_column_mapping(self, column_mapper=None, override=True, **kwargs):
+    def update_column_mapping(self, column_mapper=None, **kwargs):
         """Update the mapping of column names.
 
         Parameters
@@ -999,8 +999,6 @@ class Ensemble:
         column_mapper: `tape.utils.ColumnMapper`, optional
             An entirely new mapping of column names. If `None` then modifies the
             current mapping using kwargs.
-        override: `bool`, optional
-            Whether to override an existing mapping, by default is `True`.
         kwargs:
             Individual column to name settings.
 
@@ -1008,14 +1006,12 @@ class Ensemble:
         -------
         self: `Ensemble`
         """
-        # Check if a critical column has been set to see if there is a mapping to override.
-        if self._id_col is None or override:
-            if column_mapper is not None:
-                self._load_column_mapper(column_mapper, **kwargs)
-            else:
-                column_mapper = self.make_column_map()
-                column_mapper.assign(**kwargs)
-                self._load_column_mapper(column_mapper, **kwargs)
+        if column_mapper is not None:
+            self._load_column_mapper(column_mapper, **kwargs)
+        else:
+            column_mapper = self.make_column_map()
+            column_mapper.assign(**kwargs)
+            self._load_column_mapper(column_mapper, **kwargs)
         return self
 
     def _load_column_mapper(self, column_mapper, **kwargs):
