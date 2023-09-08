@@ -847,7 +847,7 @@ class Ensemble:
         """
         # Construct Dask DataFrames of the source and object tables
         source = dd.from_pandas(source_frame, npartitions=npartitions)
-        object = None if object_frame is None else dd.from_pandas(object_frame, npartitions=npartitions)
+        object = None if object_frame is None else dd.from_pandas(object_frame)
         return self.from_dask_dataframe(
             source,
             object_frame=object,
@@ -901,7 +901,7 @@ class Ensemble:
         # Set the index of the source frame and save the resulting table
         self._source = source_frame.set_index(self._id_col, drop=True)
 
-        if object_frame is None:  # generate object table from source
+        if object_frame is None:  # generate an indexed object table from source
             self._object = self._generate_object_table()
             self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
         else:
@@ -917,6 +917,8 @@ class Ensemble:
             if self._nobs_tot_col is None:
                 self._object["nobs_total"] = np.nan
                 self._nobs_tot_col = "nobs_total"
+
+            self._object.set_index(self._id_col)
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
