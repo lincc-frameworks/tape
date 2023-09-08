@@ -118,3 +118,38 @@ def parquet_ensemble_from_hipscat(dask_client):
     )
 
     return ens
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def dataframe_ensemble_without_client():
+    """Create an Ensemble from parquet data without a dask client."""
+    ens = Ensemble(client=False)
+    ens.from_dask_dataframe(
+        "tests/tape_tests/data/source/test_source.parquet",
+        "tests/tape_tests/data/object/test_object.parquet",
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        band_col="filterName",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def dataframe_ensemble(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+    ens.from_dask_dataframe(
+        "tests/tape_tests/data/source/test_source.parquet",
+        "tests/tape_tests/data/object/test_object.parquet",
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        band_col="filterName",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+    )
+
+    return ens
