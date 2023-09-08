@@ -847,8 +847,7 @@ class Ensemble:
         """
         # Construct Dask DataFrames of the source and object tables
         source = dd.from_pandas(source_frame, npartitions=npartitions)
-        object = None if object_frame is None else dd.from_pandas(
-            object_frame, npartitions=npartitions)
+        object = None if object_frame is None else dd.from_pandas(object_frame, npartitions=npartitions)
         return self.from_dask_dataframe(
             source,
             object_frame=object,
@@ -856,7 +855,7 @@ class Ensemble:
             sync_tables=sync_tables,
             npartitions=npartitions,
             partition_size=partition_size,
-            **kwargs
+            **kwargs,
         )
 
     def from_dask_dataframe(
@@ -1131,15 +1130,12 @@ class Ensemble:
                     columns.append(col)
 
         # Read in the source parquet file(s)
-        source = dd.read_parquet(
-            source_file, index=self._id_col, columns=columns, split_row_groups=True
-        )
+        source = dd.read_parquet(source_file, index=self._id_col, columns=columns, split_row_groups=True)
 
         # Generate a provenance column if not provided
         if self._provenance_col is None:
             source["provenance"] = provenance_label
             self._provenance_col = "provenance"
-
 
         object = None
         if object_file:
@@ -1152,7 +1148,7 @@ class Ensemble:
             sync_tables=sync_tables,
             npartitions=npartitions,
             partition_size=partition_size,
-            **kwargs
+            **kwargs,
         )
 
     def from_dataset(self, dataset, **kwargs):
