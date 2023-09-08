@@ -845,9 +845,10 @@ class Ensemble:
         ensemble: `tape.ensemble.Ensemble`
             The ensemble object with the Dask dataframe data loaded.
         """
-        source = dd.from_pandas(source_frame, npartitions=npartitions, partition_size=partition_size)
+        # Construct Dask DataFrames of the source and object tables
+        source = dd.from_pandas(source_frame, npartitions=npartitions)
         object = None if object_frame is None else dd.from_pandas(
-            object_frame, npartitions=npartitions, partition_size= partition_size)
+            object_frame, npartitions=npartitions)
         return self.from_dask_dataframe(
             source,
             object_frame=object,
@@ -898,7 +899,9 @@ class Ensemble:
         """
         self.update_column_mapping(column_mapper, override=False, **kwargs)
 
-        self._source = source_frame
+        # Set the index of the source frame and save the resulting table
+        self._source = source_frame.set_index(self._id_col, drop=True)
+
         if object_frame is None:  # generate object table from source
             self._object = self._generate_object_table()
             self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
@@ -1228,14 +1231,11 @@ class Ensemble:
 
         # Load the source data into a dataframe.
         source_frame = dd.DataFrame.from_dict(source_dict, npartitions=npartitions)
-        source_frame = source_frame.set_index(self._id_col, drop=True)
-
 
         return self.from_dask_dataframe(
             source_frame,
             object_frame=None,
             column_mapper=column_mapper,
-            provenance_label="source_dict",
             sync_tables=True,
             npartitions=npartitions,
             **kwargs,

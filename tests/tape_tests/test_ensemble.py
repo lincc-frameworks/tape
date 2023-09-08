@@ -67,6 +67,42 @@ def test_from_parquet(data_fixture, request):
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "dask_dataframe_ensemble",
+        "pandas_ensemble",
+    ],
+)
+def test_from_dataframe(data_fixture, request):
+    """
+    Tests constructing an ensemble from pandas and dask dataframes.
+    """
+    ens = request.getfixturevalue(data_fixture)
+
+    # Check to make sure the source and object tables were created
+    assert ens._source is not None
+    assert ens._object is not None
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 1000
+    assert len(obj) == 5
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens._source[col] is not None
+
+
 
 def test_available_datasets(dask_client):
     """

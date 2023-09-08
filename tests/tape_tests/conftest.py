@@ -1,4 +1,7 @@
 """Test fixtures for Ensemble manipulations"""
+import pandas as pd
+import dask.dataframe as dd
+
 import pytest
 from dask.distributed import Client
 
@@ -119,19 +122,29 @@ def parquet_ensemble_from_hipscat(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def dataframe_ensemble_without_client():
-    """Create an Ensemble from parquet data without a dask client."""
-    ens = Ensemble(client=False)
+def dask_dataframe_ensemble(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = ["r", "g", "b", "i"]
+    rows = {
+        "id": [8000 + (i % 5) for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [float(i % 4) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
+        "err": [0.1*(i % 10) for i in range(num_points)],
+        "count": [i for i in range(num_points)],
+        "something_else": [None for _ in range(num_points)],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
     ens.from_dask_dataframe(
-        "tests/tape_tests/data/source/test_source.parquet",
-        "tests/tape_tests/data/object/test_object.parquet",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+        dd.from_dict(rows, npartitions=1),
+        column_mapper=cmap,
     )
 
     return ens
@@ -139,17 +152,27 @@ def dataframe_ensemble_without_client():
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def dataframe_ensemble(dask_client):
+def pandas_ensemble(dask_client):
     """Create an Ensemble from parquet data."""
     ens = Ensemble(client=dask_client)
-    ens.from_dask_dataframe(
-        "tests/tape_tests/data/source/test_source.parquet",
-        "tests/tape_tests/data/object/test_object.parquet",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+
+    num_points = 1000
+    all_bands = ["r", "g", "b", "i"]
+    rows = {
+        "id": [8000 + (i % 5) for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [float(i % 4) for i in range(num_points)],
+        "band": [all_bands[i % 4] for i in range(num_points)],
+        "err": [0.1*(i % 10) for i in range(num_points)],
+        "count": [i for i in range(num_points)],
+        "something_else": [None for _ in range(num_points)],
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens.from_pandas(
+        pd.DataFrame(rows),
+        column_mapper=cmap,
+        npartitions=1,
     )
 
     return ens
