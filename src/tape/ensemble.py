@@ -1368,12 +1368,6 @@ class Ensemble:
             # Sync Object to Source; remove any missing objects from source
             obj_idx = list(self._object.index.compute())
             self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
-            """
-            if "index" not in self._source.columns: # use index as identifier if available
-                self._source = self._source.query(f"index in {obj_idx}")
-            else: # if a column is labeled index, fallback to the id_col name
-                self._source = self._source.query(f"{self._id_col} in {obj_idx}")
-            """
             self._source = self._source.persist()
 
         if self._source_dirty:  # not elif
