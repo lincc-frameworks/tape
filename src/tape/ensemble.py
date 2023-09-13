@@ -456,18 +456,22 @@ class Ensemble:
         def coalesce_partition(df, input_cols, output_col):
             """Coalescing function for a single partition (pandas dataframe)"""
 
+            # Create a subset dataframe per input column
+            # Rename column to output to allow combination
             input_dfs = []
             for col in input_cols:
                 col_df = df[[col]]
 
                 input_dfs.append(col_df.rename(columns={col: output_col}))
 
+            # Combine each dataframe
             i = 0
             coal_df = input_dfs[0]
             while i < len(input_dfs) - 1:
                 coal_df = coal_df.combine_first(input_dfs[i + 1])
                 i += 1
 
+            # Assign the output column to the partition dataframe
             out_df = df.assign(**{output_col: coal_df[output_col]})
 
             return out_df
