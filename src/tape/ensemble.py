@@ -1367,7 +1367,7 @@ class Ensemble:
             # Sync Object to Source; remove any missing objects from source
             obj_idx = list(self._object.index.compute())
             self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
-            self._source = self._source.persist() # persist the source frame
+            self._source = self._source.persist()  # persist the source frame
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
