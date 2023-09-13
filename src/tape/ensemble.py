@@ -453,21 +453,27 @@ class Ensemble:
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
-        # Create a subset dataframe with the coalesced columns
-        # Drop index for dask series operations - unfortunate
-        coal_ddf = table_ddf[input_cols].reset_index()
+        def coalesce_partition(df, input_cols, output_col):
+            """Coalescing function for a single partition (pandas dataframe)"""
 
-        # Coalesce each column iteratively
-        i = 0
-        coalesce_col = coal_ddf[input_cols[0]]
-        while i < len(input_cols) - 1:
-            coalesce_col = coalesce_col.combine_first(coal_ddf[input_cols[i + 1]])
-            i += 1
-        # Assign the new column to the subset df, and reintroduce index
-        coal_ddf = coal_ddf.assign(**{output_col: coalesce_col}).set_index(self._id_col)
+            # Create a subset dataframe per input column
+            # Rename column to output to allow combination
+            input_dfs = []
+            for col in input_cols:
+                col_df = df[[col]]
+                input_dfs.append(col_df.rename(columns={col: output_col}))
 
-        # assign the result to the desired column name
-        table_ddf = table_ddf.assign(**{output_col: coal_ddf[output_col]})
+            # Combine each dataframe
+            coal_df = input_dfs.pop()
+            while input_dfs:
+                coal_df = coal_df.combine_first(input_dfs.pop())
+
+            # Assign the output column to the partition dataframe
+            out_df = df.assign(**{output_col: coal_df[output_col]})
+
+            return out_df
+
+        table_ddf = table_ddf.map_partitions(lambda x: coalesce_partition(x, input_cols, output_col))
 
         # Drop the input columns if wanted
         if drop_inputs:
