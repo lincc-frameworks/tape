@@ -455,18 +455,19 @@ class Ensemble:
 
         def coalesce_partition(df, input_cols, output_col):
             """Coalescing function for a single partition (pandas dataframe)"""
-            coal_df = df[input_cols]
 
-            # Coalesce each column iteratively
+            input_dfs = []
+            for col in input_cols:
+                col_df = df[[col]]
+
+                input_dfs.append(col_df.rename(columns={col: output_col}))
+
             i = 0
-            coalesce_col = coal_df[input_cols[0]]
-            while i < len(input_cols) - 1:
-                coalesce_col = coalesce_col.combine_first(coal_df[input_cols[i + 1]])
+            coal_df = input_dfs[0]
+            while i < len(input_dfs) - 1:
+                coal_df = coal_df.combine_first(input_dfs[i + 1])
                 i += 1
-            # Assign the new column to the subset df
-            coal_df = coal_df.assign(**{output_col: coalesce_col})
 
-            # assign the result to the desired column name
             out_df = df.assign(**{output_col: coal_df[output_col]})
 
             return out_df
