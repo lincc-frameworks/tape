@@ -463,7 +463,6 @@ class Ensemble:
         while i < len(input_cols) - 1:
             coalesce_col = coalesce_col.combine_first(coal_ddf[input_cols[i + 1]])
             i += 1
-        print("am I using this code")
         # Assign the new column to the subset df, and reintroduce index
         coal_ddf = coal_ddf.assign(**{output_col: coalesce_col}).set_index(self._id_col)
 
@@ -1366,13 +1365,9 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-            s_cols = self._source.columns
-            self._source = self._source.merge(
-                self._object, how="right", on=[self._id_col], suffixes=(None, "_obj")
-            )
-            cols_to_drop = [col for col in self._source.columns if col not in s_cols]
-            self._source = self._source.drop(cols_to_drop, axis=1)
-            self._source = self._source.persist()  # persist source
+            obj_idx = list(self._object.index.compute())
+            self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
+            self._source = self._source.persist()  # persist the source frame
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
