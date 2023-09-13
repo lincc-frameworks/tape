@@ -1366,13 +1366,15 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-            s_cols = self._source.columns
-            self._source = self._source.merge(
-                self._object, how="right", on=[self._id_col], suffixes=(None, "_obj")
-            )
-            cols_to_drop = [col for col in self._source.columns if col not in s_cols]
-            self._source = self._source.drop(cols_to_drop, axis=1)
-            self._source = self._source.persist()  # persist source
+            obj_idx = list(self._object.index.compute())
+            self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
+            """
+            if "index" not in self._source.columns: # use index as identifier if available
+                self._source = self._source.query(f"index in {obj_idx}")
+            else: # if a column is labeled index, fallback to the id_col name
+                self._source = self._source.query(f"{self._id_col} in {obj_idx}")
+            """
+            self._source = self._source.persist()
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
