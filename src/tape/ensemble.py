@@ -852,7 +852,7 @@ class Ensemble:
         """
         # Construct Dask DataFrames of the source and object tables
         source = dd.from_pandas(source_frame, npartitions=npartitions)
-        object = None if object_frame is None else dd.from_pandas(object_frame)
+        object = None if object_frame is None else dd.from_pandas(object_frame, npartitions=npartitions)
         return self.from_dask_dataframe(
             source,
             object_frame=object,
@@ -923,7 +923,7 @@ class Ensemble:
                 self._object["nobs_total"] = np.nan
                 self._nobs_tot_col = "nobs_total"
 
-            self._object.set_index(self._id_col)
+            self._object = self._object.set_index(self._id_col)
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:

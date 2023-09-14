@@ -71,7 +71,9 @@ def test_from_parquet(data_fixture, request):
     "data_fixture",
     [
         "dask_dataframe_ensemble",
+        "dask_dataframe_with_object_ensemble",
         "pandas_ensemble",
+        "pandas_with_object_ensemble"
     ],
 )
 def test_from_dataframe(data_fixture, request):
@@ -102,6 +104,9 @@ def test_from_dataframe(data_fixture, request):
         # Check to make sure the critical quantity labels are bound to real columns
         assert ens._source[col] is not None
 
+    # Check that we can compute an analysis function on the ensemble.
+    amplitude = ens.batch(calc_stetson_J)
+    assert len(amplitude) == 5
 
 
 def test_available_datasets(dask_client):
