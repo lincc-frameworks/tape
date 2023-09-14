@@ -144,12 +144,49 @@ def dask_dataframe_ensemble(dask_client):
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
 
     ens.from_dask_dataframe(
-        dd.from_dict(rows, npartitions=1),
+        source_frame=dd.from_dict(rows, npartitions=1),
         column_mapper=cmap,
     )
 
     return ens
 
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def dask_dataframe_with_object_ensemble(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+
+    n_obj = 5
+    id = 8000 + np.arange(n_obj)
+    name = id.astype(str)
+    object_table = dd.from_dict(
+        dict(id=id, name=name),
+        npartitions=1,
+    )
+
+    num_points = 1000
+    all_bands = np.array(["r", "g", "b", "i"])
+    source_table = dd.from_dict(
+        {
+            "id": 8000 + (np.arange(num_points) % n_obj),
+            "time": np.arange(num_points),
+            "flux": np.arange(num_points) % len(all_bands),
+            "band": np.repeat(all_bands, num_points / len(all_bands)),
+            "err": 0.1 * (np.arange(num_points) % 10),
+            "count": np.arange(num_points),
+            "something_else": np.full(num_points, None),
+        },
+        npartitions=1,
+    )
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens.from_dask_dataframe(
+        source_frame=source_table,
+        object_frame=object_table,
+        column_mapper=cmap,
+    )
+
+    return ens
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
@@ -172,6 +209,43 @@ def pandas_ensemble(dask_client):
 
     ens.from_pandas(
         pd.DataFrame(rows),
+        column_mapper=cmap,
+        npartitions=1,
+    )
+
+    return ens
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def pandas_with_object_ensemble(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+
+    n_obj = 5
+    id = 8000 + np.arange(n_obj)
+    name = id.astype(str)
+    object_table = pd.DataFrame(
+        dict(id=id, name=name),
+    )
+
+    num_points = 1000
+    all_bands = np.array(["r", "g", "b", "i"])
+    source_table =pd.DataFrame(
+        {
+            "id": 8000 + (np.arange(num_points) % n_obj),
+            "time": np.arange(num_points),
+            "flux": np.arange(num_points) % len(all_bands),
+            "band": np.repeat(all_bands, num_points / len(all_bands)),
+            "err": 0.1 * (np.arange(num_points) % 10),
+            "count": np.arange(num_points),
+            "something_else": np.full(num_points, None),
+        },
+    )
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens.from_pandas(
+        source_frame=source_table,
+        object_frame=object_table,
         column_mapper=cmap,
         npartitions=1,
     )
