@@ -1247,9 +1247,10 @@ class Ensemble:
         ----------
         flux_col: 'str'
             The name of the ensemble flux column to convert into magnitudes.
-        zero_point: 'str'
+        zero_point: 'str' or 'float'
             The name of the ensemble column containing the zero point
-            information for column transformation.
+            information for column transformation. Alternatively, a float zero
+            point value to apply to all fluxes.
         err_col: 'str', optional
             The name of the ensemble column containing the errors to propagate.
             Errors are propagated using the following approximation:
@@ -1276,15 +1277,24 @@ class Ensemble:
             out_col_name = flux_col + "_mag"
 
         if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
-            self._source = self._source.assign(
-                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
-            )
+            if isinstance(zero_point, str):
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
+                )
+            else:
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / zero_point)}
+                )
 
         elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
-            self._source = self._source.assign(
-                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
-            )
-
+            if isinstance(zero_point, str):
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
+                )
+            else:
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + zero_point}
+                )
         else:
             raise ValueError(f"{zp_form} is not a valid zero_point format.")
 

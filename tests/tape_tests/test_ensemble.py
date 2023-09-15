@@ -67,6 +67,7 @@ def test_from_parquet(data_fixture, request):
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
 
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
@@ -101,7 +102,6 @@ def test_from_dataframe(data_fixture, request):
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert ens._source[col] is not None
-
 
 
 def test_available_datasets(dask_client):
@@ -744,10 +744,11 @@ def test_coalesce(dask_client, drop_inputs):
             assert col in ens._source.columns
 
 
+@pytest.mark.parametrize("zero_point", [("zp_mag", "zp_flux"), (25.0, 10**10)])
 @pytest.mark.parametrize("zp_form", ["flux", "mag", "magnitude", "lincc"])
 @pytest.mark.parametrize("err_col", [None, "error"])
 @pytest.mark.parametrize("out_col_name", [None, "mag"])
-def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
+def test_convert_flux_to_mag(dask_client, zero_point, zp_form, err_col, out_col_name):
     ens = Ensemble(client=dask_client)
 
     source_dict = {
@@ -770,7 +771,7 @@ def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
     ens.from_source_dict(source_dict, column_mapper=col_map)
 
     if zp_form == "flux":
-        ens.convert_flux_to_mag("flux", "zp_flux", err_col, zp_form, out_col_name)
+        ens.convert_flux_to_mag("flux", zero_point[1], err_col, zp_form, out_col_name)
 
         res_mag = ens._source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
@@ -782,7 +783,7 @@ def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
             assert output_column + "_err" not in ens._source.columns
 
     elif zp_form == "mag" or zp_form == "magnitude":
-        ens.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, out_col_name)
+        ens.convert_flux_to_mag("flux", zero_point[0], err_col, zp_form, out_col_name)
 
         res_mag = ens._source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
@@ -795,7 +796,7 @@ def test_convert_flux_to_mag(dask_client, zp_form, err_col, out_col_name):
 
     else:
         with pytest.raises(ValueError):
-            ens.convert_flux_to_mag("flux", "zp_mag", err_col, zp_form, "mag")
+            ens.convert_flux_to_mag("flux", zero_point[0], err_col, zp_form, "mag")
 
 
 def test_find_day_gap_offset(dask_client):
