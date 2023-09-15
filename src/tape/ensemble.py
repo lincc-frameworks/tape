@@ -1240,21 +1240,15 @@ class Ensemble:
             **kwargs,
         )
 
-    def convert_flux_to_mag(self, flux_col, zero_point, err_col=None, zp_form="mag", out_col_name=None):
+    def convert_flux_to_mag(self, zero_point, zp_form="mag", out_col_name=None, flux_col=None, err_col=None):
         """Converts a flux column into a magnitude column.
 
         Parameters
         ----------
-        flux_col: 'str'
-            The name of the ensemble flux column to convert into magnitudes.
-        zero_point: 'str'
+        zero_point: 'str' or 'float'
             The name of the ensemble column containing the zero point
-            information for column transformation.
-        err_col: 'str', optional
-            The name of the ensemble column containing the errors to propagate.
-            Errors are propagated using the following approximation:
-            Err= (2.5/log(10))*(flux_error/flux), which holds mainly when the
-            error in flux is much smaller than the flux.
+            information for column transformation. Alternatively, a single
+            float number to apply for all fluxes.
         zp_form: `str`, optional
             The form of the zero point column, either "flux" or
             "magnitude"/"mag". Determines how the zero point (zp) is applied in
@@ -1265,6 +1259,15 @@ class Ensemble:
             The name of the output magnitude column, if None then the output
             is just the flux column name + "_mag". The error column is also
             generated as the out_col_name + "_err".
+        flux_col: 'str', optional
+            The name of the ensemble flux column to convert into magnitudes.
+            Uses the Ensemble mapped flux column if not specified.
+        err_col: 'str', optional
+            The name of the ensemble column containing the errors to propagate.
+            Errors are propagated using the following approximation:
+            Err= (2.5/log(10))*(flux_error/flux), which holds mainly when the
+            error in flux is much smaller than the flux. Uses the Ensemble
+            mapped error column if not specified.
 
         Returns
         ----------
@@ -1272,19 +1275,35 @@ class Ensemble:
             The ensemble object with a new magnitude (and error) column.
 
         """
+
+        # Assign Ensemble cols if not provided
+        if flux_col is None:
+            flux_col = self._flux_col
+        if err_col is None:
+            err_col = self._err_col
+
         if out_col_name is None:
             out_col_name = flux_col + "_mag"
 
         if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
-            self._source = self._source.assign(
-                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
-            )
+            if isinstance(zero_point, str):
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
+                )
+            else:
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / zero_point)}
+                )
 
         elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
-            self._source = self._source.assign(
-                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
-            )
-
+            if isinstance(zero_point, str):
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
+                )
+            else:
+                self._source = self._source.assign(
+                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + zero_point}
+                )
         else:
             raise ValueError(f"{zp_form} is not a valid zero_point format.")
 
