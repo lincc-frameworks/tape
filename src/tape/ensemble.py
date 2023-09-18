@@ -33,8 +33,8 @@ class Ensemble:
         """
         self.result = None  # holds the latest query
 
-        self._source = None  # Source Table
-        self._object = None  # Object Table
+        self.source = None  # Source Table
+        self.object = None  # Object Table
 
         self._source_dirty = False  # Source Dirty Flag
         self._object_dirty = False  # Object Dirty Flag
@@ -156,20 +156,20 @@ class Ensemble:
         df2 = df2.set_index(self._id_col, drop=True)
 
         # Save the divisions and number of partitions.
-        prev_div = self._source.divisions
-        prev_num = self._source.npartitions
+        prev_div = self.source.divisions
+        prev_num = self.source.npartitions
 
         # Append the new rows to the correct divisions.
-        self._source = dd.concat([self._source, df2], axis=0, interleave_partitions=True)
+        self.source = dd.concat([self.source, df2], axis=0, interleave_partitions=True)
         self._source_dirty = True
 
         # Do the repartitioning if requested. If the divisions were set, reuse them.
         # Otherwise, use the same number of partitions.
         if force_repartition:
             if all(prev_div):
-                self._source = self._source.repartition(divisions=prev_div)
-            elif self._source.npartitions != prev_num:
-                self._source = self._source.repartition(npartitions=prev_num)
+                self.source = self.source.repartition(divisions=prev_div)
+            elif self.source.npartitions != prev_num:
+                self.source = self.source.repartition(npartitions=prev_num)
 
     def client_info(self):
         """Calls the Dask Client, which returns cluster information
@@ -204,9 +204,9 @@ class Ensemble:
         self._lazy_sync_tables(table="all")
 
         print("Object Table")
-        self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
+        self.object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
         print("Source Table")
-        self._source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
+        self.source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
 
     def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()
@@ -227,12 +227,12 @@ class Ensemble:
         if table:
             self._lazy_sync_tables(table)
             if table == "object":
-                return self._object.compute(**kwargs)
+                return self.object.compute(**kwargs)
             elif table == "source":
-                return self._source.compute(**kwargs)
+                return self.source.compute(**kwargs)
         else:
             self._lazy_sync_tables(table="all")
-            return (self._object.compute(**kwargs), self._source.compute(**kwargs))
+            return (self.object.compute(**kwargs), self.source.compute(**kwargs))
 
     def persist(self, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.persist()
@@ -243,15 +243,15 @@ class Ensemble:
         of the computation.
         """
         self._lazy_sync_tables("all")
-        self._object = self._object.persist(**kwargs)
-        self._source = self._source.persist(**kwargs)
+        self.object = self.object.persist(**kwargs)
+        self.source = self.source.persist(**kwargs)
 
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
         if table == "object":
-            return self._object.columns
+            return self.object.columns
         elif table == "source":
-            return self._source.columns
+            return self.source.columns
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -260,9 +260,9 @@ class Ensemble:
         self._lazy_sync_tables(table)
 
         if table == "object":
-            return self._object.head(n=n, **kwargs)
+            return self.object.head(n=n, **kwargs)
         elif table == "source":
-            return self._source.head(n=n, **kwargs)
+            return self.source.head(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -271,9 +271,9 @@ class Ensemble:
         self._lazy_sync_tables(table)
 
         if table == "object":
-            return self._object.tail(n=n, **kwargs)
+            return self.object.tail(n=n, **kwargs)
         elif table == "source":
-            return self._source.tail(n=n, **kwargs)
+            return self.source.tail(n=n, **kwargs)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -296,10 +296,10 @@ class Ensemble:
             scheme
         """
         if table == "object":
-            self._object = self._object.dropna(**kwargs)
+            self.object = self.object.dropna(**kwargs)
             self._object_dirty = True  # This operation modifies the object table
         elif table == "source":
-            self._source = self._source.dropna(**kwargs)
+            self.source = self.source.dropna(**kwargs)
             self._source_dirty = True  # This operation modifies the source table
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -320,12 +320,12 @@ class Ensemble:
         """
         self._lazy_sync_tables(table)
         if table == "object":
-            cols_to_drop = [col for col in self._object.columns if col not in columns]
-            self._object = self._object.drop(cols_to_drop, axis=1)
+            cols_to_drop = [col for col in self.object.columns if col not in columns]
+            self.object = self.object.drop(cols_to_drop, axis=1)
             self._object_dirty = True
         elif table == "source":
-            cols_to_drop = [col for col in self._source.columns if col not in columns]
-            self._source = self._source.drop(cols_to_drop, axis=1)
+            cols_to_drop = [col for col in self.source.columns if col not in columns]
+            self.source = self.source.drop(cols_to_drop, axis=1)
             self._source_dirty = True
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -355,10 +355,10 @@ class Ensemble:
         """
         self._lazy_sync_tables(table)
         if table == "object":
-            self._object = self._object.query(expr)
+            self.object = self.object.query(expr)
             self._object_dirty = True
         elif table == "source":
-            self._source = self._source.query(expr)
+            self.source = self.source.query(expr)
             self._source_dirty = True
         return self
 
@@ -377,10 +377,10 @@ class Ensemble:
         """
         self._lazy_sync_tables(table)
         if table == "object":
-            self._object = self._object[keep_series]
+            self.object = self.object[keep_series]
             self._object_dirty = True
         elif table == "source":
-            self._source = self._source[keep_series]
+            self.source = self.source[keep_series]
             self._source_dirty = True
         return self
 
@@ -412,10 +412,10 @@ class Ensemble:
         self._lazy_sync_tables(table)
 
         if table == "object":
-            self._object = self._object.assign(**kwargs)
+            self.object = self.object.assign(**kwargs)
             self._object_dirty = True
         elif table == "source":
-            self._source = self._source.assign(**kwargs)
+            self.source = self.source.assign(**kwargs)
             self._source_dirty = True
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -447,9 +447,9 @@ class Ensemble:
         """
         # we shouldn't need to sync for this
         if table == "object":
-            table_ddf = self._object
+            table_ddf = self.object
         elif table == "source":
-            table_ddf = self._source
+            table_ddf = self.source
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -504,9 +504,9 @@ class Ensemble:
             table_ddf = table_ddf.drop(columns=input_cols)
 
         if table == "object":
-            self._object = table_ddf
+            self.object = table_ddf
         elif table == "source":
-            self._source = table_ddf
+            self.source = table_ddf
 
         return self
 
@@ -533,8 +533,8 @@ class Ensemble:
         self._lazy_sync_tables(table="object")
 
         # Mask on object table
-        mask = self._object[col_name] >= threshold
-        self._object = self._object[mask]
+        mask = self.object[col_name] >= threshold
+        self.object = self.object[mask]
 
         self._object_dirty = True  # Object Table is now dirty
 
@@ -562,7 +562,7 @@ class Ensemble:
         self._lazy_sync_tables(table="source")
 
         # Compute a histogram of observations by hour of the day.
-        hours = self._source[self._time_col].apply(
+        hours = self.source[self._time_col].apply(
             lambda x: np.floor(x * 24.0).astype(int) % 24, meta=pd.Series(dtype=int)
         )
         hour_counts = hours.value_counts().compute()
@@ -638,9 +638,9 @@ class Ensemble:
         # Bin the time and add it as a column. We create a temporary column that
         # truncates the time into increments of `time_window`.
         tmp_time_col = "tmp_time_for_aggregation"
-        if tmp_time_col in self._source.columns:
+        if tmp_time_col in self.source.columns:
             raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
-        self._source[tmp_time_col] = self._source[self._time_col].apply(
+        self.source[tmp_time_col] = self.source[self._time_col].apply(
             lambda x: np.floor((x + offset) / time_window) * time_window, meta=pd.Series(dtype=float)
         )
 
@@ -648,7 +648,7 @@ class Ensemble:
         aggr_funs = {self._time_col: "mean", self._flux_col: "mean"}
 
         # If the source table has errors then add an aggregation function for it.
-        if self._err_col in self._source.columns:
+        if self._err_col in self.source.columns:
             aggr_funs[self._err_col] = dd.Aggregation(
                 name="err_agg",
                 chunk=lambda x: (x.count(), x.apply(lambda s: np.sum(np.power(s, 2)))),
@@ -660,8 +660,8 @@ class Ensemble:
         # adding an initial column of all ones if needed.
         if count_col is not None:
             self._bin_count_col = count_col
-            if self._bin_count_col not in self._source.columns:
-                self._source[self._bin_count_col] = self._source[self._time_col].apply(
+            if self._bin_count_col not in self.source.columns:
+                self.source[self._bin_count_col] = self.source[self._time_col].apply(
                     lambda x: 1, meta=pd.Series(dtype=int)
                 )
             aggr_funs[self._bin_count_col] = "sum"
@@ -675,10 +675,10 @@ class Ensemble:
                 aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.
-        self._source = self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+        self.source = self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
 
         # Fix the indices and remove the temporary column.
-        self._source = self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1)
+        self.source = self.source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1)
 
         # Mark the source table as dirty.
         self._source_dirty = True
@@ -776,15 +776,15 @@ class Ensemble:
             on = [on]  # Convert to list if only one column is passed
 
         # Handle object columns to group on
-        source_cols = list(self._source.columns)
-        object_cols = list(self._object.columns)
+        source_cols = list(self.source.columns)
+        object_cols = list(self.object.columns)
         object_group_cols = [col for col in on if (col in object_cols) and (col not in source_cols)]
 
         if len(object_group_cols) > 0:
-            object_col_dd = self._object[object_group_cols]
-            source_to_batch = self._source.merge(object_col_dd, how="left")
+            object_col_dd = self.object[object_group_cols]
+            source_to_batch = self.source.merge(object_col_dd, how="left")
         else:
-            source_to_batch = self._source  # Can directly use the source table
+            source_to_batch = self.source  # Can directly use the source table
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
@@ -904,26 +904,26 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
 
         # Set the index of the source frame and save the resulting table
-        self._source = source_frame.set_index(self._id_col, drop=True)
+        self.source = source_frame.set_index(self._id_col, drop=True)
 
         if object_frame is None:  # generate an indexed object table from source
-            self._object = self._generate_object_table()
-            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
+            self.object = self._generate_object_table()
+            self._nobs_bands = [col for col in list(self.object.columns) if col != self._nobs_tot_col]
         else:
-            self._object = object_frame
+            self.object = object_frame
             if self._nobs_band_cols is None:
                 # sets empty nobs cols in object
-                unq_filters = np.unique(self._source[self._band_col])
+                unq_filters = np.unique(self.source[self._band_col])
                 self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
                 for col in self._nobs_band_cols:
-                    self._object[col] = np.nan
+                    self.object[col] = np.nan
 
             # Handle nobs_total column
             if self._nobs_tot_col is None:
-                self._object["nobs_total"] = np.nan
+                self.object["nobs_total"] = np.nan
                 self._nobs_tot_col = "nobs_total"
 
-            self._object = self._object.set_index(self._id_col)
+            self.object = self.object.set_index(self._id_col)
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
@@ -932,9 +932,9 @@ class Ensemble:
                 self._sync_tables()
 
         if npartitions and npartitions > 1:
-            self._source = self._source.repartition(npartitions=npartitions)
+            self.source = self.source.repartition(npartitions=npartitions)
         elif partition_size:
-            self._source = self._source.repartition(partition_size=partition_size)
+            self.source = self.source.repartition(partition_size=partition_size)
 
         return self
 
@@ -1287,21 +1287,21 @@ class Ensemble:
 
         if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
             if isinstance(zero_point, str):
-                self._source = self._source.assign(
+                self.source = self.source.assign(
                     **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
                 )
             else:
-                self._source = self._source.assign(
+                self.source = self.source.assign(
                     **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / zero_point)}
                 )
 
         elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
             if isinstance(zero_point, str):
-                self._source = self._source.assign(
+                self.source = self.source.assign(
                     **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
                 )
             else:
-                self._source = self._source.assign(
+                self.source = self.source.assign(
                     **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + zero_point}
                 )
         else:
@@ -1309,7 +1309,7 @@ class Ensemble:
 
         # Calculate Errors
         if err_col is not None:
-            self._source = self._source.assign(
+            self.source = self.source.assign(
                 **{out_col_name + "_err": lambda x: (2.5 / np.log(10)) * (x[err_col] / x[flux_col])}
             )
 
@@ -1317,7 +1317,7 @@ class Ensemble:
 
     def _generate_object_table(self):
         """Generate the object table from the source table."""
-        counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
+        counts = self.source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
         res = (
             counts.to_frame()
             .reset_index()
@@ -1327,14 +1327,14 @@ class Ensemble:
 
         # If the ensemble's keep_empty_objects attribute is True and there are previous
         # objects, then copy them into the res table with counts of zero.
-        if self.keep_empty_objects and self._object is not None:
-            prev_partitions = self._object.npartitions
+        if self.keep_empty_objects and self.object is not None:
+            prev_partitions = self.object.npartitions
 
             # Check that there are existing object ids.
-            object_inds = self._object.index.unique().values.compute()
+            object_inds = self.object.index.unique().values.compute()
             if len(object_inds) > 0:
                 # Determine which object IDs are missing from the source table.
-                source_inds = self._source.index.unique().values.compute()
+                source_inds = self.source.index.unique().values.compute()
                 missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
 
                 # Create a dataframe of the missing IDs with zeros for all bands and counts.
@@ -1390,19 +1390,19 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-            obj_idx = list(self._object.index.compute())
-            self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
-            self._source = self._source.persist()  # persist the source frame
+            obj_idx = list(self.object.index.compute())
+            self.source = self.source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
+            self.source = self.source.persist()  # persist the source frame
 
         if self._source_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
             new_obj = self._generate_object_table()
 
             # Join old obj to new obj; pulls in other existing obj columns
-            self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
-            old_cols = [col for col in list(self._object.columns) if "_old" in col]
-            self._object = self._object.drop(old_cols, axis=1)
-            self._object = self._object.persist()  # persist object
+            self.object = new_obj.join(self.object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
+            old_cols = [col for col in list(self.object.columns) if "_old" in col]
+            self.object = self.object.drop(old_cols, axis=1)
+            self.object = self.object.persist()  # persist object
 
         # Now synced and clean
         self._source_dirty = False
@@ -1459,7 +1459,7 @@ class Ensemble:
         if band_col is None:
             band_col = self._band_col
 
-        df = self._source.loc[target].compute()
+        df = self.source.loc[target].compute()
         ts = TimeSeries().from_dataframe(
             data=df,
             object_id=target,
@@ -1531,11 +1531,11 @@ class Ensemble:
 
         if argument_container.combine:
             result = calc_sf2(
-                self._source[self._time_col],
-                self._source[self._flux_col],
-                self._source[self._err_col],
-                self._source[self._band_col],
-                self._source.index,
+                self.source[self._time_col],
+                self.source[self._flux_col],
+                self.source[self._err_col],
+                self.source[self._band_col],
+                self.source.index,
                 argument_container=argument_container,
             )
             return result

@@ -45,8 +45,8 @@ def test_from_parquet(data_fixture, request):
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
     # Check to make sure the source and object tables were created
-    assert parquet_ensemble._source is not None
-    assert parquet_ensemble._object is not None
+    assert parquet_ensemble.source is not None
+    assert parquet_ensemble.object is not None
 
     # Check that the data is not empty.
     obj, source = parquet_ensemble.compute()
@@ -65,7 +65,7 @@ def test_from_parquet(data_fixture, request):
         parquet_ensemble._provenance_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
-        assert parquet_ensemble._source[col] is not None
+        assert parquet_ensemble.source[col] is not None
 
 
 @pytest.mark.parametrize(
@@ -84,8 +84,8 @@ def test_from_dataframe(data_fixture, request):
     ens = request.getfixturevalue(data_fixture)
 
     # Check to make sure the source and object tables were created
-    assert ens._source is not None
-    assert ens._object is not None
+    assert ens.source is not None
+    assert ens.object is not None
 
     # Check that the data is not empty.
     obj, source = ens.compute()
@@ -103,7 +103,7 @@ def test_from_dataframe(data_fixture, request):
         ens._band_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
-        assert ens._source[col] is not None
+        assert ens.source[col] is not None
 
     # Check that we can compute an analysis function on the ensemble.
     amplitude = ens.batch(calc_stetson_J)
@@ -208,7 +208,7 @@ def test_from_source_dict(dask_client):
 
 
 def test_insert(parquet_ensemble):
-    num_partitions = parquet_ensemble._source.npartitions
+    num_partitions = parquet_ensemble.source.npartitions
     (old_object, old_source) = parquet_ensemble.compute()
     old_size = old_source.shape[0]
 
@@ -230,7 +230,7 @@ def test_insert(parquet_ensemble):
     )
 
     # Check we did not increase the number of partitions.
-    assert parquet_ensemble._source.npartitions == num_partitions
+    assert parquet_ensemble.source.npartitions == num_partitions
 
     # Check that all the new data points are in there. The order may be different
     # due to the repartitioning.
@@ -259,7 +259,7 @@ def test_insert(parquet_ensemble):
     )
 
     # Check we *did* increase the number of partitions and the size increased.
-    assert parquet_ensemble._source.npartitions != num_partitions
+    assert parquet_ensemble.source.npartitions != num_partitions
     (new_obj, new_source) = parquet_ensemble.compute()
     assert new_source.shape[0] == old_size + 10
 
@@ -281,8 +281,8 @@ def test_insert_paritioned(dask_client):
 
     # Save the old data for comparison.
     old_data = ens.compute("source")
-    old_div = copy.copy(ens._source.divisions)
-    old_sizes = [len(ens._source.partitions[i]) for i in range(4)]
+    old_div = copy.copy(ens.source.divisions)
+    old_sizes = [len(ens.source.partitions[i]) for i in range(4)]
     assert old_data.shape[0] == num_points
 
     # Test an insertion of 5 observations.
@@ -295,12 +295,12 @@ def test_insert_paritioned(dask_client):
 
     # Check we did not increase the number of partitions and the points
     # were placed in the correct partitions.
-    assert ens._source.npartitions == 4
-    assert ens._source.divisions == old_div
-    assert len(ens._source.partitions[0]) == old_sizes[0] + 3
-    assert len(ens._source.partitions[1]) == old_sizes[1]
-    assert len(ens._source.partitions[2]) == old_sizes[2] + 2
-    assert len(ens._source.partitions[3]) == old_sizes[3]
+    assert ens.source.npartitions == 4
+    assert ens.source.divisions == old_div
+    assert len(ens.source.partitions[0]) == old_sizes[0] + 3
+    assert len(ens.source.partitions[1]) == old_sizes[1]
+    assert len(ens.source.partitions[2]) == old_sizes[2] + 2
+    assert len(ens.source.partitions[3]) == old_sizes[3]
 
     # Check that all the new data points are in there. The order may be different
     # due to the repartitioning.
@@ -318,12 +318,12 @@ def test_insert_paritioned(dask_client):
 
     # Check we did not increase the number of partitions and the points
     # were placed in the correct partitions.
-    assert ens._source.npartitions == 4
-    assert ens._source.divisions == old_div
-    assert len(ens._source.partitions[0]) == old_sizes[0] + 3
-    assert len(ens._source.partitions[1]) == old_sizes[1] + 5
-    assert len(ens._source.partitions[2]) == old_sizes[2] + 2
-    assert len(ens._source.partitions[3]) == old_sizes[3]
+    assert ens.source.npartitions == 4
+    assert ens.source.divisions == old_div
+    assert len(ens.source.partitions[0]) == old_sizes[0] + 3
+    assert len(ens.source.partitions[1]) == old_sizes[1] + 5
+    assert len(ens.source.partitions[2]) == old_sizes[2] + 2
+    assert len(ens.source.partitions[3]) == old_sizes[3]
 
 
 def test_core_wrappers(parquet_ensemble):
@@ -356,9 +356,9 @@ def test_persist(dask_client):
     ens.query("flux <= 1.5", table="source")
 
     # Compute the task graph size before and after the persist.
-    old_graph_size = len(ens._source.dask)
+    old_graph_size = len(ens.source.dask)
     ens.persist()
-    new_graph_size = len(ens._source.dask)
+    new_graph_size = len(ens.source.dask)
     assert new_graph_size < old_graph_size
 
 
@@ -480,12 +480,12 @@ def test_dropna(parquet_ensemble):
 
     # First test dropping na from the 'source' table
     #
-    source_pdf = parquet_ensemble._source.compute()
+    source_pdf = parquet_ensemble.source.compute()
     source_length = len(source_pdf.index)
 
     # Try dropping NaNs from source and confirm nothing is dropped (there are no NaNs).
     parquet_ensemble.dropna(table="source")
-    assert len(parquet_ensemble._source.compute().index) == source_length
+    assert len(parquet_ensemble.source.compute().index) == source_length
 
     # Get a valid ID to use and count its occurrences.
     valid_source_id = source_pdf.index.values[1]
@@ -495,23 +495,23 @@ def test_dropna(parquet_ensemble):
     # We do this on the instantiated source (pdf) and convert it back into a
     # Dask DataFrame.
     source_pdf.loc[valid_source_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble._source = dd.from_pandas(source_pdf, npartitions=1)
+    parquet_ensemble.source = dd.from_pandas(source_pdf, npartitions=1)
 
     # Try dropping NaNs from source and confirm that we did.
     parquet_ensemble.dropna(table="source")
-    assert len(parquet_ensemble._source.compute().index) == source_length - occurrences_source
+    assert len(parquet_ensemble.source.compute().index) == source_length - occurrences_source
 
     # Sync the table and check that the number of objects decreased.
     # parquet_ensemble._sync_tables()
 
     # Now test dropping na from 'object' table
     #
-    object_pdf = parquet_ensemble._object.compute()
+    object_pdf = parquet_ensemble.object.compute()
     object_length = len(object_pdf.index)
 
     # Try dropping NaNs from object and confirm nothing is dropped (there are no NaNs).
     parquet_ensemble.dropna(table="object")
-    assert len(parquet_ensemble._object.compute().index) == object_length
+    assert len(parquet_ensemble.object.compute().index) == object_length
 
     # get a valid object id and set at least two occurences of that id in the object table
     valid_object_id = object_pdf.index.values[1]
@@ -521,14 +521,14 @@ def test_dropna(parquet_ensemble):
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
     # Dask DataFrame.
-    object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
-    parquet_ensemble._object = dd.from_pandas(object_pdf, npartitions=1)
+    object_pdf.loc[valid_object_id, parquet_ensemble.object.columns[0]] = pd.NA
+    parquet_ensemble.object = dd.from_pandas(object_pdf, npartitions=1)
 
     # Try dropping NaNs from object and confirm that we did.
     parquet_ensemble.dropna(table="object")
-    assert len(parquet_ensemble._object.compute().index) == object_length - occurrences_object
+    assert len(parquet_ensemble.object.compute().index) == object_length - occurrences_object
 
-    new_objects_pdf = parquet_ensemble._object.compute()
+    new_objects_pdf = parquet_ensemble.object.compute()
     assert len(new_objects_pdf.index) == len(object_pdf.index) - occurrences_object
 
     # Assert the filtered ID is no longer in the objects.
@@ -544,24 +544,24 @@ def test_keep_zeros(parquet_ensemble):
     """Test that we can sync the tables and keep objects with zero sources."""
     parquet_ensemble.keep_empty_objects = True
 
-    prev_npartitions = parquet_ensemble._object.npartitions
-    old_objects_pdf = parquet_ensemble._object.compute()
-    pdf = parquet_ensemble._source.compute()
+    prev_npartitions = parquet_ensemble.object.npartitions
+    old_objects_pdf = parquet_ensemble.object.compute()
+    pdf = parquet_ensemble.source.compute()
 
     # Set the psFlux values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
     # Dask DataFrame.
     valid_id = pdf.index.values[1]
     pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+    parquet_ensemble.source = dd.from_pandas(pdf, npartitions=1)
 
     # Sync the table and check that the number of objects decreased.
     parquet_ensemble.dropna(table="source")
     parquet_ensemble._sync_tables()
 
-    new_objects_pdf = parquet_ensemble._object.compute()
+    new_objects_pdf = parquet_ensemble.object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
-    assert parquet_ensemble._object.npartitions == prev_npartitions
+    assert parquet_ensemble.object.npartitions == prev_npartitions
 
     # Check that all counts have stayed the same except the filtered index,
     # which should now be all zeros.
@@ -580,7 +580,7 @@ def test_prune(parquet_ensemble):
     threshold = 10
     parquet_ensemble.prune(threshold)
 
-    assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
+    assert not np.any(parquet_ensemble.object["nobs_total"].values < threshold)
 
 
 def test_query(dask_client):
@@ -622,7 +622,7 @@ def test_filter_from_series(dask_client):
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
 
     # Filter the data set to low flux sources only.
-    keep_series = ens._source[ens._time_col] >= 250.0
+    keep_series = ens.source[ens._time_col] >= 250.0
     ens.filter_from_series(keep_series, table="source")
 
     # Check that all of the filtered rows are value.
@@ -647,22 +647,22 @@ def test_select(dask_client):
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
-    assert len(ens._source.columns) == 5
-    assert "time" in ens._source.columns
-    assert "flux" in ens._source.columns
-    assert "band" in ens._source.columns
-    assert "count" in ens._source.columns
-    assert "something_else" in ens._source.columns
+    assert len(ens.source.columns) == 5
+    assert "time" in ens.source.columns
+    assert "flux" in ens.source.columns
+    assert "band" in ens.source.columns
+    assert "count" in ens.source.columns
+    assert "something_else" in ens.source.columns
 
     # Select on just time and flux
     ens.select(["time", "flux"], table="source")
 
-    assert len(ens._source.columns) == 2
-    assert "time" in ens._source.columns
-    assert "flux" in ens._source.columns
-    assert "band" not in ens._source.columns
-    assert "count" not in ens._source.columns
-    assert "something_else" not in ens._source.columns
+    assert len(ens.source.columns) == 2
+    assert "time" in ens.source.columns
+    assert "flux" in ens.source.columns
+    assert "band" not in ens.source.columns
+    assert "count" not in ens.source.columns
+    assert "something_else" not in ens.source.columns
 
 
 def test_assign(dask_client):
@@ -679,13 +679,13 @@ def test_assign(dask_client):
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=1)
-    assert len(ens._source.columns) == 4
-    assert "lower_bnd" not in ens._source.columns
+    assert len(ens.source.columns) == 4
+    assert "lower_bnd" not in ens.source.columns
 
     # Insert a new column for the "lower bound" computation.
     ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
-    assert len(ens._source.columns) == 5
-    assert "lower_bnd" in ens._source.columns
+    assert len(ens.source.columns) == 5
+    assert "lower_bnd" in ens.source.columns
 
     # Check the values in the new column.
     new_source = ens.compute(table="source")
@@ -695,10 +695,10 @@ def test_assign(dask_client):
         assert new_source.iloc[i]["lower_bnd"] == expected
 
     # Create a series directly from the table.
-    res_col = ens._source["band"] + "2"
+    res_col = ens.source["band"] + "2"
     ens.assign(table="source", band2=res_col)
-    assert len(ens._source.columns) == 6
-    assert "band2" in ens._source.columns
+    assert len(ens.source.columns) == 6
+    assert "band2" in ens.source.columns
 
     # Check the values in the new column.
     new_source = ens.compute(table="source")
@@ -729,7 +729,7 @@ def test_coalesce(dask_client, drop_inputs):
     ens.coalesce(["flux1", "flux2", "flux3"], "flux", table="source", drop_inputs=drop_inputs)
 
     # Coalesce should return this exact flux array
-    assert list(ens._source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
+    assert list(ens.source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
 
     if drop_inputs:
         # The column mapping should be updated
@@ -737,7 +737,7 @@ def test_coalesce(dask_client, drop_inputs):
 
         # The columns to drop should be dropped
         for col in ["flux1", "flux2", "flux3"]:
-            assert col not in ens._source.columns
+            assert col not in ens.source.columns
 
         # Test for the drop warning
         with pytest.warns(UserWarning):
@@ -746,7 +746,7 @@ def test_coalesce(dask_client, drop_inputs):
     else:
         # The input columns should still be present
         for col in ["flux1", "flux2", "flux3"]:
-            assert col in ens._source.columns
+            assert col in ens.source.columns
 
 
 @pytest.mark.parametrize("zero_point", [("zp_mag", "zp_flux"), (25.0, 10**10)])
@@ -777,19 +777,19 @@ def test_convert_flux_to_mag(dask_client, zero_point, zp_form, out_col_name):
     if zp_form == "flux":
         ens.convert_flux_to_mag(zero_point[1], zp_form, out_col_name)
 
-        res_mag = ens._source.compute()[output_column].to_list()[0]
+        res_mag = ens.source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
 
-        res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
+        res_err = ens.source.compute()[output_column + "_err"].to_list()[0]
         assert pytest.approx(res_err, 0.001) == 0.355979
 
     elif zp_form == "mag" or zp_form == "magnitude":
         ens.convert_flux_to_mag(zero_point[0], zp_form, out_col_name)
 
-        res_mag = ens._source.compute()[output_column].to_list()[0]
+        res_mag = ens.source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
 
-        res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
+        res_err = ens.source.compute()[output_column + "_err"].to_list()[0]
         assert pytest.approx(res_err, 0.001) == 0.355979
 
     else:
