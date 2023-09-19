@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import dask.dataframe as dd
 
 import dask
@@ -9,6 +11,9 @@ from dask.dataframe.extensions import make_array_nonempty
 
 import numpy as np
 import pandas as pd
+
+from typing import Literal
+
 
 from functools import partial
 from dask.dataframe.io.parquet.arrow import (
@@ -171,6 +176,97 @@ class _Frame(dd.core._Frame):
             numexpr.set_num_threads(1)
         """
         result = super().query(expr, **kwargs)
+        return self._propagate_metadata(result)
+    
+    def set_index(
+        self,
+        other: str | pd.Series,
+        drop: bool = True,
+        sorted: bool = False,
+        npartitions: int | Literal["auto"] | None = None,
+        divisions: Sequence | None = None,
+        inplace: bool = False,
+        sort: bool = True,
+        **kwargs,
+    ):
+
+        """Set the DataFrame index (row labels) using an existing column.
+
+        Doc string below derived from dask.dataframe.core
+
+        If ``sort=False``, this function operates exactly like ``pandas.set_index``
+        and sets the index on the DataFrame. If ``sort=True`` (default),
+        this function also sorts the DataFrame by the new index. This can have a
+        significant impact on performance, because joins, groupbys, lookups, etc.
+        are all much faster on that column. However, this performance increase
+        comes with a cost, sorting a parallel dataset requires expensive shuffles.
+        Often we ``set_index`` once directly after data ingest and filtering and
+        then perform many cheap computations off of the sorted dataset.
+
+        With ``sort=True``, this function is much more expensive. Under normal
+        operation this function does an initial pass over the index column to
+        compute approximate quantiles to serve as future divisions. It then passes
+        over the data a second time, splitting up each input partition into several
+        pieces and sharing those pieces to all of the output partitions now in
+        sorted order.
+
+        In some cases we can alleviate those costs, for example if your dataset is
+        sorted already then we can avoid making many small pieces or if you know
+        good values to split the new index column then we can avoid the initial
+        pass over the data. For example if your new index is a datetime index and
+        your data is already sorted by day then this entire operation can be done
+        for free. You can control these options with the following parameters.
+
+        Parameters
+        ----------
+        other: string or Dask Series
+            Column to use as index.
+        drop: boolean, default True
+            Delete column to be used as the new index.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to False
+        npartitions: int, None, or 'auto'
+            The ideal number of output partitions. If None, use the same as
+            the input. If 'auto' then decide by memory use.
+            Only used when ``divisions`` is not given. If ``divisions`` is given,
+            the number of output partitions will be ``len(divisions) - 1``.
+        divisions: list, optional
+            The "dividing lines" used to split the new index into partitions.
+            For ``divisions=[0, 10, 50, 100]``, there would be three output partitions,
+            where the new index contained [0, 10), [10, 50), and [50, 100), respectively.
+            See https://docs.dask.org/en/latest/dataframe-design.html#partitions.
+            If not given (default), good divisions are calculated by immediately computing
+            the data and looking at the distribution of its values. For large datasets,
+            this can be expensive.
+            Note that if ``sorted=True``, specified divisions are assumed to match
+            the existing partitions in the data; if this is untrue you should
+            leave divisions empty and call ``repartition`` after ``set_index``.
+        inplace: bool, optional
+            Modifying the DataFrame in place is not supported by Dask.
+            Defaults to False.
+        sort: bool, optional
+            If ``True``, sort the DataFrame by the new index. Otherwise
+            set the index on the individual existing partitions.
+            Defaults to ``True``.
+        shuffle: {'disk', 'tasks', 'p2p'}, optional
+            Either ``'disk'`` for single-node operation or ``'tasks'`` and
+            ``'p2p'`` for distributed operation.  Will be inferred by your
+            current scheduler.
+        compute: bool, default False
+            Whether or not to trigger an immediate computation. Defaults to False.
+            Note, that even if you set ``compute=False``, an immediate computation
+            will still be triggered if ``divisions`` is ``None``.
+        partition_size: int, optional
+            Desired size of each partitions in bytes.
+            Only used when ``npartitions='auto'``
+  
+        Returns
+        ----------
+        result: `tape._Frame`
+            The indexed frame
+        """
+        result = super().set_index(other, drop, sorted, npartitions, divisions, inplace, sort, **kwargs)
         return self._propagate_metadata(result)
 
 class TapeSeries(pd.Series):
@@ -509,26 +605,17 @@ get_parallel_type.register(TapeSourceFrame, lambda _: SourceFrame)
 def make_meta_series(x, index=None):
     # Create an empty TapeSeries to use as Dask's underlying object meta.
     result = x.head(0)
-    # Re-index if requested
-    if index is not None:
-        result = result.reindex(index[:0])
     return result
 
 @make_meta_dispatch.register(TapeFrame)
 def make_meta_frame(x, index=None):
     # Create an empty TapeFrame to use as Dask's underlying object meta.
     result = x.head(0)
-    # Re-index if requested
-    if index is not None:
-        result = result.reindex(index[:0])
     return result
 
 @meta_nonempty.register(TapeSeries)
 def _nonempty_tapeseries(x, index=None):
     # Construct a new TapeSeries with the same underlying data.
-    if index is None:
-        index = _nonempty_index(x.index)
-    data = make_array_nonempty(x.dtype)
     return TapeSeries(data, name=x.name, crs=x.crs)
 
 @meta_nonempty.register(TapeFrame)
@@ -541,9 +628,6 @@ def _nonempty_tapeseries(x, index=None):
 def make_meta_frame(x, index=None):
     # Create an empty TapeObjectFrame to use as Dask's underlying object meta.
     result = x.head(0)
-    # Re-index if requested
-    if index is not None:
-        result = result.reindex(index[:0])
     return result
 
 @meta_nonempty.register(TapeObjectFrame)
@@ -556,9 +640,6 @@ def _nonempty_tapesourceframe(x, index=None):
 def make_meta_frame(x, index=None):
     # Create an empty TapeSourceFrame to use as Dask's underlying object meta.
     result = x.head(0)
-    # Re-index if requested
-    if index is not None:
-        result = result.reindex(index[:0])
     return result
 
 @meta_nonempty.register(TapeSourceFrame)
