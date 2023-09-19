@@ -108,6 +108,15 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert isinstance(ens_frame.compute(), TapeFrame)
     assert len(ens_frame) == len(ens_frame.compute())
 
+    # Set an index and then group by that index.
+    ens_frame = ens_frame.set_index("id", drop=True)
+    assert ens_frame.label == TEST_LABEL
+    assert ens_frame.ensemble == ens    
+    group_result = ens_frame.groupby(["id"]).count()
+    assert len(group_result) > 0
+    assert isinstance(group_result, EnsembleFrame)
+    assert isinstance(group_result._meta, TapeFrame)
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
@@ -190,7 +199,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
 
     # Perform a series of operations on the SourceFrame and then verify the result is still a
     # proper SourceFrame with appropriate metadata propagated.
-    mean_ps_flux = source_frame["psFlux"].mean().compute()
+    source_frame["psFlux"].mean().compute()
     result_source_frame = source_frame.copy()[["psFlux", "psFluxErr"]]
     assert isinstance(result_source_frame, SourceFrame)
     assert isinstance(result_source_frame._meta, TapeSourceFrame)
@@ -198,6 +207,15 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert result_source_frame.label == SOURCE_LABEL
     assert result_source_frame.ensemble is not None
     assert result_source_frame.ensemble is ens
+
+    # Set an index and then group by that index.
+    result_source_frame = result_source_frame.set_index("psFlux", drop=True)
+    assert result_source_frame.label == SOURCE_LABEL
+    assert result_source_frame.ensemble == ens    
+    group_result = result_source_frame.groupby(["psFlux"]).count()
+    assert len(group_result) > 0
+    assert isinstance(group_result, SourceFrame)
+    assert isinstance(group_result._meta, TapeSourceFrame)
 
     # Create an ObjectFrame from a parquet file
     object_frame = ObjectFrame.from_parquet(
@@ -217,3 +235,12 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert isinstance(result_object_frame._meta, TapeObjectFrame)
     assert result_object_frame.label == OBJECT_LABEL
     assert result_object_frame.ensemble is ens
+
+    # Set an index and then group by that index.
+    result_object_frame = result_object_frame.set_index("nobs_g", drop=True)
+    assert result_object_frame.label == OBJECT_LABEL
+    assert result_object_frame.ensemble == ens    
+    group_result = result_object_frame.groupby(["nobs_g"]).count()
+    assert len(group_result) > 0
+    assert isinstance(group_result, ObjectFrame)
+    assert isinstance(group_result._meta, TapeObjectFrame)
