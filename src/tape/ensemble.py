@@ -20,11 +20,16 @@ from .utils import ColumnMapper
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
 
-    def __init__(self, client=True, **kwargs):
+    def __init__(self, sync_mode=True, client=True, **kwargs):
         """Constructor of an Ensemble instance.
 
         Parameters
         ----------
+        sync_mode: `bool`, optional
+            Determines whether the Ensemble actively keeps the Object and
+            Source tables in sync with one another. Set to `True` by default,
+            but disabling sync_mode will improve performance of large datasets
+            as sync operations are not executed.
         client: `dask.distributed.client` or `bool`, optional
             Accepts an existing `dask.distributed.Client`, or creates one if
             `client=True`, passing any additional kwargs to a
@@ -37,6 +42,10 @@ class Ensemble:
         self._source = None  # Source Table
         self._object = None  # Object Table
 
+        if not sync_mode:
+            warnings.warn("Sync Mode is off, this may introduce unexpected behavior.")
+
+        self.sync_mode = sync_mode
         self._source_dirty = False  # Source Dirty Flag
         self._object_dirty = False  # Object Dirty Flag
 
@@ -1486,6 +1495,9 @@ class Ensemble:
             The table being modified. Should be one of "object",
             "source", or "all"
         """
+        if not self.sync_mode:  # Avoid syncs if disabled
+            return self
+
         if table == "object" and self._source_dirty:  # object table should be updated
             self._sync_tables()
         elif table == "source" and self._object_dirty:  # source table should be updated
