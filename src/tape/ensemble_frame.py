@@ -600,10 +600,30 @@ class ObjectFrame(EnsembleFrame):
         result = dd.read_parquet(
             path, index=index, columns=columns, split_row_groups=True, engine=TapeObjectArrowEngine,
         )
-        result.ensemble=ensemble
+        result.ensemble = ensemble
         result.label= OBJECT_FRAME_LABEL
 
-        return result   
+        return result
+
+    @classmethod
+    def from_dask_dataframe(cl, df, ensemble=None):
+        """ Returns an ObjectFrame constructed from a Dask dataframe..
+        Parameters
+        ----------
+        df: `dask.dataframe.DataFrame` or `list`
+            a Dask dataframe to convert to an ObjectFrame
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        Returns
+        result: `tape.ObjectFrame`
+            The constructed ObjectFrame object.
+        """
+        # Create an ObjectFrame by mapping the partitions to an appropriate meta, TapeObjectFrame
+        # TODO(wbeebe@uw.edu): Determine if their is a better method
+        result = df.map_partitions(TapeObjectFrame) 
+        result.set_ensemble = ensemble
+        result.set_label = OBJECT_FRAME_LABEL
+        return result
 
 """
 Dask Dataframes are constructed indirectly using method dispatching and inference on the

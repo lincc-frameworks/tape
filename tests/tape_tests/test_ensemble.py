@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tape import Ensemble, ObjectFrame, SourceFrame
+from tape import Ensemble, ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -513,10 +513,10 @@ def test_sync_tables(parquet_ensemble):
     assert len(parquet_ensemble.compute("source")) == 2000
 
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
-    assert parquet_ensemble._object_dirty  # Prune should set the object dirty flag
+    assert parquet_ensemble._object.is_dirty()  # Prune should set the object dirty flag
 
     parquet_ensemble.dropna(table="source")
-    assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
+    assert parquet_ensemble._source.is_dirty()  # Dropna should set the source dirty flag
 
     parquet_ensemble._sync_tables()
 
@@ -525,8 +525,8 @@ def test_sync_tables(parquet_ensemble):
     assert len(parquet_ensemble.compute("source")) == 1562
 
     # dirty flags should be unset after sync
-    assert not parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
 
 def test_lazy_sync_tables(parquet_ensemble):
@@ -538,35 +538,35 @@ def test_lazy_sync_tables(parquet_ensemble):
 
     # Modify only the object table.
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
-    assert parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the object table, nothing should change, because
     # it is already dirty.
     parquet_ensemble._lazy_sync_tables(table="object")
-    assert parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source table, the source table should be updated.
     parquet_ensemble._lazy_sync_tables(table="source")
-    assert not parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
     # Modify only the source table.
     parquet_ensemble.dropna(table="source")
-    assert not parquet_ensemble._object_dirty
-    assert parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source table, nothing should change, because
     # it is already dirty.
     parquet_ensemble._lazy_sync_tables(table="source")
-    assert not parquet_ensemble._object_dirty
-    assert parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source, the object table should be updated.
     parquet_ensemble._lazy_sync_tables(table="object")
-    assert not parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
 
 def test_dropna(parquet_ensemble):
@@ -589,9 +589,9 @@ def test_dropna(parquet_ensemble):
 
     # Set the psFlux values for one source to NaN so we can drop it.
     # We do this on the instantiated source (pdf) and convert it back into a
-    # Dask DataFrame.
+    # SourceFrame.
     source_pdf.loc[valid_source_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble._source = dd.from_pandas(source_pdf, npartitions=1)
+    parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(source_pdf), label="source", npartitions=1))
 
     # Try dropping NaNs from source and confirm that we did.
     parquet_ensemble.dropna(table="source")
@@ -616,9 +616,9 @@ def test_dropna(parquet_ensemble):
 
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
-    # Dask DataFrame.
+    # ObjectFrame.
     object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
-    parquet_ensemble._object = dd.from_pandas(object_pdf, npartitions=1)
+    parquet_ensemble.udpate_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
 
     # Try dropping NaNs from object and confirm that we did.
     parquet_ensemble.dropna(table="object")
@@ -650,6 +650,7 @@ def test_keep_zeros(parquet_ensemble):
     valid_id = pdf.index.values[1]
     pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
     parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+    parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(pdf), npartitions=1, label="source"))
 
     # Sync the table and check that the number of objects decreased.
     parquet_ensemble.dropna(table="source")
