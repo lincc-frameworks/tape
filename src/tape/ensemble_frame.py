@@ -315,6 +315,8 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     """
     _partition_type = TapeFrame # Tracks the underlying data type
 
+    _is_dirty = False # True if the underlying data is out of sync with the Ensemble
+
     def __getitem__(self, key):
         result = super().__getitem__(key)
         if isinstance(result, _Frame):
@@ -351,13 +353,25 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.label = label
         result.ensemble = ensemble
         return result
+
+    def update_ensemble(self):
+        """ Updates the Ensemble linked by the `EnsembelFrame.ensemble` property to track this frame.
+
+        Returns
+        result: `tape.Ensemble`
+            The Esnemble object which tracks this frame.
+        """
+        if self.ensemble is None:
+            return None
+        # Update the Ensemble to track this frame and return the ensemble.
+        return self.ensemble.update_frame(self)
     
     def convert_flux_to_mag(self, 
                             flux_col, 
                             zero_point, 
                             err_col=None, 
                             zp_form="mag", 
-                            out_col_name=None, 
+                            out_col_name=None,
                             ):
         """Converts this EnsembleFrame's flux column into a magnitude column, returning a new
         EnsembleFrame.
@@ -451,6 +465,12 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.ensemble=ensemble
 
         return result
+    
+    def is_dirty(self):
+        return self._is_dirty
+    
+    def set_dirty(self, is_dirty):
+        self._is_dirty = is_dirty
 
 class TapeSourceFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble source data
