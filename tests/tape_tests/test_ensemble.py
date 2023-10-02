@@ -74,7 +74,7 @@ def test_from_parquet(data_fixture, request):
         "dask_dataframe_ensemble",
         "dask_dataframe_with_object_ensemble",
         "pandas_ensemble",
-        "pandas_with_object_ensemble"
+        "pandas_with_object_ensemble",
     ],
 )
 def test_from_dataframe(data_fixture, request):
@@ -108,6 +108,7 @@ def test_from_dataframe(data_fixture, request):
     # Check that we can compute an analysis function on the ensemble.
     amplitude = ens.batch(calc_stetson_J)
     assert len(amplitude) == 5
+
 
 def test_available_datasets(dask_client):
     """
@@ -571,6 +572,24 @@ def test_keep_zeros(parquet_ensemble):
                 assert new_objects_pdf.loc[i, c] == 0
             else:
                 assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
+
+
+@pytest.mark.parametrize("by_band", [True, False])
+def test_calc_nobs(parquet_ensemble, by_band):
+    ens = parquet_ensemble
+    ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+
+    ens.calc_nobs(by_band)
+
+    lc = ens._object.loc[88472935274829959].compute()
+
+    if by_band:
+        assert np.all([col in ens._object.columns for col in ["nobs_g", "nobs_r"]])
+        assert lc["nobs_g"].values[0] == 98
+        assert lc["nobs_r"].values[0] == 401
+
+    assert "nobs_total" in ens._object.columns
+    assert lc["nobs_total"].values[0] == 499
 
 
 def test_prune(parquet_ensemble):
