@@ -510,6 +510,59 @@ class Ensemble:
 
         return self
 
+    def calc_nobs(self, by_band=False, label="nobs"):
+        """Calculates the number of observations per lightcurve.
+
+        Parameters
+        ----------
+        by_band: `bool`, optional
+            If True, also calculates the number of observations for each band
+            in addition to providing the number of observations in total
+        label: `str`, optional
+            The label used to generate output columns. "_total" and the band
+            labels (e.g. "_g") are appended.
+
+        Returns
+        -------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with nobs columns added to the object table.
+        """
+
+        obj_npartitions = self._object.npartitions  # to repartition output columns
+
+        if by_band:
+            counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
+
+            band_counts = (
+                self._source.groupby([self._id_col])[self._band_col]  # group by each object
+                .value_counts()  # count occurence of each band
+                .to_frame()  # convert series to dataframe
+                .reset_index()  # break up the multiindex
+                .categorize(columns=[self._band_col])  # retype the band labels as categories
+                .pivot_table(values=self._band_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
+                .repartition(obj_npartitions)  # counts inherits the source partitions
+            )  # the pivot_table call makes each band_count a column of the id_col row
+
+            # short-hand for calculating nobs_total
+            band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
+
+            bands = band_counts.columns.values
+            cols_to_add = {label + "_" + band: band_counts[band] for band in bands}
+
+        else:
+            counts = self._source.groupby([self._id_col])[self._band_col].aggregate("count")
+            counts = counts.repartition(obj_npartitions)  # counts inherits the source partitions
+            cols_to_add = {label + "_total": counts}
+
+        self._object = self._object.assign(**cols_to_add)  # assign new columns
+
+        # remove the dataframes from memory
+        if by_band:
+            del band_counts
+        del counts
+
+        return self
+
     def prune(self, threshold=50, col_name=None):
         """remove objects with less observations than a given threshold
 
