@@ -547,19 +547,12 @@ class Ensemble:
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
 
             bands = band_counts.columns.values
-            cols_to_add = {label + "_" + band: band_counts[band] for band in bands}
+            self._object = self._object.assign(**{label + "_" + band: band_counts[band] for band in bands})
 
         else:
             counts = self._source.groupby([self._id_col])[self._band_col].aggregate("count")
             counts = counts.repartition(obj_npartitions)  # counts inherits the source partitions
-            cols_to_add = {label + "_total": counts}
-
-        self._object = self._object.assign(**cols_to_add)  # assign new columns
-
-        # remove the dataframes from memory
-        if by_band:
-            del band_counts
-        del counts
+            self._object = self._object.assign(**{label + "_total": counts})  # assign new columns
 
         return self
 
