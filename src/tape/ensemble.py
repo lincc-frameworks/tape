@@ -531,8 +531,6 @@ class Ensemble:
         obj_npartitions = self._object.npartitions  # to repartition output columns
 
         if by_band:
-            counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
-
             band_counts = (
                 self._source.groupby([self._id_col])[self._band_col]  # group by each object
                 .value_counts()  # count occurence of each band
