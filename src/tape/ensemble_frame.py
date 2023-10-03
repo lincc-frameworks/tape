@@ -353,6 +353,28 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.label = label
         result.ensemble = ensemble
         return result
+    
+    @classmethod
+    def from_dask_dataframe(cl, df, ensemble=None, label=None):
+        """ Returns an EnsembleFrame constructed from a Dask dataframe.
+        Parameters
+        ----------
+        df: `dask.dataframe.DataFrame` or `list`
+            a Dask dataframe to convert to an EnsembleFrame
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        label: `str`, optional
+        |   The label used to by the Ensemble to identify the frame.
+        Returns
+        result: `tape.EnsembleFrame`
+            The constructed EnsembleFrame object.
+        """
+        # Create a EnsembleFrame by mapping the partitions to the appropriate meta, TapeFrame
+        # TODO(wbeebe@uw.edu): Determine if there is a better method
+        result = df.map_partitions(TapeFrame) 
+        result.ensemble = ensemble
+        result.label = label
+        return result
 
     def update_ensemble(self):
         """ Updates the Ensemble linked by the `EnsembelFrame.ensemble` property to track this frame.
@@ -555,6 +577,26 @@ class SourceFrame(EnsembleFrame):
         result.label = SOURCE_FRAME_LABEL
 
         return result
+
+    @classmethod
+    def from_dask_dataframe(cl, df, ensemble=None):
+        """ Returns a SourceFrame constructed from a Dask dataframe..
+        Parameters
+        ----------
+        df: `dask.dataframe.DataFrame` or `list`
+            a Dask dataframe to convert to a SourceFrame
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        Returns
+        result: `tape.SourceFrame`
+            The constructed SourceFrame object.
+        """
+        # Create a SourceFrame by mapping the partitions to the appropriate meta, TapeSourceFrame
+        # TODO(wbeebe@uw.edu): Determine if there is a better method
+        result = df.map_partitions(TapeSourceFrame) 
+        result.ensemble = ensemble
+        result.label = SOURCE_FRAME_LABEL
+        return result
     
 class ObjectFrame(EnsembleFrame):
     """ A subclass of EnsembleFrame for Object data. """
@@ -621,8 +663,8 @@ class ObjectFrame(EnsembleFrame):
         # Create an ObjectFrame by mapping the partitions to the appropriate meta, TapeObjectFrame
         # TODO(wbeebe@uw.edu): Determine if there is a better method
         result = df.map_partitions(TapeObjectFrame) 
-        result.set_ensemble = ensemble
-        result.set_label = OBJECT_FRAME_LABEL
+        result.ensemble = ensemble
+        result.label = OBJECT_FRAME_LABEL
         return result
 
 """

@@ -81,10 +81,34 @@ def test_update_ensemble(data_fixture, request):
     ens = request.getfixturevalue(data_fixture)
 
     # Filter the object table and have the ensemble track the updated table.
-    updated_obj = ens.object.query("nobs_total > 50")
+    updated_obj = ens._object.query("nobs_total > 50")
     assert updated_obj is not ens._object
     updated_obj.update_ensemble()
     assert updated_obj is ens._object
+
+    # Filter the source table and have the ensemble track the updated table.
+    updated_src = ens._source.query("psFluxErr > 0.1")
+    assert updated_src is not ens._source
+    updated_src.update_ensemble()
+    assert updated_src is ens._source
+
+    # Create an additional result table for the ensemble to track.
+    cnts = ens._source.groupby([ens._id_col, ens._band_col])[ens._time_col].aggregate("count")
+    res = (
+        cnts.to_frame()
+        .reset_index()
+        .categorize(columns=[ens._band_col])
+        .pivot_table(values=ens._time_col, index=ens._id_col, columns=ens._band_col, aggfunc="sum")
+    )
+
+    # Convert the resulting dataframe into an EnsembleFrame and update the Ensemble
+    result_frame = EnsembleFrame.from_dask_dataframe(res, ensemble=ens, label="result")
+    result_frame.update_ensemble()
+    assert ens.select_frame("result") is result_frame
+
+    # Test update_ensemble when a frame is unlinked to its parent ensemble.
+    result_frame.ensemble = None
+    assert result_frame.update_ensemble() is None 
 
  
 @pytest.mark.parametrize(
