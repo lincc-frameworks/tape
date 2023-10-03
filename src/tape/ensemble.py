@@ -79,6 +79,9 @@ class Ensemble:
             self.client.close()
         return self
 
+    def test_me_ignore():
+        print("test_me_ignore")
+
     def insert_sources(
         self,
         obj_ids,
