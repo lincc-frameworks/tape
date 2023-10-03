@@ -133,7 +133,8 @@ class Ensemble:
 
         Raises
         ------
-        ValueError if the `frame.label` is unpopulated, "source", or "object".
+        ValueError if the `frame.label` is unpopulated, or if the frame is not a SourceFrame or ObjectFrame
+        but uses the reserved labels.
         """
         if frame.label is None:
             raise ValueError(

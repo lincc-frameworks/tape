@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tape import Ensemble, ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame
+from tape import Ensemble, EnsembleFrame, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -66,6 +66,25 @@ def test_from_parquet(data_fixture, request):
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_without_client",
+    ],
+)
+def test_update_ensemble(data_fixture, request):
+    """
+    Tests that the ensemble can be updated with a result frame.
+    """
+    ens = request.getfixturevalue(data_fixture)
+
+    # Filter the object table and have the ensemble track the updated table.
+    updated_obj = ens.object.query("nobs_total > 50")
+    assert updated_obj is not ens._object
+    updated_obj.update_ensemble()
+    assert updated_obj is ens._object
 
  
 @pytest.mark.parametrize(
@@ -150,23 +169,23 @@ def test_frame_tracking(data_fixture, request):
 
     # Construct some result frames for the Ensemble to track. Underlying data is irrelevant for 
     # this test.
-    ens_frame1 = ens.select_frame("source").copy()
-    ens_frame2 = ens.select_frame("source").copy()
-    ens_frame3 = ens.select_frame("source").copy()
-    ens_frame4 = ens.select_frame("source").copy()
-
+    num_points = 100
+    data = TapeFrame({
+        "id": [8000 + 2 * i for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [0.5 * float(i % 4) for i in range(num_points)],
+    })
     # Labels to give the EnsembleFrames
-    label1, label2, label3, label4 = "frame1", "frame2", "frame3", "frame4"
+    label1, label2, label3 = "frame1", "frame2", "frame3"
+    ens_frame1 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label1)
+    ens_frame2 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label2)
+    ens_frame3 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label3)
 
     # Validate that new source and object frames can't be added or updated.
     with pytest.raises(ValueError):
         ens.add_frame(ens_frame1, "source")
     with pytest.raises(ValueError):
         ens.add_frame(ens_frame1, "object")
-    with pytest.raises(ValueError):
-        ens.update_frame(ens.source)
-    with pytest.raises(ValueError):
-        ens.update_frame(ens.object)
 
     # Test that we can add and select a new ensemble frame
     assert ens.add_frame(ens_frame1, label1).select_frame(label1) is ens_frame1
@@ -202,7 +221,9 @@ def test_frame_tracking(data_fixture, request):
     assert ens.update_frame(ens_frame3).select_frame(label3) is ens_frame3
     assert len(ens.frames) == 5
 
-    # Update the ensemble with a new frame, verifying a missing label generates an error.
+    # Update the ensemble with an unlabeled frame, verifying a missing label generates an error.
+    ens_frame4 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=None)
+    label4 = "frame4"
     with pytest.raises(ValueError):
         ens.update_frame(ens_frame4)
     ens_frame4.label = label4

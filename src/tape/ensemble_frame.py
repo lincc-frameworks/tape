@@ -359,7 +359,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
 
         Returns
         result: `tape.Ensemble`
-            The Esnemble object which tracks this frame.
+            The Ensemble object which tracks this frame, `None` if no such Ensemble.
         """
         if self.ensemble is None:
             return None
@@ -618,8 +618,8 @@ class ObjectFrame(EnsembleFrame):
         result: `tape.ObjectFrame`
             The constructed ObjectFrame object.
         """
-        # Create an ObjectFrame by mapping the partitions to an appropriate meta, TapeObjectFrame
-        # TODO(wbeebe@uw.edu): Determine if their is a better method
+        # Create an ObjectFrame by mapping the partitions to the appropriate meta, TapeObjectFrame
+        # TODO(wbeebe@uw.edu): Determine if there is a better method
         result = df.map_partitions(TapeObjectFrame) 
         result.set_ensemble = ensemble
         result.set_label = OBJECT_FRAME_LABEL
