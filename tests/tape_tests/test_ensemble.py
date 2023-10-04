@@ -473,6 +473,37 @@ def test_lazy_sync_tables(parquet_ensemble):
     assert not parquet_ensemble._source_dirty
 
 
+def test_temporary_cols(parquet_ensemble):
+    """
+    Test that temporary columns are tracked and dropped as expected.
+    """
+
+    ens = parquet_ensemble
+    ens._object = ens._object.drop(columns=["nobs_r", "nobs_g", "nobs_total"])
+
+    # Make sure temp lists are available but empty
+    assert not len(ens._source_temp)
+    assert not len(ens._object_temp)
+
+    ens.calc_nobs(temporary=True)  # Generates "nobs_total"
+
+    # nobs_total should be a temporary column
+    assert "nobs_total" in ens._object_temp
+    assert "nobs_total" in ens._object.columns
+
+    # drop NaNs from source, source should be dirty now
+    ens.dropna(how="any", table="source")
+
+    assert ens._source_dirty
+
+    # try a sync
+    ens._sync_tables()
+
+    # nobs_total should be removed
+    assert "nobs_total" not in ens._object_temp
+    assert "nobs_total" not in ens._object.columns
+
+
 def test_dropna(parquet_ensemble):
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):

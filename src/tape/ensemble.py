@@ -1407,7 +1407,7 @@ class Ensemble:
 
             # Drop Temporary Source Columns on Sync
             if len(self._source_temp):
-                self._source.drop(columns=self._source_temp)
+                self._source = self._source.drop(columns=self._source_temp)
                 print(f"Temporary columns dropped from Source Table: {self._source_temp}")
                 self._source_temp = []
 
@@ -1420,7 +1420,7 @@ class Ensemble:
 
             # Drop Temporary Object Columns on Sync
             if len(self._object_temp):
-                self._object.drop(columns=self._object_temp)
+                self._object = self._object.drop(columns=self._object_temp)
                 print(f"Temporary columns dropped from Object Table: {self._object_temp}")
                 self._object_temp = []
 
