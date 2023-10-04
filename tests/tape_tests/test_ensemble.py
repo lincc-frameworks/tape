@@ -499,9 +499,26 @@ def test_temporary_cols(parquet_ensemble):
     # try a sync
     ens._sync_tables()
 
-    # nobs_total should be removed
+    # nobs_total should be removed from object
     assert "nobs_total" not in ens._object_temp
     assert "nobs_total" not in ens._object.columns
+
+    # add a source column that we manually set as dirty, don't have a function
+    # that adds temporary source columns at the moment
+    ens.assign(f2=lambda x: x[ens._flux_col] ** 2, table="source")
+    ens._source_temp.append("f2")  # manually append
+
+    # prune object, object should be dirty
+    ens.prune(threshold=10)
+
+    assert ens._object_dirty
+
+    # try a sync
+    ens._sync_tables()
+
+    # f2 should be removed from source
+    assert "f2" not in ens._source_temp
+    assert "f2" not in ens._source.columns
 
 
 def test_dropna(parquet_ensemble):
@@ -597,9 +614,14 @@ def test_keep_zeros(parquet_ensemble):
 
 
 @pytest.mark.parametrize("by_band", [True, False])
-def test_calc_nobs(parquet_ensemble, by_band):
+@pytest.mark.parametrize("know_divisions", [True, False])
+def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
     ens = parquet_ensemble
     ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+
+    if know_divisions:
+        ens._object = ens._object.reset_index().set_index(ens._id_col)
+        assert ens._object.known_divisions
 
     ens.calc_nobs(by_band)
 
