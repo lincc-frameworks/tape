@@ -1590,10 +1590,9 @@ class Ensemble:
 
 
 """
-    The following package-level static methods can be used to create a new Ensemble object 
+    The following package-level methods can be used to create a new Ensemble object 
     by reading in the given data source.
 """
-@staticmethod
 def read_pandas_dataframe(
     source_frame,
     object_frame=None,
@@ -1654,7 +1653,7 @@ def read_pandas_dataframe(
         **kwargs,
     )
 
-@staticmethod
+
 def read_dask_dataframe(
     source_frame,
     object_frame=None,
@@ -1745,7 +1744,7 @@ def read_dask_dataframe(
 
     return new_ens
 
-@staticmethod
+
 def read_parquet(
     source_file,
     object_file=None,
@@ -1827,7 +1826,6 @@ def read_parquet(
     return new_ens
 
 
-@staticmethod
 def read_hipscat(
     dir, 
     source_subdir="source", 
@@ -1886,7 +1884,6 @@ def read_hipscat(
     return new_ens
 
 
-@staticmethod
 def read_source_dict(
     source_dict, 
     column_mapper=None, 
@@ -1939,7 +1936,6 @@ def read_source_dict(
     return new_ens
 
 
-@staticmethod
 def read_dataset(
     dataset, 
     create_client=True,
