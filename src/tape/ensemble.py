@@ -533,8 +533,6 @@ class Ensemble:
             The ensemble object with nobs columns added to the object table.
         """
 
-        obj_npartitions = self._object.npartitions  # to repartition output columns
-
         if by_band:
             band_counts = (
                 self._source.groupby([self._id_col])[self._band_col]  # group by each object
@@ -543,8 +541,14 @@ class Ensemble:
                 .reset_index()  # break up the multiindex
                 .categorize(columns=[self._band_col])  # retype the band labels as categories
                 .pivot_table(values=self._band_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
-                .repartition(obj_npartitions)  # counts inherits the source partitions
             )  # the pivot_table call makes each band_count a column of the id_col row
+
+            # repartition the result to align with object
+            if self._object.known_divisions:
+                band_counts = band_counts.reset_index().set_index(self._id_col)  # ugly, but need this
+                band_counts = band_counts.repartition(divisions=self._object.divisions)
+            else:
+                band_counts = band_counts.repartition(npartitions=self._object.npartitions)
 
             # short-hand for calculating nobs_total
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
@@ -556,9 +560,16 @@ class Ensemble:
                 self._object_temp.extend([label + "_" + band for band in bands])
 
         else:
-            counts = self._source.groupby([self._id_col])[self._band_col].aggregate("count")
-            counts = counts.repartition(obj_npartitions)  # counts inherits the source partitions
-            self._object = self._object.assign(**{label + "_total": counts})  # assign new columns
+            counts = self._source.groupby([self._id_col])[[self._band_col]].aggregate("count")
+
+            # repartition the result to align with object
+            if self._object.known_divisions:
+                counts = counts.reset_index().set_index(self._id_col)  # ugly, but need this
+                counts = counts.repartition(divisions=self._object.divisions)
+            else:
+                counts = counts.repartition(npartitions=self._object.npartitions)
+
+            self._object = self._object.assign(**{label + "_total": counts[self._band_col]})
 
             if temporary:
                 self._object_temp.extend([label + "_total"])
