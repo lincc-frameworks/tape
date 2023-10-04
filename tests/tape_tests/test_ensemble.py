@@ -5,6 +5,7 @@ import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pytest
+import tape
 
 from tape import Ensemble
 from tape.analysis.stetsonj import calc_stetson_J
@@ -36,9 +37,15 @@ def test_with_client():
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
+        "read_parquet_ensemble",
+        "read_parquet_ensemble_without_client",
+        "read_parquet_ensemble_from_source",
+        "read_parquet_ensemble_from_hipscat",
+        "read_parquet_ensemble_with_column_mapper",
+        "read_parquet_ensemble_with_known_column_mapper",
     ],
 )
-def test_from_parquet(data_fixture, request):
+def test_parquet_construction(data_fixture, request):
     """
     Test that ensemble loader functions successfully load parquet files
     """
@@ -75,9 +82,13 @@ def test_from_parquet(data_fixture, request):
         "dask_dataframe_with_object_ensemble",
         "pandas_ensemble",
         "pandas_with_object_ensemble",
+        "read_dask_dataframe_ensemble",
+        "read_dask_dataframe_with_object_ensemble",
+        "read_pandas_ensemble",
+        "read_pandas_with_object_ensemble",
     ],
 )
-def test_from_dataframe(data_fixture, request):
+def test_dataframe_constructors(data_fixture, request):
     """
     Tests constructing an ensemble from pandas and dask dataframes.
     """
@@ -152,6 +163,50 @@ def test_from_qso_dataset(dask_client):
 
     ens = Ensemble(client=dask_client)
     ens.from_dataset("s82_qso")
+
+    # larger dataset, let's just use a subset of ~100
+    ens.prune(650)
+
+    res = ens.batch(calc_stetson_J)
+
+    assert 1257836 in res  # find a specific object
+
+    # Check Stetson J results for a specific object
+    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+
+
+def test_read_rrl_dataset(dask_client):
+    """
+    Test a basic load and analyze workflow from the S82 RR Lyrae Dataset
+    """
+
+    ens = tape.read_dataset("s82_rrlyrae", dask_client=dask_client)
+
+    # larger dataset, let's just use a subset of ~100
+    ens.prune(350)
+
+    res = ens.batch(calc_stetson_J)
+
+    assert 377927 in res.index  # find a specific object
+
+    # Check Stetson J results for a specific object
+    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+
+
+def test_read_qso_dataset(dask_client):
+    """
+    Test a basic load and analyze workflow from the S82 QSO Dataset
+    """
+
+    ens = tape.read_dataset("s82_qso", dask_client=dask_client)
 
     # larger dataset, let's just use a subset of ~100
     ens.prune(650)

@@ -1587,3 +1587,410 @@ class Ensemble:
             result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
 
             return result
+
+
+"""
+    The following package-level static methods can be used to create a new Ensemble object 
+    by reading in the given data source.
+"""
+@staticmethod
+def read_pandas_dataframe(
+    source_frame,
+    object_frame=None,
+    create_client=True,
+    dask_client=None,
+    column_mapper=None,
+    sync_tables=True,
+    npartitions=None,
+    partition_size=None,
+    **kwargs,
+):
+    """Read in Pandas dataframe(s) and return an ensemble object
+
+    Parameters
+    ----------
+    source_frame: 'pandas.Dataframe'
+        A Dask dataframe that contains source information to be read into the ensemble
+    object_frame: 'pandas.Dataframe', optional
+        If not specified, the object frame is generated from the source frame
+    client: `dask.distributed.client` or `bool`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. If `client=False`, the
+            Ensemble is created without a distributed client.
+    column_mapper: 'ColumnMapper' object
+        If provided, the ColumnMapper is used to populate relevant column
+        information mapped from the input dataset.
+    sync_tables: 'bool', optional
+        In the case where an `object_frame`is provided, determines whether an
+        initial sync is performed between the object and source tables. If
+        not performed, dynamic information like the number of observations
+        may be out of date until a sync is performed internally.
+    npartitions: `int`, optional
+        If specified, attempts to repartition the ensemble to the specified
+        number of partitions
+    partition_size: `int`, optional
+        If specified, attempts to repartition the ensemble to partitions
+        of size `partition_size`.
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with the Dask dataframe data loaded.
+    """
+    # Construct Dask DataFrames of the source and object tables
+    source = dd.from_pandas(source_frame, npartitions=npartitions)
+    object = None if object_frame is None else dd.from_pandas(object_frame, npartitions=npartitions)
+
+    return read_dask_dataframe(
+        source_frame=source,
+        object_frame=object,
+        create_client=create_client,
+        dask_client=dask_client,
+        column_mapper=column_mapper,
+        sync_tables=sync_tables,
+        npartitions=npartitions,
+        partition_size=partition_size,
+        **kwargs,
+    )
+
+@staticmethod
+def read_dask_dataframe(
+    source_frame,
+    object_frame=None,
+    create_client=True,
+    dask_client=None,
+    column_mapper=None,
+    sync_tables=True,
+    npartitions=None,
+    partition_size=None,
+    **kwargs,
+):
+    """Read in Dask dataframe(s) and return an ensemble object
+
+    Parameters
+    ----------
+    source_frame: 'dask.Dataframe'
+        A Dask dataframe that contains source information to be read into the ensemble
+    object_frame: 'dask.Dataframe', optional
+        If not specified, the object frame is generated from the source frame
+    create_client: `bool`, optional
+        Creates a `dask.distributed.Client` if `client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. If `create_client=False`, the
+            Ensemble is created without a distributed client.
+    dask_client: `dask.distributed.client`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `create_client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. 
+            If 'dask_client=None' and `create_client=False`,
+            the Ensemble is created without a distributed client.
+    column_mapper: 'ColumnMapper' object
+        If provided, the ColumnMapper is used to populate relevant column
+        information mapped from the input dataset.
+    sync_tables: 'bool', optional
+        In the case where an `object_frame`is provided, determines whether an
+        initial sync is performed between the object and source tables. If
+        not performed, dynamic information like the number of observations
+        may be out of date until a sync is performed internally.
+    npartitions: `int`, optional
+        If specified, attempts to repartition the ensemble to the specified
+        number of partitions
+    partition_size: `int`, optional
+        If specified, attempts to repartition the ensemble to partitions
+        of size `partition_size`.
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with the Dask dataframe data loaded.
+    """
+    if (dask_client is None):
+        dask_client = create_client
+        
+    new_ens = Ensemble(dask_client, **kwargs) 
+    new_ens._load_column_mapper(column_mapper, **kwargs)
+
+    # Set the index of the source frame and save the resulting table
+    new_ens._source = source_frame.set_index(new_ens._id_col, drop=True)
+
+    if object_frame is None:  # generate an indexed object table from source
+        new_ens._object = new_ens._generate_object_table()
+        new_ens._nobs_bands = [col for col in list(new_ens._object.columns) if col != new_ens._nobs_tot_col]
+    else:
+        new_ens._object = object_frame
+        if new_ens._nobs_band_cols is None:
+            # sets empty nobs cols in object
+            unq_filters = np.unique(new_ens._source[new_ens._band_col])
+            new_ens._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
+            for col in new_ens._nobs_band_cols:
+                new_ens._object[col] = np.nan
+
+        # Handle nobs_total column
+        if new_ens._nobs_tot_col is None:
+            new_ens._object["nobs_total"] = np.nan
+            new_ens._nobs_tot_col = "nobs_total"
+
+        new_ens._object = new_ens._object.set_index(new_ens._id_col)
+
+        # Optionally sync the tables, recalculates nobs columns
+        if sync_tables:
+            new_ens._source_dirty = True
+            new_ens._object_dirty = True
+            new_ens._sync_tables()
+
+    if npartitions and npartitions > 1:
+        new_ens._source = new_ens._source.repartition(npartitions=npartitions)
+    elif partition_size:
+        new_ens._source = new_ens._source.repartition(partition_size=partition_size)
+
+    return new_ens
+
+@staticmethod
+def read_parquet(
+    source_file,
+    object_file=None,
+    column_mapper=None,
+    create_client=True,
+    dask_client=None,
+    provenance_label="survey_1",
+    sync_tables=True,
+    additional_cols=True,
+    npartitions=None,
+    partition_size=None,
+    **kwargs,
+):
+    """Read in parquet file(s) into an ensemble object
+
+    Parameters
+    ----------
+    source_file: 'str'
+        Path to a parquet file, or multiple parquet files that contain
+        source information to be read into the ensemble
+    object_file: 'str'
+        Path to a parquet file, or multiple parquet files that contain
+        object information. If not specified, it is generated from the
+        source table
+    column_mapper: 'ColumnMapper' object
+        If provided, the ColumnMapper is used to populate relevant column
+        information mapped from the input dataset.
+    create_client: `bool`, optional
+        Creates a `dask.distributed.Client` if `client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. If `create_client=False`, the
+            Ensemble is created without a distributed client.
+    dask_client: `dask.distributed.client`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `create_client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. 
+            If 'dask_client=None' and `create_client=False`,
+            the Ensemble is created without a distributed client.
+    provenance_label: 'str', optional
+        Determines the label to use if a provenance column is generated
+    sync_tables: 'bool', optional
+        In the case where object files are loaded in, determines whether an
+        initial sync is performed between the object and source tables. If
+        not performed, dynamic information like the number of observations
+        may be out of date until a sync is performed internally.
+    additional_cols: 'bool', optional
+        Boolean to indicate whether to carry in columns beyond the
+        critical columns, true will, while false will only load the columns
+        containing the critical quantities (id,time,flux,err,band)
+    npartitions: `int`, optional
+        If specified, attempts to repartition the ensemble to the specified
+        number of partitions
+    partition_size: `int`, optional
+        If specified, attempts to repartition the ensemble to partitions
+        of size `partition_size`.
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with parquet data loaded
+    """
+
+    if (dask_client is None):
+        dask_client = create_client
+        
+    new_ens = Ensemble(dask_client, **kwargs)
+
+    new_ens.from_parquet(
+        source_file=source_file,
+        object_file=object_file,
+        column_mapper=column_mapper,
+        provenance_label=provenance_label,
+        sync_tables=sync_tables,
+        additional_cols=additional_cols,
+        npartitions=npartitions,
+        partition_size=partition_size,
+        **kwargs,
+    )
+
+    return new_ens
+
+
+@staticmethod
+def read_hipscat(
+    dir, 
+    source_subdir="source", 
+    object_subdir="object", 
+    column_mapper=None, 
+    create_client=True,
+    dask_client=None,
+    **kwargs
+):
+    """Read in parquet files from a hipscat-formatted directory structure
+    Parameters
+    ----------
+    dir: 'str'
+        Path to the directory structure
+    source_subdir: 'str'
+        Path to the subdirectory which contains source files
+    object_subdir: 'str'
+        Path to the subdirectory which contains object files, if None then
+        files will only be read from the source_subdir
+    column_mapper: 'ColumnMapper' object
+        If provided, the ColumnMapper is used to populate relevant column
+        information mapped from the input dataset.
+    create_client: `bool`, optional
+        Creates a `dask.distributed.Client` if `client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. If `create_client=False`, the
+            Ensemble is created without a distributed client.
+    dask_client: `dask.distributed.client`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `create_client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. 
+            If 'dask_client=None' and `create_client=False`,
+            the Ensemble is created without a distributed client.
+    **kwargs:
+        keyword arguments passed along to
+        `tape.ensemble.Ensemble.from_parquet`
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with parquet data loaded
+    """
+
+    if (dask_client is None):
+        dask_client = create_client
+        
+    new_ens = Ensemble(dask_client, **kwargs)
+
+    new_ens.from_hipscat(
+        dir=dir, 
+        source_subdir=source_subdir, 
+        object_subdir=object_subdir, 
+        column_mapper=column_mapper, 
+        **kwargs
+    )
+
+    return new_ens
+
+
+@staticmethod
+def read_source_dict(
+    source_dict, 
+    column_mapper=None, 
+    npartitions=1, 
+    create_client=True,
+    dask_client=None,
+    **kwargs
+):
+    """Load the sources into an ensemble from a dictionary.
+
+    Parameters
+    ----------
+    source_dict: 'dict'
+        The dictionary containing the source information.
+    column_mapper: 'ColumnMapper' object
+        If provided, the ColumnMapper is used to populate relevant column
+        information mapped from the input dataset.
+    npartitions: `int`, optional
+        If specified, attempts to repartition the ensemble to the specified
+        number of partitions
+    create_client: `bool`, optional
+        Creates a `dask.distributed.Client` if `client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. If `create_client=False`, the
+            Ensemble is created without a distributed client.
+    dask_client: `dask.distributed.client`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `create_client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. 
+            If 'dask_client=None' and `create_client=False`,
+            the Ensemble is created without a distributed client.
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with dictionary data loaded
+    """
+
+    if (dask_client is None):
+        dask_client = create_client
+        
+    new_ens = Ensemble(dask_client, **kwargs)
+
+    new_ens.from_source_dict(
+        source_dict=source_dict, 
+        column_mapper=column_mapper, 
+        npartitions=npartitions,
+        **kwargs
+    )
+
+    return new_ens
+
+
+@staticmethod
+def read_dataset(
+    dataset, 
+    create_client=True,
+    dask_client=None,
+    **kwargs
+):
+    """Load the ensemble from a TAPE dataset.
+
+    Parameters
+    ----------
+    dataset: 'str'
+        The name of the dataset to import
+    create_client: `bool`, optional
+        Creates a `dask.distributed.Client` if `client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. If `create_client=False`, the
+            Ensemble is created without a distributed client.
+    dask_client: `dask.distributed.client`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `create_client=True`, passing any additional kwargs to a
+            dask.distributed.Client constructor call. 
+            If 'dask_client=None' and `create_client=False`,
+            the Ensemble is created without a distributed client.
+
+    Returns
+    -------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with the dataset loaded
+    """
+
+    req = requests.get(
+        "https://github.com/lincc-frameworks/tape_benchmarking/blob/main/data/datasets.json?raw=True"
+    )
+    datasets_file = req.json()
+    dataset_info = datasets_file[dataset]
+
+    # Make column map from dataset
+    dataset_map = dataset_info["column_map"]
+    col_map = ColumnMapper(
+        id_col=dataset_map["id"],
+        time_col=dataset_map["time"],
+        flux_col=dataset_map["flux"],
+        err_col=dataset_map["error"],
+        band_col=dataset_map["band"],
+    )
+
+    return read_parquet(
+        source_file=dataset_info["source_file"],
+        object_file=dataset_info["object_file"],
+        column_mapper=col_map,
+        provenance_label=dataset,
+        create_client=create_client,
+        dask_client=dask_client,
+        **kwargs,
+    )
