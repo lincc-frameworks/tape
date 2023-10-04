@@ -1593,6 +1593,8 @@ class Ensemble:
     The following package-level methods can be used to create a new Ensemble object 
     by reading in the given data source.
 """
+
+
 def read_pandas_dataframe(
     source_frame,
     object_frame=None,
@@ -1680,7 +1682,7 @@ def read_dask_dataframe(
     dask_client: `dask.distributed.client`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `create_client=True`, passing any additional kwargs to a
-            dask.distributed.Client constructor call. 
+            dask.distributed.Client constructor call.
             If 'dask_client=None' and `create_client=False`,
             the Ensemble is created without a distributed client.
     column_mapper: 'ColumnMapper' object
@@ -1703,10 +1705,10 @@ def read_dask_dataframe(
     ensemble: `tape.ensemble.Ensemble`
         The ensemble object with the Dask dataframe data loaded.
     """
-    if (dask_client is None):
+    if dask_client is None:
         dask_client = create_client
-        
-    new_ens = Ensemble(dask_client, **kwargs) 
+
+    new_ens = Ensemble(dask_client, **kwargs)
     new_ens._load_column_mapper(column_mapper, **kwargs)
 
     # Set the index of the source frame and save the resulting table
@@ -1779,7 +1781,7 @@ def read_parquet(
     dask_client: `dask.distributed.client`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `create_client=True`, passing any additional kwargs to a
-            dask.distributed.Client constructor call. 
+            dask.distributed.Client constructor call.
             If 'dask_client=None' and `create_client=False`,
             the Ensemble is created without a distributed client.
     provenance_label: 'str', optional
@@ -1806,9 +1808,9 @@ def read_parquet(
         The ensemble object with parquet data loaded
     """
 
-    if (dask_client is None):
+    if dask_client is None:
         dask_client = create_client
-        
+
     new_ens = Ensemble(dask_client, **kwargs)
 
     new_ens.from_parquet(
@@ -1827,13 +1829,13 @@ def read_parquet(
 
 
 def read_hipscat(
-    dir, 
-    source_subdir="source", 
-    object_subdir="object", 
-    column_mapper=None, 
+    dir,
+    source_subdir="source",
+    object_subdir="object",
+    column_mapper=None,
     create_client=True,
     dask_client=None,
-    **kwargs
+    **kwargs,
 ):
     """Read in parquet files from a hipscat-formatted directory structure
     Parameters
@@ -1855,7 +1857,7 @@ def read_hipscat(
     dask_client: `dask.distributed.client`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `create_client=True`, passing any additional kwargs to a
-            dask.distributed.Client constructor call. 
+            dask.distributed.Client constructor call.
             If 'dask_client=None' and `create_client=False`,
             the Ensemble is created without a distributed client.
     **kwargs:
@@ -1868,29 +1870,24 @@ def read_hipscat(
         The ensemble object with parquet data loaded
     """
 
-    if (dask_client is None):
+    if dask_client is None:
         dask_client = create_client
-        
+
     new_ens = Ensemble(dask_client, **kwargs)
 
     new_ens.from_hipscat(
-        dir=dir, 
-        source_subdir=source_subdir, 
-        object_subdir=object_subdir, 
-        column_mapper=column_mapper, 
-        **kwargs
+        dir=dir,
+        source_subdir=source_subdir,
+        object_subdir=object_subdir,
+        column_mapper=column_mapper,
+        **kwargs,
     )
 
     return new_ens
 
 
 def read_source_dict(
-    source_dict, 
-    column_mapper=None, 
-    npartitions=1, 
-    create_client=True,
-    dask_client=None,
-    **kwargs
+    source_dict, column_mapper=None, npartitions=1, create_client=True, dask_client=None, **kwargs
 ):
     """Load the sources into an ensemble from a dictionary.
 
@@ -1911,7 +1908,7 @@ def read_source_dict(
     dask_client: `dask.distributed.client`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `create_client=True`, passing any additional kwargs to a
-            dask.distributed.Client constructor call. 
+            dask.distributed.Client constructor call.
             If 'dask_client=None' and `create_client=False`,
             the Ensemble is created without a distributed client.
 
@@ -1921,27 +1918,19 @@ def read_source_dict(
         The ensemble object with dictionary data loaded
     """
 
-    if (dask_client is None):
+    if dask_client is None:
         dask_client = create_client
-        
+
     new_ens = Ensemble(dask_client, **kwargs)
 
     new_ens.from_source_dict(
-        source_dict=source_dict, 
-        column_mapper=column_mapper, 
-        npartitions=npartitions,
-        **kwargs
+        source_dict=source_dict, column_mapper=column_mapper, npartitions=npartitions, **kwargs
     )
 
     return new_ens
 
 
-def read_dataset(
-    dataset, 
-    create_client=True,
-    dask_client=None,
-    **kwargs
-):
+def read_dataset(dataset, create_client=True, dask_client=None, **kwargs):
     """Load the ensemble from a TAPE dataset.
 
     Parameters
@@ -1955,7 +1944,7 @@ def read_dataset(
     dask_client: `dask.distributed.client`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `create_client=True`, passing any additional kwargs to a
-            dask.distributed.Client constructor call. 
+            dask.distributed.Client constructor call.
             If 'dask_client=None' and `create_client=False`,
             the Ensemble is created without a distributed client.
 
