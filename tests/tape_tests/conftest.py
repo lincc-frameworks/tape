@@ -150,6 +150,7 @@ def dask_dataframe_ensemble(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def dask_dataframe_with_object_ensemble(dask_client):
@@ -188,6 +189,7 @@ def dask_dataframe_with_object_ensemble(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def pandas_ensemble(dask_client):
@@ -215,6 +217,7 @@ def pandas_ensemble(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def pandas_with_object_ensemble(dask_client):
@@ -230,7 +233,7 @@ def pandas_with_object_ensemble(dask_client):
 
     num_points = 1000
     all_bands = np.array(["r", "g", "b", "i"])
-    source_table =pd.DataFrame(
+    source_table = pd.DataFrame(
         {
             "id": 8000 + (np.arange(num_points) % n_obj),
             "time": np.arange(num_points),

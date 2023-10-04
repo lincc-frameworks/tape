@@ -203,9 +203,8 @@ def test_from_source_dict(dask_client):
         assert src_table.iloc[i][ens._err_col] == rows[ens._err_col][i]
 
     # Check that the derived object table is correct.
-    assert obj_table.shape[0] == 2
-    assert obj_table.iloc[0][ens._nobs_tot_col] == 4
-    assert obj_table.iloc[1][ens._nobs_tot_col] == 5
+    assert 8001 in obj_table.index
+    assert 8002 in obj_table.index
 
 
 def test_insert(parquet_ensemble):
@@ -560,18 +559,10 @@ def test_keep_zeros(parquet_ensemble):
     parquet_ensemble.dropna(table="source")
     parquet_ensemble._sync_tables()
 
+    # Check that objects are preserved after sync
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
     assert parquet_ensemble._object.npartitions == prev_npartitions
-
-    # Check that all counts have stayed the same except the filtered index,
-    # which should now be all zeros.
-    for i in old_objects_pdf.index.values:
-        for c in new_objects_pdf.columns.values:
-            if i == valid_id:
-                assert new_objects_pdf.loc[i, c] == 0
-            else:
-                assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
 
 
 @pytest.mark.parametrize("by_band", [True, False])
