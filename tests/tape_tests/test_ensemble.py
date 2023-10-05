@@ -491,6 +491,12 @@ def test_temporary_cols(parquet_ensemble):
     assert "nobs_total" in ens._object_temp
     assert "nobs_total" in ens._object.columns
 
+    ens.assign(nobs2=lambda x: x["nobs_total"] * 2, table="object", temporary=True)
+
+    # nobs2 should be a temporary column
+    assert "nobs2" in ens._object_temp
+    assert "nobs2" in ens._object.columns
+
     # drop NaNs from source, source should be dirty now
     ens.dropna(how="any", table="source")
 
@@ -503,10 +509,13 @@ def test_temporary_cols(parquet_ensemble):
     assert "nobs_total" not in ens._object_temp
     assert "nobs_total" not in ens._object.columns
 
+    # nobs2 should be removed from object
+    assert "nobs2" not in ens._object_temp
+    assert "nobs2" not in ens._object.columns
+
     # add a source column that we manually set as dirty, don't have a function
     # that adds temporary source columns at the moment
-    ens.assign(f2=lambda x: x[ens._flux_col] ** 2, table="source")
-    ens._source_temp.append("f2")  # manually append
+    ens.assign(f2=lambda x: x[ens._flux_col] ** 2, table="source", temporary=True)
 
     # prune object, object should be dirty
     ens.prune(threshold=10)
