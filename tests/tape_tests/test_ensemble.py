@@ -663,7 +663,7 @@ def test_dropna(parquet_ensemble):
     # We do this on the instantiated object (pdf) and convert it back into a
     # ObjectFrame.
     object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
-    parquet_ensemble.udpate_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
+    parquet_ensemble.update_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
 
     # Try dropping NaNs from object and confirm that we did.
     parquet_ensemble.dropna(table="object")
@@ -1027,6 +1027,8 @@ def test_batch(data_fixture, request, use_map, on):
     """
 
     parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    assert "ps1_objid" == parquet_ensemble._id_col
 
     result = (
         parquet_ensemble.prune(10)
