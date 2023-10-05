@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tape import Ensemble, ObjectFrame, SourceFrame
+from tape import Ensemble, EnsembleFrame, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -66,6 +66,49 @@ def test_from_parquet(data_fixture, request):
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_without_client",
+    ],
+)
+def test_update_ensemble(data_fixture, request):
+    """
+    Tests that the ensemble can be updated with a result frame.
+    """
+    ens = request.getfixturevalue(data_fixture)
+
+    # Filter the object table and have the ensemble track the updated table.
+    updated_obj = ens._object.query("nobs_total > 50")
+    assert updated_obj is not ens._object
+    updated_obj.update_ensemble()
+    assert updated_obj is ens._object
+
+    # Filter the source table and have the ensemble track the updated table.
+    updated_src = ens._source.query("psFluxErr > 0.1")
+    assert updated_src is not ens._source
+    updated_src.update_ensemble()
+    assert updated_src is ens._source
+
+    # Create an additional result table for the ensemble to track.
+    cnts = ens._source.groupby([ens._id_col, ens._band_col])[ens._time_col].aggregate("count")
+    res = (
+        cnts.to_frame()
+        .reset_index()
+        .categorize(columns=[ens._band_col])
+        .pivot_table(values=ens._time_col, index=ens._id_col, columns=ens._band_col, aggfunc="sum")
+    )
+
+    # Convert the resulting dataframe into an EnsembleFrame and update the Ensemble
+    result_frame = EnsembleFrame.from_dask_dataframe(res, ensemble=ens, label="result")
+    result_frame.update_ensemble()
+    assert ens.select_frame("result") is result_frame
+
+    # Test update_ensemble when a frame is unlinked to its parent ensemble.
+    result_frame.ensemble = None
+    assert result_frame.update_ensemble() is None 
 
  
 @pytest.mark.parametrize(
@@ -150,23 +193,23 @@ def test_frame_tracking(data_fixture, request):
 
     # Construct some result frames for the Ensemble to track. Underlying data is irrelevant for 
     # this test.
-    ens_frame1 = ens.select_frame("source").copy()
-    ens_frame2 = ens.select_frame("source").copy()
-    ens_frame3 = ens.select_frame("source").copy()
-    ens_frame4 = ens.select_frame("source").copy()
-
+    num_points = 100
+    data = TapeFrame({
+        "id": [8000 + 2 * i for i in range(num_points)],
+        "time": [float(i) for i in range(num_points)],
+        "flux": [0.5 * float(i % 4) for i in range(num_points)],
+    })
     # Labels to give the EnsembleFrames
-    label1, label2, label3, label4 = "frame1", "frame2", "frame3", "frame4"
+    label1, label2, label3 = "frame1", "frame2", "frame3"
+    ens_frame1 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label1)
+    ens_frame2 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label2)
+    ens_frame3 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label3)
 
     # Validate that new source and object frames can't be added or updated.
     with pytest.raises(ValueError):
         ens.add_frame(ens_frame1, "source")
     with pytest.raises(ValueError):
         ens.add_frame(ens_frame1, "object")
-    with pytest.raises(ValueError):
-        ens.update_frame(ens.source)
-    with pytest.raises(ValueError):
-        ens.update_frame(ens.object)
 
     # Test that we can add and select a new ensemble frame
     assert ens.add_frame(ens_frame1, label1).select_frame(label1) is ens_frame1
@@ -202,7 +245,9 @@ def test_frame_tracking(data_fixture, request):
     assert ens.update_frame(ens_frame3).select_frame(label3) is ens_frame3
     assert len(ens.frames) == 5
 
-    # Update the ensemble with a new frame, verifying a missing label generates an error.
+    # Update the ensemble with an unlabeled frame, verifying a missing label generates an error.
+    ens_frame4 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=None)
+    label4 = "frame4"
     with pytest.raises(ValueError):
         ens.update_frame(ens_frame4)
     ens_frame4.label = label4
@@ -513,10 +558,10 @@ def test_sync_tables(parquet_ensemble):
     assert len(parquet_ensemble.compute("source")) == 2000
 
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
-    assert parquet_ensemble._object_dirty  # Prune should set the object dirty flag
+    assert parquet_ensemble._object.is_dirty()  # Prune should set the object dirty flag
 
     parquet_ensemble.dropna(table="source")
-    assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
+    assert parquet_ensemble._source.is_dirty()  # Dropna should set the source dirty flag
 
     parquet_ensemble._sync_tables()
 
@@ -525,8 +570,8 @@ def test_sync_tables(parquet_ensemble):
     assert len(parquet_ensemble.compute("source")) == 1562
 
     # dirty flags should be unset after sync
-    assert not parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
 
 def test_lazy_sync_tables(parquet_ensemble):
@@ -538,35 +583,35 @@ def test_lazy_sync_tables(parquet_ensemble):
 
     # Modify only the object table.
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
-    assert parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the object table, nothing should change, because
     # it is already dirty.
     parquet_ensemble._lazy_sync_tables(table="object")
-    assert parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source table, the source table should be updated.
     parquet_ensemble._lazy_sync_tables(table="source")
-    assert not parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
     # Modify only the source table.
     parquet_ensemble.dropna(table="source")
-    assert not parquet_ensemble._object_dirty
-    assert parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source table, nothing should change, because
     # it is already dirty.
     parquet_ensemble._lazy_sync_tables(table="source")
-    assert not parquet_ensemble._object_dirty
-    assert parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source, the object table should be updated.
     parquet_ensemble._lazy_sync_tables(table="object")
-    assert not parquet_ensemble._object_dirty
-    assert not parquet_ensemble._source_dirty
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
 
 
 def test_dropna(parquet_ensemble):
@@ -589,9 +634,9 @@ def test_dropna(parquet_ensemble):
 
     # Set the psFlux values for one source to NaN so we can drop it.
     # We do this on the instantiated source (pdf) and convert it back into a
-    # Dask DataFrame.
+    # SourceFrame.
     source_pdf.loc[valid_source_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble._source = dd.from_pandas(source_pdf, npartitions=1)
+    parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(source_pdf), label="source", npartitions=1))
 
     # Try dropping NaNs from source and confirm that we did.
     parquet_ensemble.dropna(table="source")
@@ -616,9 +661,9 @@ def test_dropna(parquet_ensemble):
 
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
-    # Dask DataFrame.
+    # ObjectFrame.
     object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
-    parquet_ensemble._object = dd.from_pandas(object_pdf, npartitions=1)
+    parquet_ensemble.update_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
 
     # Try dropping NaNs from object and confirm that we did.
     parquet_ensemble.dropna(table="object")
@@ -650,6 +695,7 @@ def test_keep_zeros(parquet_ensemble):
     valid_id = pdf.index.values[1]
     pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
     parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+    parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(pdf), npartitions=1, label="source"))
 
     # Sync the table and check that the number of objects decreased.
     parquet_ensemble.dropna(table="source")

@@ -315,6 +315,8 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     """
     _partition_type = TapeFrame # Tracks the underlying data type
 
+    _is_dirty = False # True if the underlying data is out of sync with the Ensemble
+
     def __getitem__(self, key):
         result = super().__getitem__(key)
         if isinstance(result, _Frame):
@@ -352,12 +354,46 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.ensemble = ensemble
         return result
     
+    @classmethod
+    def from_dask_dataframe(cl, df, ensemble=None, label=None):
+        """ Returns an EnsembleFrame constructed from a Dask dataframe.
+        Parameters
+        ----------
+        df: `dask.dataframe.DataFrame` or `list`
+            a Dask dataframe to convert to an EnsembleFrame
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        label: `str`, optional
+        |   The label used to by the Ensemble to identify the frame.
+        Returns
+        result: `tape.EnsembleFrame`
+            The constructed EnsembleFrame object.
+        """
+        # Create a EnsembleFrame by mapping the partitions to the appropriate meta, TapeFrame
+        # TODO(wbeebe@uw.edu): Determine if there is a better method
+        result = df.map_partitions(TapeFrame) 
+        result.ensemble = ensemble
+        result.label = label
+        return result
+
+    def update_ensemble(self):
+        """ Updates the Ensemble linked by the `EnsembelFrame.ensemble` property to track this frame.
+
+        Returns
+        result: `tape.Ensemble`
+            The Ensemble object which tracks this frame, `None` if no such Ensemble.
+        """
+        if self.ensemble is None:
+            return None
+        # Update the Ensemble to track this frame and return the ensemble.
+        return self.ensemble.update_frame(self)
+    
     def convert_flux_to_mag(self, 
                             flux_col, 
                             zero_point, 
                             err_col=None, 
                             zp_form="mag", 
-                            out_col_name=None, 
+                            out_col_name=None,
                             ):
         """Converts this EnsembleFrame's flux column into a magnitude column, returning a new
         EnsembleFrame.
@@ -451,6 +487,12 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.ensemble=ensemble
 
         return result
+    
+    def is_dirty(self):
+        return self._is_dirty
+    
+    def set_dirty(self, is_dirty):
+        self._is_dirty = is_dirty
 
 class TapeSourceFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble source data
@@ -535,6 +577,26 @@ class SourceFrame(EnsembleFrame):
         result.label = SOURCE_FRAME_LABEL
 
         return result
+
+    @classmethod
+    def from_dask_dataframe(cl, df, ensemble=None):
+        """ Returns a SourceFrame constructed from a Dask dataframe..
+        Parameters
+        ----------
+        df: `dask.dataframe.DataFrame` or `list`
+            a Dask dataframe to convert to a SourceFrame
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        Returns
+        result: `tape.SourceFrame`
+            The constructed SourceFrame object.
+        """
+        # Create a SourceFrame by mapping the partitions to the appropriate meta, TapeSourceFrame
+        # TODO(wbeebe@uw.edu): Determine if there is a better method
+        result = df.map_partitions(TapeSourceFrame) 
+        result.ensemble = ensemble
+        result.label = SOURCE_FRAME_LABEL
+        return result
     
 class ObjectFrame(EnsembleFrame):
     """ A subclass of EnsembleFrame for Object data. """
@@ -580,10 +642,30 @@ class ObjectFrame(EnsembleFrame):
         result = dd.read_parquet(
             path, index=index, columns=columns, split_row_groups=True, engine=TapeObjectArrowEngine,
         )
-        result.ensemble=ensemble
+        result.ensemble = ensemble
         result.label= OBJECT_FRAME_LABEL
 
-        return result   
+        return result
+
+    @classmethod
+    def from_dask_dataframe(cl, df, ensemble=None):
+        """ Returns an ObjectFrame constructed from a Dask dataframe..
+        Parameters
+        ----------
+        df: `dask.dataframe.DataFrame` or `list`
+            a Dask dataframe to convert to an ObjectFrame
+        ensemble: `tape.ensemble.Ensemble`, optional
+        |   A link to the Ensemble object that owns this frame.
+        Returns
+        result: `tape.ObjectFrame`
+            The constructed ObjectFrame object.
+        """
+        # Create an ObjectFrame by mapping the partitions to the appropriate meta, TapeObjectFrame
+        # TODO(wbeebe@uw.edu): Determine if there is a better method
+        result = df.map_partitions(TapeObjectFrame) 
+        result.ensemble = ensemble
+        result.label = OBJECT_FRAME_LABEL
+        return result
 
 """
 Dask Dataframes are constructed indirectly using method dispatching and inference on the

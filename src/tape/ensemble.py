@@ -12,7 +12,7 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import ObjectFrame, SourceFrame
+from .ensemble_frame import ObjectFrame, SourceFrame, TapeObjectFrame
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
@@ -45,9 +45,6 @@ class Ensemble:
         # TODO(wbeebe@uw.edu) Replace self._source and self._object with these 
         self.source = None # Source Table EnsembleFrame
         self.object = None # Object Table EnsembleFrame
-
-        self._source_dirty = False  # Source Dirty Flag
-        self._object_dirty = False  # Object Dirty Flag
 
         # Default to removing empty objects.
         self.keep_empty_objects = kwargs.get("keep_empty_objects", False)
@@ -136,16 +133,25 @@ class Ensemble:
 
         Raises
         ------
-        ValueError if the `frame.label` is unpopulated, "source", or "object".
+        ValueError if the `frame.label` is unpopulated, or if the frame is not a SourceFrame or ObjectFrame
+        but uses the reserved labels.
         """
         if frame.label is None:
             raise ValueError(
                 f"Unable to update frame with no populated `EnsembleFrame.label`."
                 )
-        if frame.label == SOURCE_FRAME_LABEL or frame.label == OBJECT_FRAME_LABEL:
-            raise ValueError(
-                f"Unable to update frame with reserved label " f"'{frame.label}'"
+        if isinstance(frame, SourceFrame) or isinstance(frame, ObjectFrame):
+            expected_label = SOURCE_FRAME_LABEL if isinstance(frame, SourceFrame) else OBJECT_FRAME_LABEL
+            if frame.label != expected_label:
+                raise ValueError(f"Unable to update frame with reserved label " f"'{frame.label}'"
                 )
+            if isinstance(frame, SourceFrame):
+                self._source = frame
+                self.source = frame
+            elif isinstance(frame, ObjectFrame):
+                self._object = frame
+                self.object = frame
+
         # Ensure this frame is assigned to this Ensemble.
         frame.ensemble = self
         self.frames[frame.label] = frame
@@ -316,16 +322,16 @@ class Ensemble:
         prev_num = self._source.npartitions
 
         # Append the new rows to the correct divisions.
-        self._source = dd.concat([self._source, df2], axis=0, interleave_partitions=True)
-        self._source_dirty = True
+        self.update_frame(dd.concat([self._source, df2], axis=0, interleave_partitions=True))
+        self._source.set_dirty(True)
 
         # Do the repartitioning if requested. If the divisions were set, reuse them.
         # Otherwise, use the same number of partitions.
         if force_repartition:
             if all(prev_div):
-                self._source = self._source.repartition(divisions=prev_div)
+                self.update_frame(self._source.repartition(divisions=prev_div))
             elif self._source.npartitions != prev_num:
-                self._source = self._source.repartition(npartitions=prev_num)
+                self.update_frame(self._source.repartition(npartitions=prev_num))
 
     def client_info(self):
         """Calls the Dask Client, which returns cluster information
@@ -379,9 +385,6 @@ class Ensemble:
         A single pandas data frame for the specified table or a tuple of (object, source)
         data frames.
         """
-        # TODO(wbeebe@uw.edu): Remove this logic as part of milestone 4's removal of the _source and _object fields
-        if self.object is not None and self.source is not None:
-            return (self.object.compute(**kwargs), self.source.compute(**kwargs))
         if table:
             self._lazy_sync_tables(table)
             if table == "object":
@@ -401,8 +404,8 @@ class Ensemble:
         of the computation.
         """
         self._lazy_sync_tables("all")
-        self._object = self._object.persist(**kwargs)
-        self._source = self._source.persist(**kwargs)
+        self.update_frame(self._object.persist(**kwargs))
+        self.update_frame(self._source.persist(**kwargs))
 
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""
@@ -454,11 +457,11 @@ class Ensemble:
             scheme
         """
         if table == "object":
-            self._object = self._object.dropna(**kwargs)
-            self._object_dirty = True  # This operation modifies the object table
+            self.update_frame(self._object.dropna(**kwargs))
+            self._object.set_dirty(True)  # This operation modifies the object table
         elif table == "source":
-            self._source = self._source.dropna(**kwargs)
-            self._source_dirty = True  # This operation modifies the source table
+            self.update_frame(self._source.dropna(**kwargs))
+            self._source.set_dirty(True)  # This operation modifies the source table
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -479,12 +482,12 @@ class Ensemble:
         self._lazy_sync_tables(table)
         if table == "object":
             cols_to_drop = [col for col in self._object.columns if col not in columns]
-            self._object = self._object.drop(cols_to_drop, axis=1)
-            self._object_dirty = True
+            self.update_frame(self._object.drop(cols_to_drop, axis=1))
+            self._object.set_dirty(True)
         elif table == "source":
             cols_to_drop = [col for col in self._source.columns if col not in columns]
-            self._source = self._source.drop(cols_to_drop, axis=1)
-            self._source_dirty = True
+            self.update_frame(self._source.drop(cols_to_drop, axis=1))
+            self._source.set_dirty(True)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -513,11 +516,11 @@ class Ensemble:
         """
         self._lazy_sync_tables(table)
         if table == "object":
-            self._object = self._object.query(expr)
-            self._object_dirty = True
+            self.update_frame(self._object.query(expr))
+            self._object.set_dirty(True)
         elif table == "source":
-            self._source = self._source.query(expr)
-            self._source_dirty = True
+            self.update_frame(self._source.query(expr))
+            self._source.set_dirty(True)
         return self
 
     def filter_from_series(self, keep_series, table="object"):
@@ -535,11 +538,11 @@ class Ensemble:
         """
         self._lazy_sync_tables(table)
         if table == "object":
-            self._object = self._object[keep_series]
-            self._object_dirty = True
+            self.update_frame(self._object[keep_series])
+            self._object.set_dirty(True)
         elif table == "source":
-            self._source = self._source[keep_series]
-            self._source_dirty = True
+            self.update_frame(self._source[keep_series])
+            self._source.set_dirty(True)
         return self
 
     def assign(self, table="object", **kwargs):
@@ -570,11 +573,11 @@ class Ensemble:
         self._lazy_sync_tables(table)
 
         if table == "object":
-            self._object = self._object.assign(**kwargs)
-            self._object_dirty = True
+            self.update_frame(self._object.assign(**kwargs))
+            self._object.set_dirty(True)
         elif table == "source":
-            self._source = self._source.assign(**kwargs)
-            self._source_dirty = True
+            self.update_frame(self._source.assign(**kwargs))
+            self._source.set_dirty(True)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
         return self
@@ -657,9 +660,9 @@ class Ensemble:
             table_ddf = table_ddf.drop(columns=input_cols)
 
         if table == "object":
-            self._object = table_ddf
+            self.update_frame(table_ddf)
         elif table == "source":
-            self._source = table_ddf
+            self.update_frame(table_ddf)
 
         return self
 
@@ -687,9 +690,9 @@ class Ensemble:
 
         # Mask on object table
         mask = self._object[col_name] >= threshold
-        self._object = self._object[mask]
+        self.update_frame(self._object[mask])
 
-        self._object_dirty = True  # Object Table is now dirty
+        self._object.set_dirty(True)  # Object Table is now dirty
 
         return self
 
@@ -828,13 +831,13 @@ class Ensemble:
                 aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.
-        self._source = self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+        self.update_frame(self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs))
 
         # Fix the indices and remove the temporary column.
-        self._source = self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1)
+        self.update_frame(self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1))
 
         # Mark the source table as dirty.
-        self._source_dirty = True
+        self._source.set_dirty(True)
         return self
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
@@ -1160,14 +1163,13 @@ class Ensemble:
                     columns.append(col)
 
         # Read in the source parquet file(s)
-        self._source = dd.read_parquet(
-            source_file, index=self._id_col, columns=columns, split_row_groups=True
-        )
+        self.update_frame(SourceFrame.from_parquet(
+            source_file, index=self._id_col, columns=columns, ensemble=self,
+        ))
 
         if object_file:  # read from parquet files
             # Read in the object file(s)
-            self._object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
-
+            self.update_frame(ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self))
             if self._nobs_band_cols is None:
                 # sets empty nobs cols in object
                 unq_filters = np.unique(self._source[self._band_col])
@@ -1182,12 +1184,12 @@ class Ensemble:
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
-                self._source_dirty = True
-                self._object_dirty = True
+                self._source.set_dirty(True)
+                self._object.set_dirty(True)
                 self._sync_tables()
 
         else:  # generate object table from source
-            self._object = self._generate_object_table()
+            self.update_frame(self._generate_object_table())
             self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
 
         # Generate a provenance column if not provided
@@ -1198,9 +1200,9 @@ class Ensemble:
             self._provenance_col = "provenance"
 
         if npartitions and npartitions > 1:
-            self._source = self._source.repartition(npartitions=npartitions)
+            self.update_frame(self._source.repartition(npartitions=npartitions))
         elif partition_size:
-            self._source = self._source.repartition(partition_size=partition_size)
+            self.update_frame(self._source.repartition(partition_size=partition_size))
 
         return self
     
@@ -1271,11 +1273,11 @@ class Ensemble:
                     columns.append(col)
 
         # Read in the source parquet file(s)
-        self.source = SourceFrame.from_parquet(source_file, index=self._id_col, columns=columns, 
-                                               ensemble=self)
+        self.update_frame(SourceFrame.from_parquet(source_file, index=self._id_col, columns=columns, 
+                                               ensemble=self))
 
         # Read in the object file(s)
-        self.object = ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self)
+        self.update_frame(ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self))
 
         if self._nobs_band_cols is None:
             # sets empty nobs cols in object
@@ -1297,13 +1299,10 @@ class Ensemble:
             self._provenance_col = "provenance"
 
         if npartitions and npartitions > 1:
-            self.source = self.source.repartition(npartitions=npartitions)
+            self.update_frame(self.source.repartition(npartitions=npartitions))
         elif partition_size:
-            self.source = self.source.repartition(partition_size=partition_size)
+            self.update_frame(self.source.repartition(partition_size=partition_size))
 
-        # Add the source and object tables to the frames tracked by the Ensemble
-        self.frames[self.source.label] = self.source
-        self.frames[self.object.label] = self.object
         return self
 
     def from_dataset(self, dataset, **kwargs):
@@ -1383,15 +1382,16 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
 
         # Load in the source data.
-        self._source = dd.DataFrame.from_dict(source_dict, npartitions=npartitions)
-        self._source = self._source.set_index(self._id_col, drop=True)
+        self.update_frame(SourceFrame.from_dict(source_dict, npartitions=npartitions))
+        self.update_frame(self._source.set_index(self._id_col, drop=True))
 
         # Generate the object table from the source.
-        self._object = self._generate_object_table()
+        # TODO this is not the object Table oh no....
+        self.update_frame(self._generate_object_table())
 
         # Now synced and clean
-        self._source_dirty = False
-        self._object_dirty = False
+        self._source.set_dirty(False)
+        self._object.set_dirty(False)
         return self
  
     def _generate_object_table(self):
@@ -1403,6 +1403,10 @@ class Ensemble:
             .categorize(columns=[self._band_col])
             .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
         )
+
+        # Convert the resulting dataframe into an ObjectFrame
+        # TODO(wbeebe@uw.edu): Inveestigate if we can correctly infer that `res` is an ObjectFrame instead
+        res = ObjectFrame.from_dask_dataframe(res, ensemble=self)
 
         # If the ensemble's keep_empty_objects attribute is True and there are previous
         # objects, then copy them into the res table with counts of zero.
@@ -1451,11 +1455,11 @@ class Ensemble:
             The table being modified. Should be one of "object",
             "source", or "all"
         """
-        if table == "object" and self._source_dirty:  # object table should be updated
+        if table == "object" and self._source.is_dirty():  # object table should be updated
             self._sync_tables()
-        elif table == "source" and self._object_dirty:  # source table should be updated
+        elif table == "source" and self._object.is_dirty():  # source table should be updated
             self._sync_tables()
-        elif table == "all" and (self._source_dirty or self._object_dirty):
+        elif table == "all" and (self._source.is_dirty() or self._object.is_dirty()):
             self._sync_tables()
         return self
 
@@ -1467,29 +1471,29 @@ class Ensemble:
         keep_empty_objects attribute is set to True.
         """
 
-        if self._object_dirty:
+        if self._object.is_dirty():
             # Sync Object to Source; remove any missing objects from source
             s_cols = self._source.columns
-            self._source = self._source.merge(
+            self.update_frame(self._source.merge(
                 self._object, how="right", on=[self._id_col], suffixes=(None, "_obj")
-            )
+            ))
             cols_to_drop = [col for col in self._source.columns if col not in s_cols]
-            self._source = self._source.drop(cols_to_drop, axis=1)
-            self._source = self._source.persist()  # persist source
+            self.update_frame(self._source.drop(cols_to_drop, axis=1))
+            self.update_frame(self._source.persist())  # persist source
 
-        if self._source_dirty:  # not elif
+        if self._source._is_dirty:  # not elif
             # Generate a new object table; updates n_obs, removes missing ids
             new_obj = self._generate_object_table()
 
             # Join old obj to new obj; pulls in other existing obj columns
-            self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
+            self.update_frame(new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old"))
             old_cols = [col for col in list(self._object.columns) if "_old" in col]
-            self._object = self._object.drop(old_cols, axis=1)
-            self._object = self._object.persist()  # persist object
+            self.update_frame(self._object.drop(old_cols, axis=1))
+            self.update_frame(self._object.persist())  # persist object
 
         # Now synced and clean
-        self._source_dirty = False
-        self._object_dirty = False
+        self._source.set_dirty(False)
+        self._object.set_dirty(False)
         return self
 
     def to_timeseries(
