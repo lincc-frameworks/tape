@@ -81,10 +81,18 @@ class TapeObjectArrowEngine(TapeArrowEngine):
 class _Frame(dd.core._Frame):
     """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
 
+    _is_dirty = False # True if the underlying data is out of sync with the Ensemble
+
     def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
         super().__init__(dsk, name, meta, divisions)
         self.label = label # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble # The Ensemble object containing this frame.
+
+    def is_dirty(self):
+        return self._is_dirty
+    
+    def set_dirty(self, is_dirty):
+        self._is_dirty = is_dirty
 
     @property
     def _args(self):
@@ -107,6 +115,7 @@ class _Frame(dd.core._Frame):
         """
         new_frame.label = self.label
         new_frame.ensemble = self.ensemble
+        new_frame.set_dirty(self.is_dirty)
         return new_frame
 
     def copy(self):
@@ -176,6 +185,37 @@ class _Frame(dd.core._Frame):
             numexpr.set_num_threads(1)
         """
         result = super().query(expr, **kwargs)
+        return self._propagate_metadata(result)
+    
+    def merge(
+        self,
+        right,
+        how="inner",
+        on=None,
+        left_on=None,
+        right_on=None,
+        left_index=False,
+        right_index=False,
+        suffixes=("_x", "_y"),
+        indicator=False,
+        npartitions=None,
+        shuffle=None,
+        broadcast=None,
+    ):
+        result = super().merge(
+            right, how, on, left_on, right_on, left_index, right_index, suffixes,
+            indicator,
+            npartitions,
+            shuffle,
+            broadcast)
+        return self._propagate_metadata(result)
+    
+    def drop(self, labels=None, axis=0, columns=None, errors="raise"):
+        result = super().drop(labels, axis, columns, errors)
+        return self._propagate_metadata(result)
+    
+    def persist(self):
+        result = super().persist()
         return self._propagate_metadata(result)
     
     def set_index(
@@ -314,8 +354,6 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     ensemble_frame = tape.EnsembleFrame.from_dict(data, label="my_frame", ensemble=ens)
     """
     _partition_type = TapeFrame # Tracks the underlying data type
-
-    _is_dirty = False # True if the underlying data is out of sync with the Ensemble
 
     def __getitem__(self, key):
         result = super().__getitem__(key)
@@ -487,12 +525,6 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.ensemble=ensemble
 
         return result
-    
-    def is_dirty(self):
-        return self._is_dirty
-    
-    def set_dirty(self, is_dirty):
-        self._is_dirty = is_dirty
 
 class TapeSourceFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble source data
