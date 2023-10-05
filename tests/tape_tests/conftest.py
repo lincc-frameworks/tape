@@ -76,7 +76,7 @@ def read_pandas_ensemble(dask_client: Client):
     return tape.read_pandas_dataframe(
         source_frame = pd.DataFrame(create_test_rows()),
         column_mapper = create_test_column_mapper(),
-        create_client = dask_client,
+        dask_client = dask_client,
         npartitions = 1,
     )
 
@@ -107,7 +107,7 @@ def read_parquet_ensemble_without_client():
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
         object_file="tests/tape_tests/data/object/test_object.parquet",
-        create_client=False,
+        dask_client=False,
         id_col="ps1_objid",
         time_col="midPointTai",
         band_col="filterName",
@@ -162,7 +162,8 @@ def read_parquet_ensemble_with_column_mapper(dask_client: Client):
 
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
-        column_mapper=colmap
+        column_mapper=colmap,
+        dask_client=dask_client
     )
 
 
@@ -174,7 +175,8 @@ def read_parquet_ensemble_with_known_column_mapper(dask_client: Client):
 
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
-        column_mapper=colmap
+        column_mapper=colmap,
+        dask_client=dask_client
     )
 
 
