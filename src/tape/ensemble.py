@@ -382,7 +382,7 @@ class Ensemble:
             self._source_dirty = True
         return self
 
-    def assign(self, table="object", **kwargs):
+    def assign(self, table="object", temporary=False, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.assign()
 
         Parameters
@@ -393,6 +393,13 @@ class Ensemble:
         kwargs: dict of {str: callable or Series}
             Each argument is the name of a new column to add and its value specifies
             how to fill it. A callable is called for each row and a series is copied in.
+        temporary: 'bool', optional
+            Dictates whether the resulting columns are flagged as "temporary"
+            columns within the Ensemble. Temporary columns are dropped when
+            table syncs are performed, as their information is often made
+            invalid by future operations. For example, the number of
+            observations information is made invalid by a filter on the source
+            table. Defaults to False.
 
         Returns
         -------
@@ -410,11 +417,23 @@ class Ensemble:
         self._lazy_sync_tables(table)
 
         if table == "object":
+            pre_cols = self._object.columns
             self._object = self._object.assign(**kwargs)
             self._object_dirty = True
+            post_cols = self._object.columns
+
+            if temporary:
+                self._object_temp.extend([col for col in post_cols if col not in pre_cols])
+
         elif table == "source":
+            pre_cols = self._source.columns
             self._source = self._source.assign(**kwargs)
             self._source_dirty = True
+            post_cols = self._source.columns
+
+            if temporary:
+                self._source_temp.extend([col for col in post_cols if col not in pre_cols])
+
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
         return self
