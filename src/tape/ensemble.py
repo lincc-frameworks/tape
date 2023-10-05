@@ -1833,9 +1833,7 @@ def read_hipscat(
     return new_ens
 
 
-def read_source_dict(
-    source_dict, column_mapper=None, npartitions=1, dask_client=True, **kwargs
-):
+def read_source_dict(source_dict, column_mapper=None, npartitions=1, dask_client=True, **kwargs):
     """Load the sources into an ensemble from a dictionary.
 
     Parameters
