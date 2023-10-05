@@ -11,8 +11,8 @@ from tape import Ensemble
 from tape.utils import ColumnMapper
 
 
+@pytest.fixture
 def create_test_rows():
-
     num_points = 1000
     all_bands = np.array(["r", "g", "b", "i"])
 
@@ -28,75 +28,89 @@ def create_test_rows():
 
     return rows
 
-def create_test_column_mapper():
 
+@pytest.fixture
+def create_test_column_mapper():
     return ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
 
-def create_test_source_table(npartitions=1):
 
-    return dd.from_dict(
-        create_test_rows(), 
-        npartitions)
+@pytest.fixture
+@pytest.mark.parametrize("create_test_rows", [("create_test_rows")])
+def create_test_source_table(create_test_rows, npartitions=1):
+    return dd.from_dict(create_test_rows, npartitions)
 
+
+@pytest.fixture
 def create_test_object_table(npartitions=1):
-
     n_obj = 5
     id = 8000 + np.arange(n_obj)
     name = id.astype(str)
-    return dd.from_dict(
-        dict(id=id, name=name),
-        npartitions)
+    return dd.from_dict(dict(id=id, name=name), npartitions)
 
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_dask_dataframe_ensemble(dask_client: Client):
-
+@pytest.mark.parametrize(
+    "create_test_source_table, create_test_column_mapper",
+    [("create_test_source_table", "create_test_column_mapper")],
+)
+def read_dask_dataframe_ensemble(dask_client, create_test_source_table, create_test_column_mapper):
     return tape.read_dask_dataframe(
-        dask_client = dask_client,
-        source_frame = create_test_source_table(),
-        column_mapper = create_test_column_mapper(),
+        dask_client=dask_client,
+        source_frame=create_test_source_table,
+        column_mapper=create_test_column_mapper,
     )
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_dask_dataframe_with_object_ensemble(dask_client: Client):
-
+@pytest.mark.parametrize(
+    "create_test_source_table, create_test_object_table, create_test_column_mapper",
+    [("create_test_source_table", "create_test_object_table", "create_test_column_mapper")],
+)
+def read_dask_dataframe_with_object_ensemble(
+    dask_client, create_test_source_table, create_test_object_table, create_test_column_mapper
+):
     return tape.read_dask_dataframe(
-        source_frame = create_test_source_table(),
-        object_frame = create_test_object_table(),
-        dask_client = dask_client,
-        column_mapper = create_test_column_mapper(),
+        source_frame=create_test_source_table,
+        object_frame=create_test_object_table,
+        dask_client=dask_client,
+        column_mapper=create_test_column_mapper,
     )
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_pandas_ensemble(dask_client: Client):
-
+@pytest.mark.parametrize(
+    "create_test_rows, create_test_column_mapper", [("create_test_rows", "create_test_column_mapper")]
+)
+def read_pandas_ensemble(dask_client, create_test_rows, create_test_column_mapper):
     return tape.read_pandas_dataframe(
-        source_frame = pd.DataFrame(create_test_rows()),
-        column_mapper = create_test_column_mapper(),
-        dask_client = dask_client,
-        npartitions = 1,
+        source_frame=pd.DataFrame(create_test_rows),
+        column_mapper=create_test_column_mapper,
+        dask_client=dask_client,
+        npartitions=1,
     )
+
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_pandas_with_object_ensemble(dask_client: Client):
+@pytest.mark.parametrize(
+    "create_test_rows, create_test_column_mapper", [("create_test_rows", "create_test_column_mapper")]
+)
+def read_pandas_with_object_ensemble(dask_client, create_test_rows, create_test_column_mapper):
     n_obj = 5
     id = 8000 + np.arange(n_obj)
     name = id.astype(str)
-    object_table = pd.DataFrame(
-        dict(id=id, name=name),
-    )
+    object_table = pd.DataFrame(dict(id=id, name=name))
 
     """Create an Ensemble from pandas dataframes."""
     return tape.read_pandas_dataframe(
-        dask_client = dask_client,
-        source_frame = pd.DataFrame(create_test_rows()),
-        object_frame = object_table,
-        column_mapper = create_test_column_mapper(),
-        npartitions = 1,
+        dask_client=dask_client,
+        source_frame=pd.DataFrame(create_test_rows),
+        object_frame=object_table,
+        column_mapper=create_test_column_mapper,
+        npartitions=1,
     )
 
 
@@ -116,10 +130,9 @@ def read_parquet_ensemble_without_client():
     )
 
 
-
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble(dask_client: Client):
+def read_parquet_ensemble(dask_client):
     """Create an Ensemble from parquet data."""
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
@@ -135,7 +148,7 @@ def read_parquet_ensemble(dask_client: Client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_from_source(dask_client: Client):
+def read_parquet_ensemble_from_source(dask_client):
     """Create an Ensemble from parquet data, with object file withheld."""
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
@@ -150,7 +163,7 @@ def read_parquet_ensemble_from_source(dask_client: Client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_with_column_mapper(dask_client: Client):
+def read_parquet_ensemble_with_column_mapper(dask_client):
     """Create an Ensemble from parquet data, with object file withheld."""
     colmap = ColumnMapper().assign(
         id_col="ps1_objid",
@@ -163,26 +176,26 @@ def read_parquet_ensemble_with_column_mapper(dask_client: Client):
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
         column_mapper=colmap,
-        dask_client=dask_client
+        dask_client=dask_client,
     )
 
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_with_known_column_mapper(dask_client: Client):
+def read_parquet_ensemble_with_known_column_mapper(dask_client):
     """Create an Ensemble from parquet data, with object file withheld."""
     colmap = ColumnMapper().use_known_map("ZTF")
 
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
         column_mapper=colmap,
-        dask_client=dask_client
+        dask_client=dask_client,
     )
 
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_from_hipscat(dask_client: Client):
+def read_parquet_ensemble_from_hipscat(dask_client):
     """Create an Ensemble from a hipscat/hive-style directory."""
     return tape.read_hipscat(
         "tests/tape_tests/data",
@@ -191,8 +204,9 @@ def read_parquet_ensemble_from_hipscat(dask_client: Client):
         band_col="filterName",
         flux_col="psFlux",
         err_col="psFluxErr",
-        dask_client=dask_client
+        dask_client=dask_client,
     )
+
 
 @pytest.fixture(scope="package", name="dask_client")
 def dask_client():
@@ -334,6 +348,7 @@ def dask_dataframe_ensemble(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def dask_dataframe_with_object_ensemble(dask_client):
@@ -372,6 +387,7 @@ def dask_dataframe_with_object_ensemble(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def pandas_ensemble(dask_client):
@@ -399,6 +415,7 @@ def pandas_ensemble(dask_client):
 
     return ens
 
+
 # pylint: disable=redefined-outer-name
 @pytest.fixture
 def pandas_with_object_ensemble(dask_client):
@@ -414,7 +431,7 @@ def pandas_with_object_ensemble(dask_client):
 
     num_points = 1000
     all_bands = np.array(["r", "g", "b", "i"])
-    source_table =pd.DataFrame(
+    source_table = pd.DataFrame(
         {
             "id": 8000 + (np.arange(num_points) % n_obj),
             "time": np.arange(num_points),

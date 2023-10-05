@@ -141,7 +141,7 @@ def test_from_rrl_dataset(dask_client):
     ens = Ensemble(client=dask_client)
     ens.from_dataset("s82_rrlyrae")
 
-    # larger dataset, let's just use a subset of ~100
+    # larger dataset, let's just use a subset
     ens.prune(350)
 
     res = ens.batch(calc_stetson_J)
@@ -164,7 +164,7 @@ def test_from_qso_dataset(dask_client):
     ens = Ensemble(client=dask_client)
     ens.from_dataset("s82_qso")
 
-    # larger dataset, let's just use a subset of ~100
+    # larger dataset, let's just use a subset
     ens.prune(650)
 
     res = ens.batch(calc_stetson_J)
@@ -186,7 +186,7 @@ def test_read_rrl_dataset(dask_client):
 
     ens = tape.read_dataset("s82_rrlyrae", dask_client=dask_client)
 
-    # larger dataset, let's just use a subset of ~100
+    # larger dataset, let's just use a subset
     ens.prune(350)
 
     res = ens.batch(calc_stetson_J)
@@ -208,7 +208,7 @@ def test_read_qso_dataset(dask_client):
 
     ens = tape.read_dataset("s82_qso", dask_client=dask_client)
 
-    # larger dataset, let's just use a subset of ~100
+    # larger dataset, let's just use a subset
     ens.prune(650)
 
     res = ens.batch(calc_stetson_J)
@@ -265,7 +265,7 @@ def test_from_source_dict(dask_client):
 
 def test_read_source_dict(dask_client):
     """
-    Test that ensemble.from_source_dict() successfully creates data from a dictionary.
+    Test that tape.read_source_dict() successfully creates data from a dictionary.
     """
     ens = Ensemble(client=dask_client)
 
@@ -287,11 +287,7 @@ def test_read_source_dict(dask_client):
 
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
 
-    ens = tape.read_source_dict(
-        rows, 
-        column_mapper=cmap, 
-        dask_client=dask_client
-        )
+    ens = tape.read_source_dict(rows, column_mapper=cmap, dask_client=dask_client)
 
     (obj_table, src_table) = ens.compute()
 
