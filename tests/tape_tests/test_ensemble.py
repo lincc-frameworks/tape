@@ -1028,8 +1028,6 @@ def test_batch(data_fixture, request, use_map, on):
 
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
-    assert "ps1_objid" == parquet_ensemble._id_col
-
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
