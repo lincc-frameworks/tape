@@ -423,7 +423,7 @@ class Ensemble:
             post_cols = self._object.columns
 
             if temporary:
-                self._object_temp.extend([col for col in post_cols if col not in pre_cols])
+                self._object_temp.extend(col for col in post_cols if col not in pre_cols)
 
         elif table == "source":
             pre_cols = self._source.columns
@@ -432,7 +432,7 @@ class Ensemble:
             post_cols = self._source.columns
 
             if temporary:
-                self._source_temp.extend([col for col in post_cols if col not in pre_cols])
+                self._source_temp.extend(col for col in post_cols if col not in pre_cols)
 
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
@@ -576,7 +576,7 @@ class Ensemble:
             self._object = self._object.assign(**{label + "_" + band: band_counts[band] for band in bands})
 
             if temporary:
-                self._object_temp.extend([label + "_" + band for band in bands])
+                self._object_temp.extend(label + "_" + band for band in bands)
 
         else:
             counts = self._source.groupby([self._id_col])[[self._band_col]].aggregate("count")
