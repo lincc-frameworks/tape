@@ -75,6 +75,8 @@ def test_ensemble_frame_propagation(data_fixture, request):
     # Set a label and ensemble for the frame and copies/transformations retain them.
     ens_frame.label = TEST_LABEL
     ens_frame.ensemble=ens
+    assert not ens_frame.is_dirty()
+    ens_frame.set_dirty(True)
 
     # Create a copy of an EnsembleFrame and verify that it's still a proper
     # EnsembleFrame with appropriate metadata propagated.
@@ -83,6 +85,7 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert isinstance(copied_frame._meta, TapeFrame)
     assert copied_frame.label == TEST_LABEL
     assert copied_frame.ensemble == ens
+    assert copied_frame.is_dirty()
 
     # Test that a filtered EnsembleFrame is still an EnsembleFrame.
     filtered_frame = ens_frame[["id", "time"]]
@@ -90,6 +93,7 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert isinstance(filtered_frame._meta, TapeFrame)
     assert filtered_frame.label == TEST_LABEL
     assert filtered_frame.ensemble == ens
+    assert filtered_frame.is_dirty()
 
     # Test that the output of an EnsembleFrame query is still an EnsembleFrame
     queried_rows = ens_frame.query("flux > 3.0")
@@ -97,6 +101,18 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert isinstance(queried_rows._meta, TapeFrame)
     assert queried_rows.label == TEST_LABEL
     assert queried_rows.ensemble == ens
+    assert queried_rows.is_dirty()
+
+    # Test merging two subsets of the dataframe, dropping some columns, and persisting the result.
+    merged_frame = ens_frame.copy()[["id", "time", "error"]].merge(
+        ens_frame.copy()[["id", "time", "flux"]], on=["id"], suffixes=(None, "_drop_me"))
+    cols_to_drop = [col for col in merged_frame.columns if "_drop_me" in col]
+    merged_frame = merged_frame.drop(cols_to_drop, axis=1).persist()
+    assert isinstance(merged_frame, EnsembleFrame)
+    assert merged_frame.label == TEST_LABEL
+    assert merged_frame.ensemble == ens
+    assert merged_frame.is_dirty()
+    
 
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)
@@ -197,6 +213,9 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert source_frame.ensemble == ens
     assert source_frame.ensemble is ens
 
+    assert not source_frame.is_dirty()
+    source_frame.set_dirty(True)
+
     # Perform a series of operations on the SourceFrame and then verify the result is still a
     # proper SourceFrame with appropriate metadata propagated.
     source_frame["psFlux"].mean().compute()
@@ -207,6 +226,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert result_source_frame.label == SOURCE_LABEL
     assert result_source_frame.ensemble is not None
     assert result_source_frame.ensemble is ens
+    assert result_source_frame.is_dirty()
 
     # Set an index and then group by that index.
     result_source_frame = result_source_frame.set_index("psFlux", drop=True)
@@ -228,6 +248,9 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert isinstance(object_frame, ObjectFrame)
     assert isinstance(object_frame._meta, TapeObjectFrame)
 
+    assert not object_frame.is_dirty()
+    object_frame.set_dirty(True)
+
     # Perform a series of operations on the ObjectFrame and then verify the result is still a
     # proper ObjectFrame with appropriate metadata propagated.
     result_object_frame = object_frame.copy()[["nobs_g", "nobs_total"]]
@@ -235,6 +258,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert isinstance(result_object_frame._meta, TapeObjectFrame)
     assert result_object_frame.label == OBJECT_LABEL
     assert result_object_frame.ensemble is ens
+    assert result_object_frame.is_dirty()
 
     # Set an index and then group by that index.
     result_object_frame = result_object_frame.set_index("nobs_g", drop=True)
@@ -244,3 +268,13 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert len(group_result) > 0
     assert isinstance(group_result, ObjectFrame)
     assert isinstance(group_result._meta, TapeObjectFrame)
+
+    # Test merging source and object frames, dropping some columns, and persisting the result.
+    merged_frame = source_frame.copy().merge(
+        object_frame.copy(), on=[ens._id_col], suffixes=(None, "_drop_me"))
+    cols_to_drop = [col for col in merged_frame.columns if "_drop_me" in col]
+    merged_frame = merged_frame.drop(cols_to_drop, axis=1).persist()
+    assert isinstance(merged_frame, SourceFrame)
+    assert merged_frame.label == SOURCE_LABEL
+    assert merged_frame.ensemble == ens
+    assert merged_frame.is_dirty()
