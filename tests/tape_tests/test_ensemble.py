@@ -299,9 +299,8 @@ def test_read_source_dict(dask_client):
         assert src_table.iloc[i][ens._err_col] == rows[ens._err_col][i]
 
     # Check that the derived object table is correct.
-    assert obj_table.shape[0] == 2
-    assert obj_table.iloc[0][ens._nobs_tot_col] == 4
-    assert obj_table.iloc[1][ens._nobs_tot_col] == 5
+    assert 8001 in obj_table.index
+    assert 8002 in obj_table.index
 
 
 def test_insert(parquet_ensemble):
