@@ -23,9 +23,7 @@ def test_column_mapper():
     assert col_map.is_ready()  # col_map should now be ready
 
     # Assign the remaining columns
-    col_map.assign(
-        provenance_col="provenance", nobs_total_col="nobs_total", nobs_band_cols=["nobs_g", "nobs_r"]
-    )
+    col_map.assign(provenance_col="provenance")
 
     expected_map = {
         "id_col": "id",
@@ -34,8 +32,6 @@ def test_column_mapper():
         "err_col": "err",
         "band_col": "band",
         "provenance_col": "provenance",
-        "nobs_total_col": "nobs_total",
-        "nobs_band_cols": ["nobs_g", "nobs_r"],
     }
 
     assert col_map.map == expected_map  # The expected mapping
@@ -53,8 +49,6 @@ def test_column_mapper_init():
         err_col="err",
         band_col="band",
         provenance_col="provenance",
-        nobs_total_col="nobs_total",
-        nobs_band_cols=["nobs_g", "nobs_r"],
     )
 
     assert col_map.is_ready()  # col_map should be ready
@@ -66,8 +60,6 @@ def test_column_mapper_init():
         "err_col": "err",
         "band_col": "band",
         "provenance_col": "provenance",
-        "nobs_total_col": "nobs_total",
-        "nobs_band_cols": ["nobs_g", "nobs_r"],
     }
 
     assert col_map.map == expected_map  # The expected mapping

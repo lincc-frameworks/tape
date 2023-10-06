@@ -39,21 +39,19 @@ class Ensemble:
         self._source_dirty = False  # Source Dirty Flag
         self._object_dirty = False  # Object Dirty Flag
 
+        self._source_temp = []  # List of temporary columns in Source
+        self._object_temp = []  # List of temporary columns in Object
+
         # Default to removing empty objects.
         self.keep_empty_objects = kwargs.get("keep_empty_objects", False)
 
         # Initialize critical column quantities
-        # Source
         self._id_col = None
         self._time_col = None
         self._flux_col = None
         self._err_col = None
         self._band_col = None
         self._provenance_col = None
-
-        # Object, _id_col is shared
-        self._nobs_tot_col = None
-        self._nobs_band_cols = []
 
         self.client = None
         self.cleanup_client = False
@@ -384,7 +382,7 @@ class Ensemble:
             self._source_dirty = True
         return self
 
-    def assign(self, table="object", **kwargs):
+    def assign(self, table="object", temporary=False, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.assign()
 
         Parameters
@@ -395,6 +393,13 @@ class Ensemble:
         kwargs: dict of {str: callable or Series}
             Each argument is the name of a new column to add and its value specifies
             how to fill it. A callable is called for each row and a series is copied in.
+        temporary: 'bool', optional
+            Dictates whether the resulting columns are flagged as "temporary"
+            columns within the Ensemble. Temporary columns are dropped when
+            table syncs are performed, as their information is often made
+            invalid by future operations. For example, the number of
+            observations information is made invalid by a filter on the source
+            table. Defaults to False.
 
         Returns
         -------
@@ -412,11 +417,23 @@ class Ensemble:
         self._lazy_sync_tables(table)
 
         if table == "object":
+            pre_cols = self._object.columns
             self._object = self._object.assign(**kwargs)
             self._object_dirty = True
+            post_cols = self._object.columns
+
+            if temporary:
+                self._object_temp.extend(col for col in post_cols if col not in pre_cols)
+
         elif table == "source":
+            pre_cols = self._source.columns
             self._source = self._source.assign(**kwargs)
             self._source_dirty = True
+            post_cols = self._source.columns
+
+            if temporary:
+                self._source_temp.extend(col for col in post_cols if col not in pre_cols)
+
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
         return self
@@ -510,7 +527,7 @@ class Ensemble:
 
         return self
 
-    def calc_nobs(self, by_band=False, label="nobs"):
+    def calc_nobs(self, by_band=False, label="nobs", temporary=True):
         """Calculates the number of observations per lightcurve.
 
         Parameters
@@ -521,14 +538,19 @@ class Ensemble:
         label: `str`, optional
             The label used to generate output columns. "_total" and the band
             labels (e.g. "_g") are appended.
+        temporary: 'bool', optional
+            Dictates whether the resulting columns are flagged as "temporary"
+            columns within the Ensemble. Temporary columns are dropped when
+            table syncs are performed, as their information is often made
+            invalid by future operations. For example, the number of
+            observations information is made invalid by a filter on the source
+            table. Defaults to True.
 
         Returns
         -------
         ensemble: `tape.ensemble.Ensemble`
             The ensemble object with nobs columns added to the object table.
         """
-
-        obj_npartitions = self._object.npartitions  # to repartition output columns
 
         if by_band:
             band_counts = (
@@ -538,8 +560,14 @@ class Ensemble:
                 .reset_index()  # break up the multiindex
                 .categorize(columns=[self._band_col])  # retype the band labels as categories
                 .pivot_table(values=self._band_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
-                .repartition(obj_npartitions)  # counts inherits the source partitions
             )  # the pivot_table call makes each band_count a column of the id_col row
+
+            # repartition the result to align with object
+            if self._object.known_divisions:
+                self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
+                band_counts = band_counts.repartition(npartitions=self._object.npartitions)
+            else:
+                band_counts = band_counts.repartition(npartitions=self._object.npartitions)
 
             # short-hand for calculating nobs_total
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
@@ -547,10 +575,23 @@ class Ensemble:
             bands = band_counts.columns.values
             self._object = self._object.assign(**{label + "_" + band: band_counts[band] for band in bands})
 
+            if temporary:
+                self._object_temp.extend(label + "_" + band for band in bands)
+
         else:
-            counts = self._source.groupby([self._id_col])[self._band_col].aggregate("count")
-            counts = counts.repartition(obj_npartitions)  # counts inherits the source partitions
-            self._object = self._object.assign(**{label + "_total": counts})  # assign new columns
+            counts = self._source.groupby([self._id_col])[[self._band_col]].aggregate("count")
+
+            # repartition the result to align with object
+            if self._object.known_divisions:
+                self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
+                counts = counts.repartition(npartitions=self._object.npartitions)
+            else:
+                counts = counts.repartition(npartitions=self._object.npartitions)
+
+            self._object = self._object.assign(**{label + "_total": counts[self._band_col]})
+
+            if temporary:
+                self._object_temp.extend([label + "_total"])
 
         return self
 
@@ -563,18 +604,23 @@ class Ensemble:
             The minimum number of observations needed to retain an object.
             Default is 50.
         col_name: `str`, optional
-            The name of the column to assess the threshold
+            The name of the column to assess the threshold if available in
+            the object table. If not specified, the ensemble will calculate
+            the number of observations and filter on the total (sum across
+            bands).
 
         Returns
         -------
         ensemble: `tape.ensemble.Ensemble`
             The ensemble object with pruned rows removed
         """
-        if not col_name:
-            col_name = self._nobs_tot_col
 
         # Sync Required if source is dirty
         self._lazy_sync_tables(table="object")
+
+        if not col_name:
+            self.calc_nobs(label="nobs")
+            col_name = "nobs_total"
 
         # Mask on object table
         mask = self._object[col_name] >= threshold
@@ -952,21 +998,9 @@ class Ensemble:
 
         if object_frame is None:  # generate an indexed object table from source
             self._object = self._generate_object_table()
-            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
+
         else:
             self._object = object_frame
-            if self._nobs_band_cols is None:
-                # sets empty nobs cols in object
-                unq_filters = np.unique(self._source[self._band_col])
-                self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
-                for col in self._nobs_band_cols:
-                    self._object[col] = np.nan
-
-            # Handle nobs_total column
-            if self._nobs_tot_col is None:
-                self._object["nobs_total"] = np.nan
-                self._nobs_tot_col = "nobs_total"
-
             self._object = self._object.set_index(self._id_col)
 
             # Optionally sync the tables, recalculates nobs columns
@@ -1037,8 +1071,6 @@ class Ensemble:
             err_col=self._err_col,
             band_col=self._band_col,
             provenance_col=self._provenance_col,
-            nobs_total_col=self._nobs_tot_col,
-            nobs_band_cols=self._nobs_band_cols,
         )
         return result
 
@@ -1100,10 +1132,6 @@ class Ensemble:
             # Assign optional columns if provided
             if column_mapper.map["provenance_col"] is not None:
                 self._provenance_col = column_mapper.map["provenance_col"]
-            if column_mapper.map["nobs_total_col"] is not None:
-                self._nobs_tot_col = column_mapper.map["nobs_total_col"]
-            if column_mapper.map["nobs_band_cols"] is not None:
-                self._nobs_band_cols = column_mapper.map["nobs_band_cols"]
 
         else:
             raise ValueError(f"Missing required column mapping information: {needed}")
@@ -1170,11 +1198,6 @@ class Ensemble:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
             if self._provenance_col is not None:
                 columns.append(self._provenance_col)
-            if self._nobs_tot_col is not None:
-                columns.append(self._nobs_tot_col)
-            if self._nobs_band_cols is not None:
-                for col in self._nobs_band_cols:
-                    columns.append(col)
 
         # Read in the source parquet file(s)
         source = dd.read_parquet(source_file, index=self._id_col, columns=columns, split_row_groups=True)
@@ -1360,47 +1383,10 @@ class Ensemble:
         return self
 
     def _generate_object_table(self):
-        """Generate the object table from the source table."""
-        counts = self._source.groupby([self._id_col, self._band_col])[self._time_col].aggregate("count")
-        res = (
-            counts.to_frame()
-            .reset_index()
-            .categorize(columns=[self._band_col])
-            .pivot_table(values=self._time_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
-        )
-
-        # If the ensemble's keep_empty_objects attribute is True and there are previous
-        # objects, then copy them into the res table with counts of zero.
-        if self.keep_empty_objects and self._object is not None:
-            prev_partitions = self._object.npartitions
-
-            # Check that there are existing object ids.
-            object_inds = self._object.index.unique().values.compute()
-            if len(object_inds) > 0:
-                # Determine which object IDs are missing from the source table.
-                source_inds = self._source.index.unique().values.compute()
-                missing_inds = np.setdiff1d(object_inds, source_inds).tolist()
-
-                # Create a dataframe of the missing IDs with zeros for all bands and counts.
-                rows = {self._id_col: missing_inds}
-                for i in res.columns.values:
-                    rows[i] = [0] * len(missing_inds)
-
-                zero_pdf = pd.DataFrame(rows, dtype=int).set_index(self._id_col)
-                zero_ddf = dd.from_pandas(zero_pdf, sort=True, npartitions=1)
-
-                # Concatonate the zero dataframe onto the results.
-                res = dd.concat([res, zero_ddf], interleave_partitions=True).astype(int)
-                res = res.repartition(npartitions=prev_partitions)
-
-        # Rename bands to nobs_[band]
-        band_cols = {col: f"nobs_{col}" for col in list(res.columns)}
-        res = res.rename(columns=band_cols)
-
-        # Add total nobs by summing across each band.
-        if self._nobs_tot_col is None:
-            self._nobs_tot_col = "nobs_total"
-        res[self._nobs_tot_col] = res.sum(axis=1)
+        """Generate an empty object table from the source table."""
+        sor_idx = self._source.index.unique()
+        obj_df = pd.DataFrame(index=sor_idx)
+        res = dd.from_pandas(obj_df, npartitions=int(np.ceil(self._source.npartitions / 100)))
 
         return res
 
@@ -1438,15 +1424,24 @@ class Ensemble:
             self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
             self._source = self._source.persist()  # persist the source frame
 
-        if self._source_dirty:  # not elif
-            # Generate a new object table; updates n_obs, removes missing ids
-            new_obj = self._generate_object_table()
+            # Drop Temporary Source Columns on Sync
+            if len(self._source_temp):
+                self._source = self._source.drop(columns=self._source_temp)
+                print(f"Temporary columns dropped from Source Table: {self._source_temp}")
+                self._source_temp = []
 
-            # Join old obj to new obj; pulls in other existing obj columns
-            self._object = new_obj.join(self._object, on=self._id_col, how="left", lsuffix="", rsuffix="_old")
-            old_cols = [col for col in list(self._object.columns) if "_old" in col]
-            self._object = self._object.drop(old_cols, axis=1)
-            self._object = self._object.persist()  # persist object
+        if self._source_dirty:  # not elif
+            if not self.keep_empty_objects:
+                # Sync Source to Object; remove any objects that do not have sources
+                sor_idx = list(self._object.index.unique().compute())
+                self._object = self._object.map_partitions(lambda x: x[x.index.isin(sor_idx)])
+                self._object = self._object.persist()  # persist the object frame
+
+            # Drop Temporary Object Columns on Sync
+            if len(self._object_temp):
+                self._object = self._object.drop(columns=self._object_temp)
+                print(f"Temporary columns dropped from Object Table: {self._object_temp}")
+                self._object_temp = []
 
         # Now synced and clean
         self._source_dirty = False

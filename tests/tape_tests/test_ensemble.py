@@ -203,9 +203,8 @@ def test_from_source_dict(dask_client):
         assert src_table.iloc[i][ens._err_col] == rows[ens._err_col][i]
 
     # Check that the derived object table is correct.
-    assert obj_table.shape[0] == 2
-    assert obj_table.iloc[0][ens._nobs_tot_col] == 4
-    assert obj_table.iloc[1][ens._nobs_tot_col] == 5
+    assert 8001 in obj_table.index
+    assert 8002 in obj_table.index
 
 
 def test_insert(parquet_ensemble):
@@ -474,6 +473,63 @@ def test_lazy_sync_tables(parquet_ensemble):
     assert not parquet_ensemble._source_dirty
 
 
+def test_temporary_cols(parquet_ensemble):
+    """
+    Test that temporary columns are tracked and dropped as expected.
+    """
+
+    ens = parquet_ensemble
+    ens._object = ens._object.drop(columns=["nobs_r", "nobs_g", "nobs_total"])
+
+    # Make sure temp lists are available but empty
+    assert not len(ens._source_temp)
+    assert not len(ens._object_temp)
+
+    ens.calc_nobs(temporary=True)  # Generates "nobs_total"
+
+    # nobs_total should be a temporary column
+    assert "nobs_total" in ens._object_temp
+    assert "nobs_total" in ens._object.columns
+
+    ens.assign(nobs2=lambda x: x["nobs_total"] * 2, table="object", temporary=True)
+
+    # nobs2 should be a temporary column
+    assert "nobs2" in ens._object_temp
+    assert "nobs2" in ens._object.columns
+
+    # drop NaNs from source, source should be dirty now
+    ens.dropna(how="any", table="source")
+
+    assert ens._source_dirty
+
+    # try a sync
+    ens._sync_tables()
+
+    # nobs_total should be removed from object
+    assert "nobs_total" not in ens._object_temp
+    assert "nobs_total" not in ens._object.columns
+
+    # nobs2 should be removed from object
+    assert "nobs2" not in ens._object_temp
+    assert "nobs2" not in ens._object.columns
+
+    # add a source column that we manually set as dirty, don't have a function
+    # that adds temporary source columns at the moment
+    ens.assign(f2=lambda x: x[ens._flux_col] ** 2, table="source", temporary=True)
+
+    # prune object, object should be dirty
+    ens.prune(threshold=10)
+
+    assert ens._object_dirty
+
+    # try a sync
+    ens._sync_tables()
+
+    # f2 should be removed from source
+    assert "f2" not in ens._source_temp
+    assert "f2" not in ens._source.columns
+
+
 def test_dropna(parquet_ensemble):
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
@@ -560,24 +616,21 @@ def test_keep_zeros(parquet_ensemble):
     parquet_ensemble.dropna(table="source")
     parquet_ensemble._sync_tables()
 
+    # Check that objects are preserved after sync
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
     assert parquet_ensemble._object.npartitions == prev_npartitions
 
-    # Check that all counts have stayed the same except the filtered index,
-    # which should now be all zeros.
-    for i in old_objects_pdf.index.values:
-        for c in new_objects_pdf.columns.values:
-            if i == valid_id:
-                assert new_objects_pdf.loc[i, c] == 0
-            else:
-                assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
-
 
 @pytest.mark.parametrize("by_band", [True, False])
-def test_calc_nobs(parquet_ensemble, by_band):
+@pytest.mark.parametrize("know_divisions", [True, False])
+def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
     ens = parquet_ensemble
     ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+
+    if know_divisions:
+        ens._object = ens._object.reset_index().set_index(ens._id_col)
+        assert ens._object.known_divisions
 
     ens.calc_nobs(by_band)
 
