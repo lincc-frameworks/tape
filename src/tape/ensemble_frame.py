@@ -186,22 +186,8 @@ class _Frame(dd.core._Frame):
         """
         result = super().query(expr, **kwargs)
         return self._propagate_metadata(result)
-    
-    def merge(
-        self,
-        right,
-        how="inner",
-        on=None,
-        left_on=None,
-        right_on=None,
-        left_index=False,
-        right_index=False,
-        suffixes=("_x", "_y"),
-        indicator=False,
-        npartitions=None,
-        shuffle=None,
-        broadcast=None,
-    ):
+        
+    def merge(self, right, **kwargs):
         """Merge the Dataframe with another DataFrame
 
         Doc string below derived from dask.dataframe.core
@@ -293,20 +279,7 @@ class _Frame(dd.core._Frame):
         index in the same partition. To avoid this error, make sure all rows with the
         same ``on``-column value can fit on a single partition.
         """
-        result = super().merge(
-            right, 
-            how,
-            on,
-            left_on,
-            right_on,
-            left_index,
-            right_index,
-            suffixes,
-            indicator,
-            npartitions,
-            shuffle,
-            broadcast,
-        )
+        result = super().merge(right, **kwargs)
         return self._propagate_metadata(result)
     
     def drop(self, labels=None, axis=0, columns=None, errors="raise"):
