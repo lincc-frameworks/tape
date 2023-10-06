@@ -202,20 +202,181 @@ class _Frame(dd.core._Frame):
         shuffle=None,
         broadcast=None,
     ):
+        """Merge the Dataframe with another DataFrame
+
+        Doc string below derived from dask.dataframe.core
+
+        This will merge the two datasets, either on the indices, a certain column
+        in each dataset or the index in one dataset and the column in another.
+        
+        Parameters
+        ----------
+        right: dask.dataframe.DataFrame
+        how : {'left', 'right', 'outer', 'inner'}, default: 'inner'
+            How to handle the operation of the two objects:
+
+            - left: use calling frame's index (or column if on is specified)
+            - right: use other frame's index
+            - outer: form union of calling frame's index (or column if on is
+              specified) with other frame's index, and sort it
+              lexicographically
+            - inner: form intersection of calling frame's index (or column if
+              on is specified) with other frame's index, preserving the order
+              of the calling's one
+
+        on : label or list
+            Column or index level names to join on. These must be found in both
+            DataFrames. If on is None and not merging on indexes then this
+            defaults to the intersection of the columns in both DataFrames.
+        left_on : label or list, or array-like
+            Column to join on in the left DataFrame. Other than in pandas
+            arrays and lists are only support if their length is 1.
+        right_on : label or list, or array-like
+            Column to join on in the right DataFrame. Other than in pandas
+            arrays and lists are only support if their length is 1.
+        left_index : boolean, default False
+            Use the index from the left DataFrame as the join key.
+        right_index : boolean, default False
+            Use the index from the right DataFrame as the join key.
+        suffixes : 2-length sequence (tuple, list, ...)
+            Suffix to apply to overlapping column names in the left and
+            right side, respectively
+        indicator : boolean or string, default False
+            If True, adds a column to output DataFrame called "_merge" with
+            information on the source of each row. If string, column with
+            information on source of each row will be added to output DataFrame,
+            and column will be named value of string. Information column is
+            Categorical-type and takes on a value of "left_only" for observations
+            whose merge key only appears in `left` DataFrame, "right_only" for
+            observations whose merge key only appears in `right` DataFrame,
+            and "both" if the observation’s merge key is found in both.
+        npartitions: int or None, optional
+            The ideal number of output partitions. This is only utilised when
+            performing a hash_join (merging on columns only). If ``None`` then
+            ``npartitions = max(lhs.npartitions, rhs.npartitions)``.
+            Default is ``None``.
+        shuffle: {'disk', 'tasks', 'p2p'}, optional
+            Either ``'disk'`` for single-node operation or ``'tasks'`` and
+            ``'p2p'``` for distributed operation.  Will be inferred by your
+            current scheduler.
+        broadcast: boolean or float, optional
+            Whether to use a broadcast-based join in lieu of a shuffle-based
+            join for supported cases.  By default, a simple heuristic will be
+            used to select the underlying algorithm. If a floating-point value
+            is specified, that number will be used as the ``broadcast_bias``
+            within the simple heuristic (a large number makes Dask more likely
+            to choose the ``broacast_join`` code path). See ``broadcast_join``
+            for more information.
+
+        Notes
+        -----
+
+        There are three ways to join dataframes:
+
+        1. Joining on indices. In this case the divisions are
+           aligned using the function ``dask.dataframe.multi.align_partitions``.
+           Afterwards, each partition is merged with the pandas merge function.
+
+        2. Joining one on index and one on column. In this case the divisions of
+           dataframe merged by index (:math:`d_i`) are used to divide the column
+           merged dataframe (:math:`d_c`) one using
+           ``dask.dataframe.multi.rearrange_by_divisions``. In this case the
+           merged dataframe (:math:`d_m`) has the exact same divisions
+           as (:math:`d_i`). This can lead to issues if you merge multiple rows from
+           (:math:`d_c`) to one row in (:math:`d_i`).
+
+        3. Joining both on columns. In this case a hash join is performed using
+           ``dask.dataframe.multi.hash_join``.
+
+        In some cases, you may see a ``MemoryError`` if the ``merge`` operation requires
+        an internal ``shuffle``, because shuffling places all rows that have the same
+        index in the same partition. To avoid this error, make sure all rows with the
+        same ``on``-column value can fit on a single partition.
+        """
         result = super().merge(
-            right, how, on, left_on, right_on, left_index, right_index, suffixes,
+            right, 
+            how,
+            on,
+            left_on,
+            right_on,
+            left_index,
+            right_index,
+            suffixes,
             indicator,
             npartitions,
             shuffle,
-            broadcast)
+            broadcast,
+        )
         return self._propagate_metadata(result)
     
     def drop(self, labels=None, axis=0, columns=None, errors="raise"):
-        result = super().drop(labels, axis, columns, errors)
+        """Drop specified labels from rows or columns.
+
+        Doc string below derived from dask.dataframe.core
+        
+        Remove rows or columns by specifying label names and corresponding
+        axis, or by directly specifying index or column names. When using a
+        multi-index, labels on different levels can be removed by specifying
+        the level. See the :ref:`user guide <advanced.shown_levels>`
+        for more information about the now unused levels.
+
+        Parameters
+        ----------
+        labels : single label or list-like
+            Index or column labels to drop. A tuple will be used as a single
+            label and not treated as a list-like.
+        axis : {0 or 'index', 1 or 'columns'}, default 0
+            Whether to drop labels from the index (0 or 'index') or
+            columns (1 or 'columns').
+            is equivalent to ``index=labels``).
+        columns : single label or list-like
+            Alternative to specifying axis (``labels, axis=1``
+            is equivalent to ``columns=labels``).
+        errors : {'ignore', 'raise'}, default 'raise'
+            If 'ignore', suppress error and only existing labels are
+            dropped.
+
+        Returns
+        -------
+        result: `tape._Frame`
+            Returns the frame or Nonewith the specified
+            index or column labels removed or None if inplace=True.
+        """
+        result = super().drop(labels=labels, axis=axis, columns=columns, errors=errors)
         return self._propagate_metadata(result)
     
-    def persist(self):
-        result = super().persist()
+    def persist(self, **kwargs):
+        """Persist this dask collection into memory
+
+        Doc string below derived from dask.base
+        
+        This turns a lazy Dask collection into a Dask collection with the same
+        metadata, but now with the results fully computed or actively computing
+        in the background.
+
+        The action of function differs significantly depending on the active
+        task scheduler.  If the task scheduler supports asynchronous computing,
+        such as is the case of the dask.distributed scheduler, then persist
+        will return *immediately* and the return value's task graph will
+        contain Dask Future objects.  However if the task scheduler only
+        supports blocking computation then the call to persist will *block*
+        and the return value's task graph will contain concrete Python results.
+
+        This function is particularly useful when using distributed systems,
+        because the results will be kept in distributed memory, rather than
+        returned to the local process as with compute.
+
+        Parameters
+        ----------
+        **kwargs
+            Extra keywords to forward to the scheduler function.
+
+        Returns
+        -------
+        result: `tape._Frame`
+            The modifed frame backed by in-memory data
+        """
+        result = super().persist(**kwargs)
         return self._propagate_metadata(result)
     
     def set_index(
