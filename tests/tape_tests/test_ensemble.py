@@ -518,11 +518,14 @@ def test_sync_tables(parquet_ensemble):
     parquet_ensemble.dropna(table="source")
     assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
 
+    # Drop a whole object to test that the object is dropped in the object table
+    parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
+
     parquet_ensemble._sync_tables()
 
     # both tables should have the expected number of rows after a sync
-    assert len(parquet_ensemble.compute("object")) == 5
-    assert len(parquet_ensemble.compute("source")) == 1562
+    assert len(parquet_ensemble.compute("object")) == 4
+    assert len(parquet_ensemble.compute("source")) == 1063
 
     # dirty flags should be unset after sync
     assert not parquet_ensemble._object_dirty
