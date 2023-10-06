@@ -1433,7 +1433,7 @@ class Ensemble:
         if self._source_dirty:  # not elif
             if not self.keep_empty_objects:
                 # Sync Source to Object; remove any objects that do not have sources
-                sor_idx = list(self._object.index.unique().compute())
+                sor_idx = list(self._source.index.unique().compute())
                 self._object = self._object.map_partitions(lambda x: x[x.index.isin(sor_idx)])
                 self._object = self._object.persist()  # persist the object frame
 
