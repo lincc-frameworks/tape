@@ -83,14 +83,27 @@ def test_update_ensemble(data_fixture, request):
     # Filter the object table and have the ensemble track the updated table.
     updated_obj = ens._object.query("nobs_total > 50")
     assert updated_obj is not ens._object
+    # Update the ensemble and validate that it marks the object table dirty
+    assert ens._object.is_dirty() == False
     updated_obj.update_ensemble()
+    assert ens._object.is_dirty() == True
     assert updated_obj is ens._object
-
+    
     # Filter the source table and have the ensemble track the updated table.
     updated_src = ens._source.query("psFluxErr > 0.1")
     assert updated_src is not ens._source
+    # Update the ensemble and validate that it marks the source table dirty
+    assert ens._source.is_dirty() == False
     updated_src.update_ensemble()
+    assert ens._source.is_dirty() == True
     assert updated_src is ens._source
+
+    # Compute a result to trigger a table sync
+    obj, src = ens.compute()
+    assert len(obj) > 0 
+    assert len(src) > 0
+    assert ens._object.is_dirty() == False
+    assert ens._source.is_dirty() == False
 
     # Create an additional result table for the ensemble to track.
     cnts = ens._source.groupby([ens._id_col, ens._band_col])[ens._time_col].aggregate("count")
