@@ -573,7 +573,14 @@ def test_sync_tables(parquet_ensemble):
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
     assert parquet_ensemble._object.is_dirty()  # Prune should set the object dirty flag
 
+    # Replace the maximum flux value with a NaN so that we will have a row to drop.
+    max_flux = max(parquet_ensemble._source[parquet_ensemble._flux_col])
+    parquet_ensemble._source[parquet_ensemble._flux_col] = parquet_ensemble._source[
+        parquet_ensemble._flux_col].apply(
+            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
+    )
     parquet_ensemble.dropna(table="source")
+    assert len(parquet_ensemble._source.compute()) == 1999 # We dropped one source row due to a NaN
     assert parquet_ensemble._source.is_dirty()  # Dropna should set the source dirty flag
 
     parquet_ensemble._sync_tables()
@@ -610,7 +617,13 @@ def test_lazy_sync_tables(parquet_ensemble):
     assert not parquet_ensemble._object.is_dirty()
     assert not parquet_ensemble._source.is_dirty()
 
-    # Modify only the source table.
+    # Modify only the source table.    
+    # Replace the maximum flux value with a NaN so that we will have a row to drop.
+    max_flux = max(parquet_ensemble._source[parquet_ensemble._flux_col])
+    parquet_ensemble._source[parquet_ensemble._flux_col] = parquet_ensemble._source[
+        parquet_ensemble._flux_col].apply(
+            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
+    )
     parquet_ensemble.dropna(table="source")
     assert not parquet_ensemble._object.is_dirty()
     assert parquet_ensemble._source.is_dirty()
@@ -659,7 +672,6 @@ def test_dropna(parquet_ensemble):
     # parquet_ensemble._sync_tables()
 
     # Now test dropping na from 'object' table
-    #
     object_pdf = parquet_ensemble._object.compute()
     object_length = len(object_pdf.index)
 
