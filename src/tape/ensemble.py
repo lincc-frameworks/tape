@@ -152,6 +152,10 @@ class Ensemble:
                 self._object = frame
                 self.object = frame
 
+        # Set a frame as dirty if it was previously tracked and the number of rows has changed. 
+        if frame.label in self.frames and len(self.frames[frame.label]) != len(frame):
+            frame.set_dirty(True)
+
         # Ensure this frame is assigned to this Ensemble.
         frame.ensemble = self
         self.frames[frame.label] = frame
