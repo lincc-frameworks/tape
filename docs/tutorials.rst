@@ -13,3 +13,4 @@ functionality.
     Binning Sources in the Ensemble <tutorials/binning_slowly_changing_sources>
     Structure Function Showcase <tutorials/structure_function_showcase>
     Loading Data into the Ensemble <tutorials/tape_datasets>
+    Using Ray with the Ensemble <tutorials/using_ray_with_the_ensemble>

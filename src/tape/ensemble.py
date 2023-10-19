@@ -12,7 +12,7 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import ObjectFrame, SourceFrame, TapeObjectFrame
+from .ensemble_frame import ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
@@ -963,6 +963,136 @@ class Ensemble:
         else:
             return batch
 
+    def from_pandas(
+        self,
+        source_frame,
+        object_frame=None,
+        column_mapper=None,
+        sync_tables=True,
+        npartitions=None,
+        partition_size=None,
+        **kwargs,
+    ):
+        """Read in Pandas dataframe(s) into an ensemble object
+
+        Parameters
+        ----------
+        source_frame: 'pandas.Dataframe'
+            A Dask dataframe that contains source information to be read into the ensemble
+        object_frame: 'pandas.Dataframe', optional
+            If not specified, the object frame is generated from the source frame
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
+        sync_tables: 'bool', optional
+            In the case where an `object_frame`is provided, determines whether an
+            initial sync is performed between the object and source tables. If
+            not performed, dynamic information like the number of observations
+            may be out of date until a sync is performed internally.
+        npartitions: `int`, optional
+            If specified, attempts to repartition the ensemble to the specified
+            number of partitions
+        partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with the Dask dataframe data loaded.
+        """
+        # Construct Dask DataFrames of the source and object tables
+        source = dd.from_pandas(source_frame, npartitions=npartitions)
+        object = None if object_frame is None else dd.from_pandas(object_frame)
+        return self.from_dask_dataframe(
+            source,
+            object_frame=object,
+            column_mapper=column_mapper,
+            sync_tables=sync_tables,
+            npartitions=npartitions,
+            partition_size=partition_size,
+            **kwargs,
+        )
+
+    def from_dask_dataframe(
+        self,
+        source_frame,
+        object_frame=None,
+        column_mapper=None,
+        sync_tables=True,
+        npartitions=None,
+        partition_size=None,
+        **kwargs,
+    ):
+        """Read in Dask dataframe(s) into an ensemble object
+
+        Parameters
+        ----------
+        source_frame: 'dask.Dataframe'
+            A Dask dataframe that contains source information to be read into the ensemble
+        object_frame: 'dask.Dataframe', optional
+            If not specified, the object frame is generated from the source frame
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
+        sync_tables: 'bool', optional
+            In the case where an `object_frame`is provided, determines whether an
+            initial sync is performed between the object and source tables. If
+            not performed, dynamic information like the number of observations
+            may be out of date until a sync is performed internally.
+        npartitions: `int`, optional
+            If specified, attempts to repartition the ensemble to the specified
+            number of partitions
+        partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with the Dask dataframe data loaded.
+        """
+        self._load_column_mapper(column_mapper, **kwargs)
+
+        # TODO(wbeebe@uw.edu): Determine most efficient way to convert to SourceFrame/ObjectFrame
+        source_frame = SourceFrame.from_dask_dataframe(source_frame, self)
+
+        # Set the index of the source frame and save the resulting table
+        self.update_frame(source_frame.set_index(self._id_col, drop=True))
+
+        if object_frame is None:  # generate an indexed object table from source
+            self.update_frame(self._generate_object_table())
+            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
+        else:
+            # TODO(wbeebe@uw.edu): Determine most efficient way to convert to SourceFrame/ObjectFrame
+            self.update_frame(ObjectFrame.from_dask_dataframe(object_frame, ensemble=self))
+            if self._nobs_band_cols is None:
+                # sets empty nobs cols in object
+                unq_filters = np.unique(self._source[self._band_col])
+                self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
+                for col in self._nobs_band_cols:
+                    self._object[col] = np.nan
+
+            # Handle nobs_total column
+            if self._nobs_tot_col is None:
+                self._object["nobs_total"] = np.nan
+                self._nobs_tot_col = "nobs_total"
+
+            self.update_frame(self._object.set_index(self._id_col))
+
+            # Optionally sync the tables, recalculates nobs columns
+            if sync_tables:
+                self._source.set_dirty(True)
+                self._object.set_dirty(True)
+                self._sync_tables()
+
+        if npartitions and npartitions > 1:
+            self.update_frame(self._source.repartition(npartitions=npartitions))
+        elif partition_size:
+            self.update_frame(self._source.repartition(partition_size=partition_size))
+
+        return self
+
     def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
         """Read in parquet files from a hipscat-formatted directory structure
         Parameters
@@ -1158,147 +1288,26 @@ class Ensemble:
                     columns.append(col)
 
         # Read in the source parquet file(s)
-        self.update_frame(SourceFrame.from_parquet(
-            source_file, index=self._id_col, columns=columns, ensemble=self,
-        ))
+        source = SourceFrame.from_parquet(source_file, index=self._id_col, columns=columns, ensemble=self)
 
-        if object_file:  # read from parquet files
+        # Generate a provenance column if not provided
+        if self._provenance_col is None:
+            source["provenance"] = provenance_label
+            self._provenance_col = "provenance"
+
+        object = None
+        if object_file:
             # Read in the object file(s)
-            self.update_frame(ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self))
-            if self._nobs_band_cols is None:
-                # sets empty nobs cols in object
-                unq_filters = np.unique(self._source[self._band_col])
-                self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
-                for col in self._nobs_band_cols:
-                    self._object[col] = np.nan
-
-            # Handle nobs_total column
-            if self._nobs_tot_col is None:
-                self._object["nobs_total"] = np.nan
-                self._nobs_tot_col = "nobs_total"
-
-            # Optionally sync the tables, recalculates nobs columns
-            if sync_tables:
-                self._source.set_dirty(True)
-                self._object.set_dirty(True)
-                self._sync_tables()
-
-        else:  # generate object table from source
-            self.update_frame(self._generate_object_table())
-            self._nobs_bands = [col for col in list(self._object.columns) if col != self._nobs_tot_col]
-
-        # Generate a provenance column if not provided
-        if self._provenance_col is None:
-            self._source["provenance"] = self._source.apply(
-                lambda x: provenance_label, axis=1, meta=pd.Series(name="provenance", dtype=str)
-            )
-            self._provenance_col = "provenance"
-
-        if npartitions and npartitions > 1:
-            self.update_frame(self._source.repartition(npartitions=npartitions))
-        elif partition_size:
-            self.update_frame(self._source.repartition(partition_size=partition_size))
-
-        return self
-    
-    def objsor_from_parquet(
-        self,
-        source_file,
-        object_file,
-        column_mapper=None,
-        provenance_label="survey_1",
-        sync_tables=True,
-        additional_cols=True,
-        npartitions=None,
-        partition_size=None,
-        **kwargs,
-    ):
-        """Read in parquet file(s) for the object and source tables into an Ensemble object.
-
-        Parameters
-        ----------
-        source_file: 'str'
-            Path to a parquet file, or multiple parquet files that contain
-            source information to be read into the ensemble
-        object_file: 'str'
-            Path to a parquet file, or multiple parquet files that contain
-            object information.
-        column_mapper: 'ColumnMapper' object
-            If provided, the ColumnMapper is used to populate relevant column
-            information mapped from the input dataset.
-        provenance_label: 'str', optional
-            Determines the label to use if a provenance column is generated
-        sync_tables: 'bool', optional
-            In the case where object files are loaded in, determines whether an
-            initial sync is performed between the object and source tables. If
-            not performed, dynamic information like the number of observations
-            may be out of date until a sync is performed internally.
-        additional_cols: 'bool', optional
-            Boolean to indicate whether to carry in columns beyond the
-            critical columns, True will, while False will only load the columns
-            containing the critical quantities (id,time,flux,err,band)
-        npartitions: `int`, optional
-            If specified, attempts to repartition the ensemble to the specified
-            number of partitions
-        partition_size: `int`, optional
-            If specified, attempts to repartition the ensemble to partitions
-            of size `partition_size`, the maximum number of bytes for partition
-            as computed by `pandas.Dataframe.memory_usage`.
-
-        Returns
-        ----------
-        ensemble: `tape.ensemble.Ensemble`
-            The ensemble object with parquet data loaded
-        """
-
-        # load column mappings
-        self._load_column_mapper(column_mapper, **kwargs)
-
-        # Handle additional columnss
-        if additional_cols:
-            columns = None  # None will prompt read_parquet to read in all cols
-        else:
-            columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
-            if self._provenance_col is not None:
-                columns.append(self._provenance_col)
-            if self._nobs_tot_col is not None:
-                columns.append(self._nobs_tot_col)
-            if self._nobs_band_cols is not None:
-                for col in self._nobs_band_cols:
-                    columns.append(col)
-
-        # Read in the source parquet file(s)
-        self.update_frame(SourceFrame.from_parquet(source_file, index=self._id_col, columns=columns, 
-                                               ensemble=self))
-
-        # Read in the object file(s)
-        self.update_frame(ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self))
-
-        if self._nobs_band_cols is None:
-            # sets empty nobs cols in object
-            unq_filters = np.unique(self.source[self._band_col])
-            self._nobs_band_cols = [f"nobs_{filt}" for filt in unq_filters]
-            for col in self._nobs_band_cols:
-                self.object[col] = np.nan
-
-        # Handle nobs_total column
-        if self._nobs_tot_col is None:
-            self.object["nobs_total"] = np.nan
-            self._nobs_tot_col = "nobs_total"
-
-        # TODO(wbeebe@uw.edu) Add in table syncing logic as part of milestone 4
-            
-        # Generate a provenance column if not provided
-        if self._provenance_col is None:
-            self.source["provenance"] = provenance_label
-            self._provenance_col = "provenance"
-
-        if npartitions and npartitions > 1:
-            self.update_frame(self.source.repartition(npartitions=npartitions))
-        elif partition_size:
-            self.update_frame(self.source.repartition(partition_size=partition_size))
-
-        return self
+            object = ObjectFrame.from_parquet(object_file, index=self._id_col, ensemble=self)
+        return self.from_dask_dataframe(
+            source_frame=source,
+            object_frame=object,
+            column_mapper=column_mapper,
+            sync_tables=sync_tables,
+            npartitions=npartitions,
+            partition_size=partition_size,
+            **kwargs,
+        )
 
     def from_dataset(self, dataset, **kwargs):
         """Load the ensemble from a TAPE dataset.
@@ -1373,20 +1382,73 @@ class Ensemble:
         ensemble: `tape.ensemble.Ensemble`
             The ensemble object with dictionary data loaded
         """
-        # load column mappings
-        self._load_column_mapper(column_mapper, **kwargs)
 
-        # Load in the source data.
-        self.update_frame(SourceFrame.from_dict(source_dict, npartitions=npartitions))
-        self.update_frame(self._source.set_index(self._id_col, drop=True))
+        # Load the source data into a dataframe.
+        source_frame = SourceFrame.from_dict(source_dict, npartitions=npartitions)
 
-        # Generate the object table from the source.
-        # TODO this is not the object Table oh no....
-        self.update_frame(self._generate_object_table())
+        return self.from_dask_dataframe(
+            source_frame,
+            object_frame=None,
+            column_mapper=column_mapper,
+            sync_tables=True,
+            npartitions=npartitions,
+            **kwargs,
+        )
 
-        # Now synced and clean
-        self._source.set_dirty(False)
-        self._object.set_dirty(False)
+    def convert_flux_to_mag(self, flux_col, zero_point, err_col=None, zp_form="mag", out_col_name=None):
+        """Converts a flux column into a magnitude column.
+
+        Parameters
+        ----------
+        flux_col: 'str'
+            The name of the ensemble flux column to convert into magnitudes.
+        zero_point: 'str'
+            The name of the ensemble column containing the zero point
+            information for column transformation.
+        err_col: 'str', optional
+            The name of the ensemble column containing the errors to propagate.
+            Errors are propagated using the following approximation:
+            Err= (2.5/log(10))*(flux_error/flux), which holds mainly when the
+            error in flux is much smaller than the flux.
+        zp_form: `str`, optional
+            The form of the zero point column, either "flux" or
+            "magnitude"/"mag". Determines how the zero point (zp) is applied in
+            the conversion. If "flux", then the function is applied as
+            mag=-2.5*log10(flux/zp), or if "magnitude", then
+            mag=-2.5*log10(flux)+zp.
+        out_col_name: 'str', optional
+            The name of the output magnitude column, if None then the output
+            is just the flux column name + "_mag". The error column is also
+            generated as the out_col_name + "_err".
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with a new magnitude (and error) column.
+
+        """
+        if out_col_name is None:
+            out_col_name = flux_col + "_mag"
+
+        if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
+            self.update_frame(self._source.assign(
+                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
+            ))
+
+        elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
+            self.update_frame(self._source.assign(
+                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
+            ))
+
+        else:
+            raise ValueError(f"{zp_form} is not a valid zero_point format.")
+
+        # Calculate Errors
+        if err_col is not None:
+            self.update_frame(self._source.assign(
+                **{out_col_name + "_err": lambda x: (2.5 / np.log(10)) * (x[err_col] / x[flux_col])}
+            ))
+
         return self
  
     def _generate_object_table(self):

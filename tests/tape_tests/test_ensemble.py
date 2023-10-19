@@ -70,6 +70,42 @@ def test_from_parquet(data_fixture, request):
 @pytest.mark.parametrize(
     "data_fixture",
     [
+        "dask_dataframe_ensemble",
+        "pandas_ensemble",
+    ],
+)
+def test_from_dataframe(data_fixture, request):
+    """
+    Tests constructing an ensemble from pandas and dask dataframes.
+    """
+    ens = request.getfixturevalue(data_fixture)
+
+    # Check to make sure the source and object tables were created
+    assert ens._source is not None
+    assert ens._object is not None
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 1000
+    assert len(obj) == 5
+
+    # Check that source and object both have the same ids present
+    np.testing.assert_array_equal(np.unique(source.index), np.sort(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens._source[col] is not None
+
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
         "parquet_ensemble",
         "parquet_ensemble_without_client",
     ],
@@ -123,50 +159,6 @@ def test_update_ensemble(data_fixture, request):
     result_frame.ensemble = None
     assert result_frame.update_ensemble() is None 
 
- 
-@pytest.mark.parametrize(
-    "data_fixture",
-    [
-        "parquet_files_and_ensemble_without_client",
-    ],
-)
-def test_objsor_from_parquet(data_fixture, request):
-    """
-    Test that the ensemble successfully loads a SourceFrame and ObjectFrame form parquet files.
-    """
-    _, source_file, object_file, colmap = request.getfixturevalue(data_fixture)
-
-    ens = Ensemble(client=False)
-    ens = ens.objsor_from_parquet(source_file, object_file, column_mapper=colmap)
-
-    assert ens is not None
-
-    # Check to make sure the source and object tables were created
-    assert ens.source is not None
-    assert ens.object is not None
-    assert isinstance(ens.source, SourceFrame)
-    assert isinstance(ens.object, ObjectFrame)
-
-    # Check that the data is not empty.
-    obj, source = ens.compute()
-    assert len(source) == 2000
-    assert len(obj) == 15
-
-    # Check that source and object both have the same ids present
-    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
-
-    # Check the we loaded the correct columns.
-    for col in [
-        ens._time_col,
-        ens._flux_col,
-        ens._err_col,
-        ens._band_col,
-        ens._provenance_col,
-    ]:
-        # Check to make sure the critical quantity labels are bound to real columns
-        assert ens.source[col] is not None
-
-
 def test_available_datasets(dask_client):
     """
     Test that the ensemble is able to successfully read in the list of available TAPE datasets
@@ -189,8 +181,6 @@ def test_frame_tracking(data_fixture, request):
     Tests a workflow of adding and removing the frames tracked by the Ensemble.
     """
     ens, source_file, object_file, colmap = request.getfixturevalue(data_fixture)
-
-    ens = ens.objsor_from_parquet(source_file, object_file, column_mapper=colmap)
 
     # Since we load the ensemble from a parquet, we expect the Source and Object frames to be populated.
     assert len(ens.frames) == 2
