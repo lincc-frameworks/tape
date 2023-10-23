@@ -1363,7 +1363,7 @@ class Ensemble:
             If the index column is already sorted in increasing order.
             Defaults to False
         sort: `bool`, optional
-            If True, sorts the DataFrame by the id column. Otherwise set the 
+            If True, sorts the DataFrame by the id column. Otherwise set the
             index on the individual existing partitions. Defaults to False.
 
         Returns
