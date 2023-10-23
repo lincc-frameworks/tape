@@ -1014,6 +1014,7 @@ class Ensemble:
         sync_tables=True,
         npartitions=None,
         partition_size=None,
+        sorted=False,
         sort=False,
         **kwargs,
     ):
@@ -1039,9 +1040,12 @@ class Ensemble:
         partition_size: `int`, optional
             If specified, attempts to repartition the ensemble to partitions
             of size `partition_size`.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to False
         sort: `bool`, optional
-        If True, sorts the DataFrame by the id column. Otherwise set the index
-        on the individual existing partitions. Defaults to False.
+            If True, sorts the DataFrame by the id column. Otherwise set the
+            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1051,14 +1055,14 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
 
         # Set the index of the source frame and save the resulting table
-        self._source = source_frame.set_index(self._id_col, drop=True, sort=sort)
+        self._source = source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort)
 
         if object_frame is None:  # generate an indexed object table from source
             self._object = self._generate_object_table()
 
         else:
             self._object = object_frame
-            self._object = self._object.set_index(self._id_col, sort=sort)
+            self._object = self._object.set_index(self._id_col, sorted=sorted, sort=sort)
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
@@ -1205,6 +1209,7 @@ class Ensemble:
         additional_cols=True,
         npartitions=None,
         partition_size=None,
+        sorted=False,
         sort=False,
         **kwargs,
     ):
@@ -1239,9 +1244,12 @@ class Ensemble:
         partition_size: `int`, optional
             If specified, attempts to repartition the ensemble to partitions
             of size `partition_size`.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to False
         sort: `bool`, optional
-        If True, sorts the DataFrame by the id column. Otherwise set the index
-        on the individual existing partitions. Defaults to False.
+            If True, sorts the DataFrame by the id column. Otherwise set the
+            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1279,6 +1287,7 @@ class Ensemble:
             sync_tables=sync_tables,
             npartitions=npartitions,
             partition_size=partition_size,
+            sorted=sorted,
             sort=sort,
             **kwargs,
         )
@@ -1350,9 +1359,12 @@ class Ensemble:
         npartitions: `int`, optional
             If specified, attempts to repartition the ensemble to the specified
             number of partitions
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to False
         sort: `bool`, optional
-        If True, sorts the DataFrame by the id column. Otherwise set the index
-        on the individual existing partitions. Defaults to False.
+            If True, sorts the DataFrame by the id column. Otherwise set the 
+            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1369,6 +1381,7 @@ class Ensemble:
             column_mapper=column_mapper,
             sync_tables=True,
             npartitions=npartitions,
+            sorted=sorted,
             sort=sort,
             **kwargs,
         )
