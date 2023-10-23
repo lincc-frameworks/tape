@@ -152,7 +152,7 @@ class Ensemble:
 
         # Create the new row and set the paritioning to match the original dataframe.
         df2 = dd.DataFrame.from_dict(rows, npartitions=1)
-        df2 = df2.set_index(self._id_col, drop=True, sort=False)
+        df2 = df2.set_index(self._id_col, drop=True, sort=True)
 
         # Save the divisions and number of partitions.
         prev_div = self._source.divisions
@@ -169,6 +169,8 @@ class Ensemble:
                 self._source = self._source.repartition(divisions=prev_div)
             elif self._source.npartitions != prev_num:
                 self._source = self._source.repartition(npartitions=prev_num)
+
+        return self
 
     def client_info(self):
         """Calls the Dask Client, which returns cluster information

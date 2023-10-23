@@ -372,8 +372,15 @@ def test_insert_paritioned(dask_client):
         "flux": [0.5 * float(i) for i in range(num_points)],
         "band": [all_bands[i % 4] for i in range(num_points)],
     }
-    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
-    ens.from_source_dict(rows, column_mapper=cmap, npartitions=4)
+    cmap = ColumnMapper(
+        id_col="id",
+        time_col="time",
+        flux_col="flux",
+        err_col="err",
+        band_col="band",
+        provenance_col="provenance",
+    )
+    ens.from_source_dict(rows, column_mapper=cmap, npartitions=4, sort=True)
 
     # Save the old data for comparison.
     old_data = ens.compute("source")
