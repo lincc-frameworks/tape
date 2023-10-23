@@ -435,6 +435,60 @@ def test_core_wrappers(parquet_ensemble):
     parquet_ensemble.compute()
 
 
+@pytest.mark.parametrize("data_sorted", [True, False])
+def test_check_sorted(dask_client, data_sorted):
+    # Create some fake data.
+
+    if data_sorted:
+        rows = {
+            "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+            "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+            "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+            "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        }
+    else:
+        rows = {
+            "id": [8001, 8002, 8001, 8001, 8002, 8002, 8001, 8002, 8002],
+            "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+            "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+            "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens = Ensemble(client=dask_client)
+    ens.from_source_dict(rows, column_mapper=cmap, sort=False)
+
+    assert ens.check_sorted("source") == data_sorted
+
+
+@pytest.mark.parametrize("data_cohesion", [True, False])
+def test_check_lightcurve_cohesion(dask_client, data_cohesion):
+    # Create some fake data.
+
+    if data_cohesion:
+        rows = {
+            "id": [8001, 8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002],
+            "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+            "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+            "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        }
+    else:
+        rows = {
+            "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8001],
+            "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+            "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+            "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            "flux": [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+        }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+    ens = Ensemble(client=dask_client)
+    ens.from_source_dict(rows, column_mapper=cmap, sort=False, npartitions=2)
+
+    assert ens.check_lightcurve_cohesion() == data_cohesion
+
+
 def test_persist(dask_client):
     # Create some fake data.
     rows = {

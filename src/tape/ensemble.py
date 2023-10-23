@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from dask.distributed import Client
+from collections import Counter
 
 from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
@@ -151,7 +152,7 @@ class Ensemble:
 
         # Create the new row and set the paritioning to match the original dataframe.
         df2 = dd.DataFrame.from_dict(rows, npartitions=1)
-        df2 = df2.set_index(self._id_col, drop=True)
+        df2 = df2.set_index(self._id_col, drop=True, sort=False)
 
         # Save the divisions and number of partitions.
         prev_div = self._source.divisions
@@ -205,6 +206,54 @@ class Ensemble:
         self._object.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
         print("Source Table")
         self._source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
+
+    def check_sorted(self, table="object"):
+        """Checks to see if an Ensemble Dataframe is sorted on the index.
+
+        Parameters
+        ----------
+        table: `str`, optional
+            The table to check.
+
+        Returns
+        -------
+        A boolean value indicating whether the index is sorted (True)
+        or not (False)
+        """
+        if table == "object":
+            idx = self._object.index
+        elif table == "source":
+            idx = self._source.index
+        else:
+            raise ValueError(f"{table} is not one of 'object' or 'source'")
+        return idx.map_partitions(lambda a: np.all(a[:-1] <= a[1:])).compute().all()
+
+    def check_lightcurve_cohesion(ens):
+        """Checks to see if lightcurves are split across multiple partitions.
+
+        With partitioned data, and source information represented by rows, it
+        is possible that when loading data or manipulating it in some way (most
+        likely a repartition) that the sources for a given object will be split
+        among multiple partitions. This function will check to see if all
+        lightcurves are "cohesive", meaning the sources for that object only
+        live in a single partition of the dataset.
+
+        Returns
+        -------
+        A boolean value indicating whether the sources tied to a given object
+        are only found in a single partition (True), or if they are split
+        across multiple partitions (False)
+
+        """
+        idx = ens._source.index
+        counts = idx.map_partitions(lambda a: Counter(a.unique())).compute()
+
+        unq_counter = counts[0]
+        for i in range(len(counts) - 1):
+            unq_counter += counts[i + 1]
+            if any(c >= 2 for c in unq_counter.values()):
+                return False
+        return True
 
     def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()
@@ -802,7 +851,9 @@ class Ensemble:
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
             requires the data from each lightcurve is housed in a single
-            partition. If False, a groupby will be performed instead.
+            partition. This can be checked using
+            `Ensemble.check_lightcurve_cohesion`. If False, a groupby will be
+            performed instead.
         compute: `boolean`
             Determines whether to compute the result immediately or hold for a
             later compute call.
@@ -961,6 +1012,7 @@ class Ensemble:
         sync_tables=True,
         npartitions=None,
         partition_size=None,
+        sort=False,
         **kwargs,
     ):
         """Read in Dask dataframe(s) into an ensemble object
@@ -985,6 +1037,9 @@ class Ensemble:
         partition_size: `int`, optional
             If specified, attempts to repartition the ensemble to partitions
             of size `partition_size`.
+        sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the index
+        on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -994,14 +1049,14 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
 
         # Set the index of the source frame and save the resulting table
-        self._source = source_frame.set_index(self._id_col, drop=True)
+        self._source = source_frame.set_index(self._id_col, drop=True, sort=sort)
 
         if object_frame is None:  # generate an indexed object table from source
             self._object = self._generate_object_table()
 
         else:
             self._object = object_frame
-            self._object = self._object.set_index(self._id_col)
+            self._object = self._object.set_index(self._id_col, sort=sort)
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
@@ -1148,6 +1203,7 @@ class Ensemble:
         additional_cols=True,
         npartitions=None,
         partition_size=None,
+        sort=False,
         **kwargs,
     ):
         """Read in parquet file(s) into an ensemble object
@@ -1181,6 +1237,9 @@ class Ensemble:
         partition_size: `int`, optional
             If specified, attempts to repartition the ensemble to partitions
             of size `partition_size`.
+        sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the index
+        on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1218,6 +1277,7 @@ class Ensemble:
             sync_tables=sync_tables,
             npartitions=npartitions,
             partition_size=partition_size,
+            sort=sort,
             **kwargs,
         )
 
@@ -1275,7 +1335,7 @@ class Ensemble:
 
         return {key: datasets_file[key]["description"] for key in datasets_file.keys()}
 
-    def from_source_dict(self, source_dict, column_mapper=None, npartitions=1, **kwargs):
+    def from_source_dict(self, source_dict, column_mapper=None, npartitions=1, sort=False, **kwargs):
         """Load the sources into an ensemble from a dictionary.
 
         Parameters
@@ -1288,6 +1348,9 @@ class Ensemble:
         npartitions: `int`, optional
             If specified, attempts to repartition the ensemble to the specified
             number of partitions
+        sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the index
+        on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1304,6 +1367,7 @@ class Ensemble:
             column_mapper=column_mapper,
             sync_tables=True,
             npartitions=npartitions,
+            sort=sort,
             **kwargs,
         )
 
