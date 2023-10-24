@@ -233,7 +233,7 @@ class Ensemble:
         # Use the existing index function to check if it's sorted (increasing)
         return idx.is_monotonic_increasing.compute()
 
-    def check_lightcurve_cohesion(ens):
+    def check_lightcurve_cohesion(self):
         """Checks to see if lightcurves are split across multiple partitions.
 
         With partitioned data, and source information represented by rows, it
@@ -250,7 +250,7 @@ class Ensemble:
         across multiple partitions (False)
 
         """
-        idx = ens._source.index
+        idx = self._source.index
         counts = idx.map_partitions(lambda a: Counter(a.unique())).compute()
 
         unq_counter = counts[0]
