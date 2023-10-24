@@ -254,8 +254,8 @@ class Ensemble:
         counts = idx.map_partitions(lambda a: Counter(a.unique())).compute()
 
         unq_counter = counts[0]
-        for i in range(len(counts) - 1):
-            unq_counter += counts[i + 1]
+        for i in range(1, len(counts)):
+            unq_counter += counts[i]
             if any(c >= 2 for c in unq_counter.values()):
                 return False
         return True
