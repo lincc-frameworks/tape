@@ -32,5 +32,6 @@ API Reference section.
    Home page <self>
    Getting Started <gettingstarted>
    Tutorials <tutorials>
+   Examples <examples>
    API Reference <autoapi/index>
 

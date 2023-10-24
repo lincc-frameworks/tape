@@ -10,7 +10,7 @@
 
 Package for working with LSST time series data
 
-Given the duration and cadence of Rubin LSST, the survey will generate a vast amount of time series information capturing the variability of various objects. Scientists will need flexible and highly scalable tools to store and analyze O(Billions) of time series. Ideally we would like to provide a single unified interface, similar to [RAIL’s](https://lsstdescrail.readthedocs.io/en/latest/index.html) approach for photo-zs, that allows scientists to fit and analyze time series using a variety of methods. This would include implementation of different optimizers, ability to ingest different time series formats, and a set of metrics for comparing model performance (e.g. AIC or Bayes factors).
+Given the duration and cadence of [Vera C. Rubin LSST](https://www.lsst.org/about), the survey will generate a vast amount of time series information capturing the variability of various objects. Scientists will need flexible and highly scalable tools to store and analyze O(Billions) of time series.  The **Time series Analysis and Processing Engine** (TAPE) is a framework for distributed time series analysis which enables the user to scale their algorithm to LSST data sizes. It allows for efficient and scalable evaluation of algorithms on time domain data through built-in fitting and analysis methods as well as support for user-provided algorithms. TAPE supports ingestion of multiple time series formats, enabling easy access to both LSST time series objects and data from other astronomical surveys.
 
 In short term we are working on two main goals of the project:
   - Enable ease of access to TimeSeries objects in LSST

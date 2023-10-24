@@ -12,8 +12,6 @@ class ColumnMapper:
         err_col=None,
         band_col=None,
         provenance_col=None,
-        nobs_total_col=None,
-        nobs_band_cols=None,
     ):
         """
 
@@ -32,12 +30,6 @@ class ColumnMapper:
         provenance_col: 'str', optional
             Identifies which column contains the provenance information, if
             None the provenance column is generated.
-        nobs_band_cols: list of 'str', optional
-            Identifies which columns contain number of observations for each
-            band, if available in the input object file
-        nobs_total_col: 'str', optional
-            Identifies which column contains the total number of observations,
-            if available in the input object file
 
         Returns
         -------
@@ -53,8 +45,6 @@ class ColumnMapper:
             "err_col": err_col,
             "band_col": band_col,
             "provenance_col": provenance_col,
-            "nobs_total_col": nobs_total_col,
-            "nobs_band_cols": nobs_band_cols,
         }
 
         self.required = [
@@ -64,8 +54,6 @@ class ColumnMapper:
             Column("err_col", True),
             Column("band_col", True),
             Column("provenance_col", False),
-            Column("nobs_total_col", False),
-            Column("nobs_band_cols", False),
         ]
 
         self.known_maps = {"ZTF": ZTFColumnMapper}
@@ -135,8 +123,6 @@ class ColumnMapper:
         err_col=None,
         band_col=None,
         provenance_col=None,
-        nobs_total_col=None,
-        nobs_band_cols=None,
     ):
         """Updates a given set of columns
 
@@ -169,8 +155,6 @@ class ColumnMapper:
             "err_col": err_col,
             "band_col": band_col,
             "provenance_col": provenance_col,
-            "nobs_total_col": nobs_total_col,
-            "nobs_band_cols": nobs_band_cols,
         }
 
         for item in assign_map.items():
@@ -192,8 +176,6 @@ class ZTFColumnMapper(ColumnMapper):
             "err_col": "psFluxErr",
             "band_col": "filterName",
             "provenance_col": None,
-            "nobs_total_col": "nobs_total",
-            "nobs_band_cols": None,
         }
         return self
 
