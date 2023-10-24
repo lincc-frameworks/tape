@@ -210,7 +210,8 @@ class Ensemble:
         self._source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
 
     def check_sorted(self, table="object"):
-        """Checks to see if an Ensemble Dataframe is sorted on the index.
+        """Checks to see if an Ensemble Dataframe is sorted (increasing) on
+        the index.
 
         Parameters
         ----------
@@ -228,7 +229,9 @@ class Ensemble:
             idx = self._source.index
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
-        return idx.map_partitions(lambda a: np.all(a[:-1] <= a[1:])).compute().all()
+
+        # Use the existing index function to check if it's sorted (increasing)
+        return idx.is_monotonic_increasing.compute()
 
     def check_lightcurve_cohesion(ens):
         """Checks to see if lightcurves are split across multiple partitions.
@@ -1346,7 +1349,9 @@ class Ensemble:
 
         return {key: datasets_file[key]["description"] for key in datasets_file.keys()}
 
-    def from_source_dict(self, source_dict, column_mapper=None, npartitions=1, sort=False, **kwargs):
+    def from_source_dict(
+        self, source_dict, column_mapper=None, npartitions=1, sorted=False, sort=False, **kwargs
+    ):
         """Load the sources into an ensemble from a dictionary.
 
         Parameters
