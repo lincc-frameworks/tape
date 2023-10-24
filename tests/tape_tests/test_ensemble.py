@@ -5,6 +5,7 @@ import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 import pytest
+import tape
 
 from tape import Ensemble, EnsembleFrame, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
@@ -36,9 +37,15 @@ def test_with_client():
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
+        "read_parquet_ensemble",
+        "read_parquet_ensemble_without_client",
+        "read_parquet_ensemble_from_source",
+        "read_parquet_ensemble_from_hipscat",
+        "read_parquet_ensemble_with_column_mapper",
+        "read_parquet_ensemble_with_known_column_mapper",
     ],
 )
-def test_from_parquet(data_fixture, request):
+def test_parquet_construction(data_fixture, request):
     """
     Test that ensemble loader functions successfully load parquet files
     """
@@ -67,14 +74,21 @@ def test_from_parquet(data_fixture, request):
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble._source[col] is not None
 
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
         "dask_dataframe_ensemble",
+        "dask_dataframe_with_object_ensemble",
         "pandas_ensemble",
+        "pandas_with_object_ensemble",
+        "read_dask_dataframe_ensemble",
+        "read_dask_dataframe_with_object_ensemble",
+        "read_pandas_ensemble",
+        "read_pandas_with_object_ensemble",
     ],
 )
-def test_from_dataframe(data_fixture, request):
+def test_dataframe_constructors(data_fixture, request):
     """
     Tests constructing an ensemble from pandas and dask dataframes.
     """
@@ -102,6 +116,9 @@ def test_from_dataframe(data_fixture, request):
         # Check to make sure the critical quantity labels are bound to real columns
         assert ens._source[col] is not None
 
+    # Check that we can compute an analysis function on the ensemble.
+    amplitude = ens.batch(calc_stetson_J)
+    assert len(amplitude) == 5
 
 @pytest.mark.parametrize(
     "data_fixture",
@@ -158,6 +175,7 @@ def test_update_ensemble(data_fixture, request):
     # Test update_ensemble when a frame is unlinked to its parent ensemble.
     result_frame.ensemble = None
     assert result_frame.update_ensemble() is None 
+
 
 def test_available_datasets(dask_client):
     """
@@ -270,7 +288,7 @@ def test_from_rrl_dataset(dask_client):
     ens = Ensemble(client=dask_client)
     ens.from_dataset("s82_rrlyrae")
 
-    # larger dataset, let's just use a subset of ~100
+    # larger dataset, let's just use a subset
     ens.prune(350)
 
     res = ens.batch(calc_stetson_J)
@@ -293,7 +311,51 @@ def test_from_qso_dataset(dask_client):
     ens = Ensemble(client=dask_client)
     ens.from_dataset("s82_qso")
 
-    # larger dataset, let's just use a subset of ~100
+    # larger dataset, let's just use a subset
+    ens.prune(650)
+
+    res = ens.batch(calc_stetson_J)
+
+    assert 1257836 in res  # find a specific object
+
+    # Check Stetson J results for a specific object
+    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+
+
+def test_read_rrl_dataset(dask_client):
+    """
+    Test a basic load and analyze workflow from the S82 RR Lyrae Dataset
+    """
+
+    ens = tape.read_dataset("s82_rrlyrae", dask_client=dask_client)
+
+    # larger dataset, let's just use a subset
+    ens.prune(350)
+
+    res = ens.batch(calc_stetson_J)
+
+    assert 377927 in res.index  # find a specific object
+
+    # Check Stetson J results for a specific object
+    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+
+
+def test_read_qso_dataset(dask_client):
+    """
+    Test a basic load and analyze workflow from the S82 QSO Dataset
+    """
+
+    ens = tape.read_dataset("s82_qso", dask_client=dask_client)
+
+    # larger dataset, let's just use a subset
     ens.prune(650)
 
     res = ens.batch(calc_stetson_J)
@@ -343,9 +405,49 @@ def test_from_source_dict(dask_client):
         assert src_table.iloc[i][ens._err_col] == rows[ens._err_col][i]
 
     # Check that the derived object table is correct.
-    assert obj_table.shape[0] == 2
-    assert obj_table.iloc[0][ens._nobs_tot_col] == 4
-    assert obj_table.iloc[1][ens._nobs_tot_col] == 5
+    assert 8001 in obj_table.index
+    assert 8002 in obj_table.index
+
+
+def test_read_source_dict(dask_client):
+    """
+    Test that tape.read_source_dict() successfully creates data from a dictionary.
+    """
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # and a few time steps. Leave out the flux data initially.
+    rows = {
+        "id": [8001, 8001, 8001, 8001, 8002, 8002, 8002, 8002, 8002],
+        "time": [10.1, 10.2, 10.2, 11.1, 11.2, 11.3, 11.4, 15.0, 15.1],
+        "band": ["g", "g", "b", "g", "b", "g", "g", "g", "g"],
+        "err": [1.0, 2.0, 1.0, 3.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+    }
+
+    # We get an error without all of the required rows.
+    with pytest.raises(ValueError):
+        tape.read_source_dict(rows)
+
+    # Add the last row and build the ensemble.
+    rows["flux"] = [1.0, 2.0, 5.0, 3.0, 1.0, 2.0, 3.0, 4.0, 5.0]
+
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens = tape.read_source_dict(rows, column_mapper=cmap, dask_client=dask_client)
+
+    (obj_table, src_table) = ens.compute()
+
+    # Check that the loaded source table is correct.
+    assert src_table.shape[0] == 9
+    for i in range(9):
+        assert src_table.iloc[i][ens._flux_col] == rows[ens._flux_col][i]
+        assert src_table.iloc[i][ens._time_col] == rows[ens._time_col][i]
+        assert src_table.iloc[i][ens._band_col] == rows[ens._band_col][i]
+        assert src_table.iloc[i][ens._err_col] == rows[ens._err_col][i]
+
+    # Check that the derived object table is correct.
+    assert 8001 in obj_table.index
+    assert 8002 in obj_table.index
 
 
 def test_insert(parquet_ensemble):
@@ -570,14 +672,16 @@ def test_sync_tables(parquet_ensemble):
             lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
     )
     parquet_ensemble.dropna(table="source")
-    assert len(parquet_ensemble._source.compute()) == 1999 # We dropped one source row due to a NaN
     assert parquet_ensemble._source.is_dirty()  # Dropna should set the source dirty flag
+
+    # Drop a whole object to test that the object is dropped in the object table
+    parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
 
     parquet_ensemble._sync_tables()
 
     # both tables should have the expected number of rows after a sync
-    assert len(parquet_ensemble.compute("object")) == 5
-    assert len(parquet_ensemble.compute("source")) == 1562
+    assert len(parquet_ensemble.compute("object")) == 4
+    assert len(parquet_ensemble.compute("source")) == 1063
 
     # dirty flags should be unset after sync
     assert not parquet_ensemble._object.is_dirty()
@@ -628,6 +732,127 @@ def test_lazy_sync_tables(parquet_ensemble):
     parquet_ensemble._lazy_sync_tables(table="object")
     assert not parquet_ensemble._object.is_dirty()
     assert not parquet_ensemble._source.is_dirty()
+
+
+def test_temporary_cols(parquet_ensemble):
+    """
+    Test that temporary columns are tracked and dropped as expected.
+    """
+
+    ens = parquet_ensemble
+    ens.update_frame(ens._object.drop(columns=["nobs_r", "nobs_g", "nobs_total"]))
+
+    # Make sure temp lists are available but empty
+    assert not len(ens._source_temp)
+    assert not len(ens._object_temp)
+
+    ens.calc_nobs(temporary=True)  # Generates "nobs_total"
+
+    # nobs_total should be a temporary column
+    assert "nobs_total" in ens._object_temp
+    assert "nobs_total" in ens._object.columns
+
+    ens.assign(nobs2=lambda x: x["nobs_total"] * 2, table="object", temporary=True)
+
+    # nobs2 should be a temporary column
+    assert "nobs2" in ens._object_temp
+    assert "nobs2" in ens._object.columns
+
+    # drop NaNs from source, source should be dirty now
+    ens.dropna(how="any", table="source")
+
+    assert ens._source.is_dirty()
+
+    # try a sync
+    ens._sync_tables()
+
+    # nobs_total should be removed from object
+    assert "nobs_total" not in ens._object_temp
+    assert "nobs_total" not in ens._object.columns
+
+    # nobs2 should be removed from object
+    assert "nobs2" not in ens._object_temp
+    assert "nobs2" not in ens._object.columns
+
+    # add a source column that we manually set as dirty, don't have a function
+    # that adds temporary source columns at the moment
+    ens.assign(f2=lambda x: x[ens._flux_col] ** 2, table="source", temporary=True)
+
+    # prune object, object should be dirty
+    ens.prune(threshold=10)
+
+    assert ens._object_dirty
+
+    # try a sync
+    ens._sync_tables()
+
+    # f2 should be removed from source
+    assert "f2" not in ens._source_temp
+    assert "f2" not in ens._source.columns
+
+
+def test_temporary_cols(parquet_ensemble):
+    """
+    Test that temporary columns are tracked and dropped as expected.
+    """
+
+    ens = parquet_ensemble
+    ens._object = ens._object.drop(columns=["nobs_r", "nobs_g", "nobs_total"])
+
+    # Make sure temp lists are available but empty
+    assert not len(ens._source_temp)
+    assert not len(ens._object_temp)
+
+    ens.calc_nobs(temporary=True)  # Generates "nobs_total"
+
+    # nobs_total should be a temporary column
+    assert "nobs_total" in ens._object_temp
+    assert "nobs_total" in ens._object.columns
+
+    ens.assign(nobs2=lambda x: x["nobs_total"] * 2, table="object", temporary=True)
+
+    # nobs2 should be a temporary column
+    assert "nobs2" in ens._object_temp
+    assert "nobs2" in ens._object.columns
+
+    # Replace the maximum flux value with a NaN so that we will have a row to drop.
+    max_flux = max(parquet_ensemble._source[parquet_ensemble._flux_col])
+    parquet_ensemble._source[parquet_ensemble._flux_col] = parquet_ensemble._source[
+        parquet_ensemble._flux_col].apply(
+            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
+    )
+
+    # drop NaNs from source, source should be dirty now
+    ens.dropna(how="any", table="source")
+
+    assert ens._source.is_dirty()
+
+    # try a sync
+    ens._sync_tables()
+
+    # nobs_total should be removed from object
+    assert "nobs_total" not in ens._object_temp
+    assert "nobs_total" not in ens._object.columns
+
+    # nobs2 should be removed from object
+    assert "nobs2" not in ens._object_temp
+    assert "nobs2" not in ens._object.columns
+
+    # add a source column that we manually set as dirty, don't have a function
+    # that adds temporary source columns at the moment
+    ens.assign(f2=lambda x: x[ens._flux_col] ** 2, table="source", temporary=True)
+
+    # prune object, object should be dirty
+    ens.prune(threshold=10)
+
+    assert ens._object.is_dirty()
+
+    # try a sync
+    ens._sync_tables()
+
+    # f2 should be removed from source
+    assert "f2" not in ens._source_temp
+    assert "f2" not in ens._source.columns
 
 
 def test_dropna(parquet_ensemble):
@@ -716,18 +941,33 @@ def test_keep_zeros(parquet_ensemble):
     parquet_ensemble.dropna(table="source")
     parquet_ensemble._sync_tables()
 
+    # Check that objects are preserved after sync
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
     assert parquet_ensemble._object.npartitions == prev_npartitions
 
-    # Check that all counts have stayed the same except the filtered index,
-    # which should now be all zeros.
-    for i in old_objects_pdf.index.values:
-        for c in new_objects_pdf.columns.values:
-            if i == valid_id:
-                assert new_objects_pdf.loc[i, c] == 0
-            else:
-                assert new_objects_pdf.loc[i, c] == old_objects_pdf.loc[i, c]
+
+@pytest.mark.parametrize("by_band", [True, False])
+@pytest.mark.parametrize("know_divisions", [True, False])
+def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
+    ens = parquet_ensemble
+    ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+
+    if know_divisions:
+        ens._object = ens._object.reset_index().set_index(ens._id_col)
+        assert ens._object.known_divisions
+
+    ens.calc_nobs(by_band)
+
+    lc = ens._object.loc[88472935274829959].compute()
+
+    if by_band:
+        assert np.all([col in ens._object.columns for col in ["nobs_g", "nobs_r"]])
+        assert lc["nobs_g"].values[0] == 98
+        assert lc["nobs_r"].values[0] == 401
+
+    assert "nobs_total" in ens._object.columns
+    assert lc["nobs_total"].values[0] == 499
 
 
 def test_prune(parquet_ensemble):
@@ -904,6 +1144,55 @@ def test_coalesce(dask_client, drop_inputs):
         # The input columns should still be present
         for col in ["flux1", "flux2", "flux3"]:
             assert col in ens._source.columns
+
+
+@pytest.mark.parametrize("zero_point", [("zp_mag", "zp_flux"), (25.0, 10**10)])
+@pytest.mark.parametrize("zp_form", ["flux", "mag", "magnitude", "lincc"])
+@pytest.mark.parametrize("out_col_name", [None, "mag"])
+def test_convert_flux_to_mag(dask_client, zero_point, zp_form, out_col_name):
+    ens = Ensemble(client=dask_client)
+
+    source_dict = {
+        "id": [0, 0, 0, 0, 0],
+        "time": [1, 2, 3, 4, 5],
+        "flux": [30.5, 70, 80.6, 30.2, 60.3],
+        "zp_mag": [25.0, 25.0, 25.0, 25.0, 25.0],
+        "zp_flux": [10**10, 10**10, 10**10, 10**10, 10**10],
+        "error": [10, 10, 10, 10, 10],
+        "band": ["g", "g", "g", "g", "g"],
+    }
+
+    if out_col_name is None:
+        output_column = "flux_mag"
+    else:
+        output_column = out_col_name
+
+    # map flux_col to one of the flux columns at the start
+    col_map = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="error", band_col="band")
+    ens.from_source_dict(source_dict, column_mapper=col_map)
+
+    if zp_form == "flux":
+        ens.convert_flux_to_mag(zero_point[1], zp_form, out_col_name)
+
+        res_mag = ens._source.compute()[output_column].to_list()[0]
+        assert pytest.approx(res_mag, 0.001) == 21.28925
+
+        res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
+        assert pytest.approx(res_err, 0.001) == 0.355979
+
+    elif zp_form == "mag" or zp_form == "magnitude":
+        ens.convert_flux_to_mag(zero_point[0], zp_form, out_col_name)
+
+        res_mag = ens._source.compute()[output_column].to_list()[0]
+        assert pytest.approx(res_mag, 0.001) == 21.28925
+
+        res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
+        assert pytest.approx(res_err, 0.001) == 0.355979
+
+    else:
+        with pytest.raises(ValueError):
+            ens.convert_flux_to_mag(zero_point[0], zp_form, "mag")
+
 
 def test_find_day_gap_offset(dask_client):
     ens = Ensemble(client=dask_client)
