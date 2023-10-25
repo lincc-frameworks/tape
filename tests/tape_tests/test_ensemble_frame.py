@@ -229,9 +229,11 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert result_source_frame.is_dirty()
 
     # Set an index and then group by that index.
+    result_source_frame.set_dirty(False)
     result_source_frame = result_source_frame.set_index("psFlux", drop=True)
     assert result_source_frame.label == SOURCE_LABEL
     assert result_source_frame.ensemble == ens    
+    assert not result_source_frame.is_dirty()
     group_result = result_source_frame.groupby(["psFlux"]).count()
     assert len(group_result) > 0
     assert isinstance(group_result, SourceFrame)
@@ -250,6 +252,8 @@ def test_object_and_source_frame_propagation(data_fixture, request):
 
     assert not object_frame.is_dirty()
     object_frame.set_dirty(True)
+    # Verify that this didn't alter the source frame
+    assert not result_source_frame.is_dirty()
 
     # Perform a series of operations on the ObjectFrame and then verify the result is still a
     # proper ObjectFrame with appropriate metadata propagated.

@@ -81,12 +81,11 @@ class TapeObjectArrowEngine(TapeArrowEngine):
 class _Frame(dd.core._Frame):
     """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
 
-    _is_dirty = False # True if the underlying data is out of sync with the Ensemble
-
     def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
         super().__init__(dsk, name, meta, divisions)
         self.label = label # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble # The Ensemble object containing this frame.
+        self._is_dirty = False # True if the underlying data is out of sync with the Ensemble
 
     def is_dirty(self):
         return self._is_dirty
@@ -115,7 +114,7 @@ class _Frame(dd.core._Frame):
         """
         new_frame.label = self.label
         new_frame.ensemble = self.ensemble
-        new_frame.set_dirty(self.is_dirty)
+        new_frame.set_dirty(self._is_dirty)
         return new_frame
 
     def copy(self):
