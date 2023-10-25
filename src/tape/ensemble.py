@@ -143,17 +143,19 @@ class Ensemble:
             if frame.label != expected_label:
                 raise ValueError(f"Unable to update frame with reserved label " f"'{frame.label}'"
                 )
-            if isinstance(frame, SourceFrame):
+            if isinstance(frame, SourceFrame) and frame.label == SOURCE_FRAME_LABEL:
                 self._source = frame
                 self.source = frame
-            elif isinstance(frame, ObjectFrame):
+            elif isinstance(frame, ObjectFrame) and frame.label == OBJECT_FRAME_LABEL:
                 self._object = frame
                 self.object = frame
 
         # Set a frame as dirty if it was previously tracked and the number of rows has changed. 
         if frame.label in self.frames and len(self.frames[frame.label]) != len(frame):
+            print("Setting frame " + frame.label + " as dirty")
             frame.set_dirty(True)
 
+        print("Updating frame: " + frame.label + " (is frame dirty: " + str(frame.is_dirty()) + ")")
         # Ensure this frame is assigned to this Ensemble.
         frame.ensemble = self
         self.frames[frame.label] = frame
@@ -1583,25 +1585,35 @@ class Ensemble:
         sources may be kept in the object table is the Ensemble's
         keep_empty_objects attribute is set to True.
         """
-
+        if self._object.is_dirty() or self._source.is_dirty():
+            print("_sync_tables started")
         if self._object.is_dirty():
+            print("Syncing source table is started")
             # Sync Object to Source; remove any missing objects from source
             obj_idx = list(self._object.index.compute())
+            print("Syncing source table, index computed")
             self.update_frame(self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)]))
+            print("Syncing source table, partitions mapped")
             self.update_frame(self._source.persist())  # persist the source frame
+            print("Syncing source table, frame persisted")
 
             # Drop Temporary Source Columns on Sync
             if len(self._source_temp):
+                print("Syncing source table, dropping temp columns")
                 self.update_frame(self._source.drop(columns=self._source_temp))
                 print(f"Temporary columns dropped from Source Table: {self._source_temp}")
                 self._source_temp = []
 
         if self._source.is_dirty():  # not elif
+            print("Syncing object table started")
             if not self.keep_empty_objects:
                 # Sync Source to Object; remove any objects that do not have sources
                 sor_idx = list(self._source.index.unique().compute())
+                print("Syncing object table index computed")
                 self.update_frame(self._object.map_partitions(lambda x: x[x.index.isin(sor_idx)]))
+                print("Syncing object table partitions mapped")
                 self.update_frame(self._object.persist())  # persist the object frame
+                print("Syncing object table, frame persisted")
 
             # Drop Temporary Object Columns on Sync
             if len(self._object_temp):
@@ -1609,6 +1621,7 @@ class Ensemble:
                 print(f"Temporary columns dropped from Object Table: {self._object_temp}")
                 self._object_temp = []
 
+        print("_sync_tables finished")
         # Now synced and clean
         self._source.set_dirty(False)
         self._object.set_dirty(False)

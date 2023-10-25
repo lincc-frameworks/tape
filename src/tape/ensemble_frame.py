@@ -81,10 +81,9 @@ class TapeObjectArrowEngine(TapeArrowEngine):
 class _Frame(dd.core._Frame):
     """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
 
-    _is_dirty = False # True if the underlying data is out of sync with the Ensemble
-
     def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
         super().__init__(dsk, name, meta, divisions)
+        self._is_dirty = False # True if the underlying data is out of sync with the Ensemble
         self.label = label # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble # The Ensemble object containing this frame.
 
@@ -92,6 +91,7 @@ class _Frame(dd.core._Frame):
         return self._is_dirty
     
     def set_dirty(self, is_dirty):
+        print("set_dirty called for frame: " + self.label + " with value: " + str(is_dirty))
         self._is_dirty = is_dirty
 
     @property
@@ -115,7 +115,7 @@ class _Frame(dd.core._Frame):
         """
         new_frame.label = self.label
         new_frame.ensemble = self.ensemble
-        new_frame.set_dirty(self.is_dirty)
+        new_frame.set_dirty(self._is_dirty)
         return new_frame
 
     def copy(self):
@@ -184,7 +184,9 @@ class _Frame(dd.core._Frame):
             import numexpr
             numexpr.set_num_threads(1)
         """
+        print("Beginning query for frame: " + self.label)
         result = super().query(expr, **kwargs)
+        print("Ending query for frame: " + self.label)
         return self._propagate_metadata(result)
         
     def merge(self, right, **kwargs):
@@ -349,7 +351,9 @@ class _Frame(dd.core._Frame):
         result: `tape._Frame`
             The modifed frame backed by in-memory data
         """
+        print("Beginning persist for frame: " + self.label)
         result = super().persist(**kwargs)
+        print("Ending persist for frame: " + self.label)
         return self._propagate_metadata(result)
     
     def set_index(
@@ -440,7 +444,9 @@ class _Frame(dd.core._Frame):
         result: `tape._Frame`
             The indexed frame
         """
+        print("Beginning setting index for frame: " + self.label)
         result = super().set_index(other, drop, sorted, npartitions, divisions, inplace, sort, **kwargs)
+        print("Ending setting index for frame: " + self.label)
         return self._propagate_metadata(result)
 
 class TapeSeries(pd.Series):
