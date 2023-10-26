@@ -117,7 +117,7 @@ class _Frame(dd.core._Frame):
         """
         new_frame.label = self.label
         new_frame.ensemble = self.ensemble
-        new_frame.set_dirty(self._is_dirty)
+        new_frame.set_dirty(self.is_dirty())
         return new_frame
 
     def copy(self):
