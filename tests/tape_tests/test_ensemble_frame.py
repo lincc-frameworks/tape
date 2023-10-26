@@ -87,6 +87,14 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert copied_frame.ensemble == ens
     assert copied_frame.is_dirty()
 
+    # Verify that the above is also true by calling copy via map_partitions
+    mapped_frame = ens_frame.copy().map_partitions(lambda x: x.copy())
+    assert isinstance(mapped_frame, EnsembleFrame)
+    assert isinstance(mapped_frame._meta, TapeFrame)
+    assert mapped_frame.label == TEST_LABEL
+    assert mapped_frame.ensemble == ens
+    assert mapped_frame.is_dirty()
+
     # Test that a filtered EnsembleFrame is still an EnsembleFrame.
     filtered_frame = ens_frame[["id", "time"]]
     assert isinstance(filtered_frame, EnsembleFrame)
@@ -220,6 +228,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     # proper SourceFrame with appropriate metadata propagated.
     source_frame["psFlux"].mean().compute()
     result_source_frame = source_frame.copy()[["psFlux", "psFluxErr"]]
+    result_source_frame = result_source_frame.map_partitions(lambda x: x.copy())
     assert isinstance(result_source_frame, SourceFrame)
     assert isinstance(result_source_frame._meta, TapeSourceFrame)
     assert len(result_source_frame) > 0
@@ -228,12 +237,14 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert result_source_frame.ensemble is ens
     assert result_source_frame.is_dirty()
 
-    # Set an index and then group by that index.
+    # Mark the frame clean to verify that we propagate that state as well
     result_source_frame.set_dirty(False)
+
+    # Set an index and then group by that index.
     result_source_frame = result_source_frame.set_index("psFlux", drop=True)
     assert result_source_frame.label == SOURCE_LABEL
     assert result_source_frame.ensemble == ens    
-    assert not result_source_frame.is_dirty()
+    assert not result_source_frame.is_dirty() # frame is still clean.
     group_result = result_source_frame.groupby(["psFlux"]).count()
     assert len(group_result) > 0
     assert isinstance(group_result, SourceFrame)
@@ -252,22 +263,27 @@ def test_object_and_source_frame_propagation(data_fixture, request):
 
     assert not object_frame.is_dirty()
     object_frame.set_dirty(True)
-    # Verify that this didn't alter the source frame
+    # Verify that the source frame stays clean when object frame is marked dirty.
     assert not result_source_frame.is_dirty()
 
     # Perform a series of operations on the ObjectFrame and then verify the result is still a
     # proper ObjectFrame with appropriate metadata propagated.
     result_object_frame = object_frame.copy()[["nobs_g", "nobs_total"]]
+    result_object_frame = result_object_frame.map_partitions(lambda x: x.copy())
     assert isinstance(result_object_frame, ObjectFrame)
     assert isinstance(result_object_frame._meta, TapeObjectFrame)
     assert result_object_frame.label == OBJECT_LABEL
     assert result_object_frame.ensemble is ens
     assert result_object_frame.is_dirty()
 
+    # Mark the frame clean to verify that we propagate that state as well
+    result_object_frame.set_dirty(False)
+
     # Set an index and then group by that index.
     result_object_frame = result_object_frame.set_index("nobs_g", drop=True)
     assert result_object_frame.label == OBJECT_LABEL
-    assert result_object_frame.ensemble == ens    
+    assert result_object_frame.ensemble == ens
+    assert not result_object_frame.is_dirty() # frame is still clean
     group_result = result_object_frame.groupby(["nobs_g"]).count()
     assert len(group_result) > 0
     assert isinstance(group_result, ObjectFrame)

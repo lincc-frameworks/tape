@@ -82,16 +82,19 @@ class _Frame(dd.core._Frame):
     """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
 
     def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
-        super().__init__(dsk, name, meta, divisions)
+        # We define relevant object fields before super().__init__ since that call may lead to a
+        # map_partitions call which will assume these fields exist.
         self.label = label # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble # The Ensemble object containing this frame.
-        self._is_dirty = False # True if the underlying data is out of sync with the Ensemble
+        self.dirty = False # True if the underlying data is out of sync with the Ensemble
+
+        super().__init__(dsk, name, meta, divisions)
 
     def is_dirty(self):
-        return self._is_dirty
+        return self.dirty
     
-    def set_dirty(self, is_dirty):
-        self._is_dirty = is_dirty
+    def set_dirty(self, dirty):
+        self.dirty = dirty
 
     @property
     def _args(self):
@@ -441,6 +444,84 @@ class _Frame(dd.core._Frame):
         """
         result = super().set_index(other, drop, sorted, npartitions, divisions, inplace, sort, **kwargs)
         return self._propagate_metadata(result)
+    
+    def map_partitions(self, func, *args, **kwargs):
+        """Apply Python function on each DataFrame partition.
+
+        Doc string below derived from dask.dataframe.core
+
+        If ``sort=False``, this function operates exactly like ``pandas.set_index``
+        and sets the index on the DataFrame. If ``sort=True`` (default),
+        this function also sorts the DataFrame by the new index. This can have a
+        significant impact on performance, because joins, groupbys, lookups, etc.
+        are all much faster on that column. However, this performance increase
+        comes with a cost, sorting a parallel dataset requires expensive shuffles.
+        Often we ``set_index`` once directly after data ingest and filtering and
+        then perform many cheap computations off of the sorted dataset.
+
+        With ``sort=True``, this function is much more expensive. Under normal
+        operation this function does an initial pass over the index column to
+        compute approximate quantiles to serve as future divisions. It then passes
+        over the data a second time, splitting up each input partition into several
+        pieces and sharing those pieces to all of the output partitions now in
+        sorted order.
+
+        In some cases we can alleviate those costs, for example if your dataset is
+        sorted already then we can avoid making many small pieces or if you know
+        good values to split the new index column then we can avoid the initial
+        pass over the data. For example if your new index is a datetime index and
+        your data is already sorted by day then this entire operation can be done
+        for free. You can control these options with the following parameters.
+
+        Parameters
+        ----------
+        other: string or Dask Series
+            Column to use as index.
+        drop: boolean, default True
+            Delete column to be used as the new index.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to False
+        npartitions: int, None, or 'auto'
+            The ideal number of output partitions. If None, use the same as
+            the input. If 'auto' then decide by memory use.
+            Only used when ``divisions`` is not given. If ``divisions`` is given,
+            the number of output partitions will be ``len(divisions) - 1``.
+        divisions: list, optional
+            The "dividing lines" used to split the new index into partitions.
+            For ``divisions=[0, 10, 50, 100]``, there would be three output partitions,
+            where the new index contained [0, 10), [10, 50), and [50, 100), respectively.
+            See https://docs.dask.org/en/latest/dataframe-design.html#partitions.
+            If not given (default), good divisions are calculated by immediately computing
+            the data and looking at the distribution of its values. For large datasets,
+            this can be expensive.
+            Note that if ``sorted=True``, specified divisions are assumed to match
+            the existing partitions in the data; if this is untrue you should
+            leave divisions empty and call ``repartition`` after ``set_index``.
+        inplace: bool, optional
+            Modifying the DataFrame in place is not supported by Dask.
+            Defaults to False.
+        sort: bool, optional
+            If ``True``, sort the DataFrame by the new index. Otherwise
+            set the index on the individual existing partitions.
+            Defaults to ``True``.
+        shuffle: {'disk', 'tasks', 'p2p'}, optional
+            Either ``'disk'`` for single-node operation or ``'tasks'`` and
+            ``'p2p'`` for distributed operation.  Will be inferred by your
+            current scheduler.
+        compute: bool, default False
+            Whether or not to trigger an immediate computation. Defaults to False.
+            Note, that even if you set ``compute=False``, an immediate computation
+            will still be triggered if ``divisions`` is ``None``.
+        partition_size: int, optional
+            Desired size of each partitions in bytes.
+            Only used when ``npartitions='auto'``
+        """
+        result = super().map_partitions(func, *args, **kwargs)
+        if isinstance(result, self.__class__):
+            # If the output of func is another _Frame, let's propagate any metadata.
+            return self._propagate_metadata(result)
+        return result
 
 class TapeSeries(pd.Series):
     """A barebones extension of a Pandas series to be used for underlying Ensemble data.
