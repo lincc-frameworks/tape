@@ -16,9 +16,15 @@ from .ensemble_frame import ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourc
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
+import time
+
 # TODO import from EnsembleFrame...?
 SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
+
+def print_t(str):
+    current_time = time.strftime("%H:%M:%S", time.localtime())
+    print("[" + current_time + "] " + str)
 
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
@@ -1583,31 +1589,43 @@ class Ensemble:
         sources may be kept in the object table is the Ensemble's
         keep_empty_objects attribute is set to True.
         """
-
         if self._object.is_dirty():
+            print_t("Syncing source table started")
             # Sync Object to Source; remove any missing objects from source
+
             obj_idx = list(self._object.index.compute())
+            print_t("Syncing source table: object index computed")
             self.update_frame(self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)]))
+            print_t("Syncing source table: map_partitions completed")
             self.update_frame(self._source.persist())  # persist the source frame
+            print_t("Syncing source table: frame persisted")
 
             # Drop Temporary Source Columns on Sync
             if len(self._source_temp):
+                print_t("Syncing source table: columns dropped")
                 self.update_frame(self._source.drop(columns=self._source_temp))
-                print(f"Temporary columns dropped from Source Table: {self._source_temp}")
+                print_t(f"Temporary columns dropped from Source Table: {self._source_temp}")
                 self._source_temp = []
+            print_t("Syncing source table finished")
 
         if self._source.is_dirty():  # not elif
+            print_t("Syncing object table started")
             if not self.keep_empty_objects:
                 # Sync Source to Object; remove any objects that do not have sources
                 sor_idx = list(self._source.index.unique().compute())
+                print_t("Syncing object table: source index computed")
                 self.update_frame(self._object.map_partitions(lambda x: x[x.index.isin(sor_idx)]))
+                print_t("Syncing object table: map_partitions completed")
                 self.update_frame(self._object.persist())  # persist the object frame
+                print_t("Syncing object table: frame persisted")
 
             # Drop Temporary Object Columns on Sync
             if len(self._object_temp):
+                print_t("Syncing object table: columns dropped")
                 self.update_frame(self._object.drop(columns=self._object_temp))
                 print(f"Temporary columns dropped from Object Table: {self._object_temp}")
                 self._object_temp = []
+            print_t("Syncing object table finished")
 
         # Now synced and clean
         self._source.set_dirty(False)
