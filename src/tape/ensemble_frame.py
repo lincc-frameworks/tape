@@ -186,8 +186,9 @@ class _Frame(dd.core._Frame):
             import numexpr
             numexpr.set_num_threads(1)
         """
-        result = super().query(expr, **kwargs)
-        return self._propagate_metadata(result)
+        result = self._propagate_metadata(super().query(expr, **kwargs))
+        result.set_dirty(True)
+        return result
         
     def merge(self, right, **kwargs):
         """Merge the Dataframe with another DataFrame
