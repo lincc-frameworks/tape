@@ -116,7 +116,7 @@ class Ensemble:
         self.update_frame(frame)
         return self
 
-    def update_frame(self, frame, check_dirty=False):
+    def update_frame(self, frame):
         """Updates a frame tracked by the Ensemble or otherwise adds it to the Ensemble.
         The frame is tracked by its `EnsembleFrame.label` field.
 
@@ -149,12 +149,6 @@ class Ensemble:
             elif isinstance(frame, ObjectFrame):
                 self._object = frame
                 self.object = frame
-
-        # TODO(wbeebe@uw.edu): consider removing this feature entirely
-        if check_dirty:
-            # Set a frame as dirty if it was previously tracked and the number of rows has changed. 
-            if frame.label in self.frames and len(self.frames[frame.label]) != len(frame):
-                frame.set_dirty(True)
 
         # Ensure this frame is assigned to this Ensemble.
         frame.ensemble = self
@@ -462,10 +456,8 @@ class Ensemble:
         """
         if table == "object":
             self.update_frame(self._object.dropna(**kwargs))
-            self._object.set_dirty(True)
         elif table == "source":
             self.update_frame(self._source.dropna(**kwargs))
-            self._source.set_dirty(True)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -487,11 +479,9 @@ class Ensemble:
         if table == "object":
             cols_to_drop = [col for col in self._object.columns if col not in columns]
             self.update_frame(self._object.drop(cols_to_drop, axis=1))
-            self._object.set_dirty(True)
         elif table == "source":
             cols_to_drop = [col for col in self._source.columns if col not in columns]
             self.update_frame(self._source.drop(cols_to_drop, axis=1))
-            self._source.set_dirty(True)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -521,10 +511,8 @@ class Ensemble:
         self._lazy_sync_tables(table)
         if table == "object":
             self.update_frame(self._object.query(expr))
-            self._object.set_dirty(True)
         elif table == "source":
             self.update_frame(self._source.query(expr))
-            self._source.set_dirty(True)
         return self
 
     def filter_from_series(self, keep_series, table="object"):
@@ -585,7 +573,6 @@ class Ensemble:
         if table == "object":
             pre_cols = self._object.columns
             self.update_frame(self._object.assign(**kwargs))
-            self._object.set_dirty(True)
             post_cols = self._object.columns
 
             if temporary:
@@ -594,7 +581,6 @@ class Ensemble:
         elif table == "source":
             pre_cols = self._source.columns
             self.update_frame(self._source.assign(**kwargs))
-            self._source.set_dirty(True)
             post_cols = self._source.columns
 
             if temporary:
