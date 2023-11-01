@@ -147,8 +147,9 @@ class _Frame(dd.core._Frame):
         result: `tape._Frame`
             The modifed frame
         """
-        result = super().assign(**kwargs)
-        return self._propagate_metadata(result)
+        result = self._propagate_metadata(super().assign(**kwargs))
+        result.set_dirty(True)
+        return result
     
     def query(self, expr, **kwargs):
         """Filter dataframe with complex expression
@@ -186,8 +187,9 @@ class _Frame(dd.core._Frame):
             import numexpr
             numexpr.set_num_threads(1)
         """
-        result = super().query(expr, **kwargs)
-        return self._propagate_metadata(result)
+        result = self._propagate_metadata(super().query(expr, **kwargs))
+        result.set_dirty(True)
+        return result
         
     def merge(self, right, **kwargs):
         """Merge the Dataframe with another DataFrame
@@ -317,9 +319,41 @@ class _Frame(dd.core._Frame):
             Returns the frame or Nonewith the specified
             index or column labels removed or None if inplace=True.
         """
-        result = super().drop(labels=labels, axis=axis, columns=columns, errors=errors)
-        return self._propagate_metadata(result)
+        result = self._propagate_metadata(super().drop(labels=labels, axis=axis, columns=columns, errors=errors))
+        result.set_dirty(True)
+        return result
     
+    def dropna(self, **kwargs):
+        """
+        Remove missing values.
+
+        Doc string below derived from dask.dataframe.core
+
+        Parameters
+        ----------
+
+        how : {'any', 'all'}, default 'any'
+            Determine if row or column is removed from DataFrame, when we have
+            at least one NA or all NA.
+
+            * 'any' : If any NA values are present, drop that row or column.
+            * 'all' : If all values are NA, drop that row or column.
+
+        thresh : int, optional
+            Require that many non-NA values. Cannot be combined with how.
+        subset : column label or sequence of labels, optional
+            Labels along other axis to consider, e.g. if you are dropping rows
+            these would be a list of columns to include.
+
+        Returns
+        ----------
+        result: `tape._Frame`
+            The modifed frame with NA entries dropped from it or None if ``inplace=True``.
+        """
+        result = self._propagate_metadata(super().dropna(**kwargs))
+        result.set_dirty(True)
+        return result
+
     def persist(self, **kwargs):
         """Persist this dask collection into memory
 

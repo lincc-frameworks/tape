@@ -136,6 +136,7 @@ def test_update_ensemble(data_fixture, request):
     # Filter the object table and have the ensemble track the updated table.
     updated_obj = ens._object.query("nobs_total > 50")
     assert updated_obj is not ens._object
+    assert updated_obj.is_dirty()
     # Update the ensemble and validate that it marks the object table dirty
     assert ens._object.is_dirty() == False
     updated_obj.update_ensemble()

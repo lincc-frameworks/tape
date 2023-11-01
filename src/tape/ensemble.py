@@ -150,10 +150,6 @@ class Ensemble:
                 self._object = frame
                 self.object = frame
 
-        # Set a frame as dirty if it was previously tracked and the number of rows has changed. 
-        if frame.label in self.frames and len(self.frames[frame.label]) != len(frame):
-            frame.set_dirty(True)
-
         # Ensure this frame is assigned to this Ensemble.
         frame.ensemble = self
         self.frames[frame.label] = frame
@@ -325,6 +321,7 @@ class Ensemble:
 
         # Append the new rows to the correct divisions.
         self.update_frame(dd.concat([self._source, df2], axis=0, interleave_partitions=True))
+        self._source.set_dirty(True)
 
         # Do the repartitioning if requested. If the divisions were set, reuse them.
         # Otherwise, use the same number of partitions.
@@ -482,11 +479,9 @@ class Ensemble:
         if table == "object":
             cols_to_drop = [col for col in self._object.columns if col not in columns]
             self.update_frame(self._object.drop(cols_to_drop, axis=1))
-            self._object.set_dirty(True)
         elif table == "source":
             cols_to_drop = [col for col in self._source.columns if col not in columns]
             self.update_frame(self._source.drop(cols_to_drop, axis=1))
-            self._source.set_dirty(True)
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
 
@@ -578,7 +573,6 @@ class Ensemble:
         if table == "object":
             pre_cols = self._object.columns
             self.update_frame(self._object.assign(**kwargs))
-            self._object.set_dirty(True)
             post_cols = self._object.columns
 
             if temporary:
@@ -587,7 +581,6 @@ class Ensemble:
         elif table == "source":
             pre_cols = self._source.columns
             self.update_frame(self._source.assign(**kwargs))
-            self._source.set_dirty(True)
             post_cols = self._source.columns
 
             if temporary:
@@ -785,6 +778,7 @@ class Ensemble:
         mask = self._object[col_name] >= threshold
         self.update_frame(self._object[mask])
 
+        self._object.set_dirty(True) # Object table is now dirty
 
         return self
 
@@ -929,6 +923,7 @@ class Ensemble:
         self.update_frame(self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1))
 
         # Mark the source table as dirty.
+        self._source.set_dirty(True)
         return self
 
     def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
