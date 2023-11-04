@@ -1474,10 +1474,6 @@ class Ensemble:
 
     def _generate_object_table(self):
         """Generate an empty object table from the source table."""
-        # sor_idx = self._source.index.unique()
-        # obj_df = pd.DataFrame(index=sor_idx)
-        # res = dd.from_pandas(obj_df, npartitions=int(np.ceil(self._source.npartitions / 100)))
-
         res = self._source.map_partitions(lambda x: pd.DataFrame(index=x.index.unique()))
 
         return res
