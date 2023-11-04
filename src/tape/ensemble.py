@@ -1078,6 +1078,12 @@ class Ensemble:
         elif partition_size:
             self._source = self._source.repartition(partition_size=partition_size)
 
+        # Check that Divisions are established, warn if not.
+        if not self._object.known_divisions or not self._source.known_divisions:
+            warnings.warn(
+                "Divisions for one or both of object and source are not set, certain downstream dask operations may fail as a result. We recommend setting the `sort` or `sorted` flags when loading data to establish division information."
+            )
+
         return self
 
     def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
@@ -1272,7 +1278,7 @@ class Ensemble:
                 columns.append(self._provenance_col)
 
         # Read in the source parquet file(s)
-        source = dd.read_parquet(source_file, index=self._id_col, columns=columns, split_row_groups=True)
+        source = dd.read_parquet(source_file, columns=columns, split_row_groups=True)
 
         # Generate a provenance column if not provided
         if self._provenance_col is None:
@@ -1282,7 +1288,7 @@ class Ensemble:
         object = None
         if object_file:
             # Read in the object file(s)
-            object = dd.read_parquet(object_file, index=self._id_col, split_row_groups=True)
+            object = dd.read_parquet(object_file, split_row_groups=True)
         return self.from_dask_dataframe(
             source_frame=source,
             object_frame=object,
@@ -1468,9 +1474,11 @@ class Ensemble:
 
     def _generate_object_table(self):
         """Generate an empty object table from the source table."""
-        sor_idx = self._source.index.unique()
-        obj_df = pd.DataFrame(index=sor_idx)
-        res = dd.from_pandas(obj_df, npartitions=int(np.ceil(self._source.npartitions / 100)))
+        # sor_idx = self._source.index.unique()
+        # obj_df = pd.DataFrame(index=sor_idx)
+        # res = dd.from_pandas(obj_df, npartitions=int(np.ceil(self._source.npartitions / 100)))
+
+        res = self._source.map_partitions(lambda x: pd.DataFrame(index=x.index.unique()))
 
         return res
 
@@ -1504,9 +1512,18 @@ class Ensemble:
 
         if self._object_dirty:
             # Sync Object to Source; remove any missing objects from source
-            obj_idx = list(self._object.index.compute())
-            self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
-            self._source = self._source.persist()  # persist the source frame
+
+            if self._object.known_divisions and self._source.known_divisions:
+                # Lazily Create an empty object table (just index) for joining
+                empty_obj = self._object.map_partitions(lambda x: pd.DataFrame(index=x.index))
+
+                # Join source onto the empty object table to align
+                self._source = empty_obj.join(self._source)
+            else:
+                warnings.warn("Divisions are not known, syncing using a non-lazy method.")
+                obj_idx = list(self._object.index.compute())
+                self._source = self._source.map_partitions(lambda x: x[x.index.isin(obj_idx)])
+                self._source = self._source.persist()  # persist the source frame
 
             # Drop Temporary Source Columns on Sync
             if len(self._source_temp):
@@ -1516,10 +1533,19 @@ class Ensemble:
 
         if self._source_dirty:  # not elif
             if not self.keep_empty_objects:
-                # Sync Source to Object; remove any objects that do not have sources
-                sor_idx = list(self._source.index.unique().compute())
-                self._object = self._object.map_partitions(lambda x: x[x.index.isin(sor_idx)])
-                self._object = self._object.persist()  # persist the object frame
+                if self._object.known_divisions and self._source.known_divisions:
+                    # Lazily Create an empty source table (just unique indexes) for joining
+                    empty_src = self._source.map_partitions(lambda x: pd.DataFrame(index=x.index.unique()))
+
+                    # Join object onto the empty unique source table to align
+                    self._object = empty_src.join(self._object)
+
+                else:
+                    warnings.warn("Divisions are not known, syncing using a non-lazy method.")
+                    # Sync Source to Object; remove any objects that do not have sources
+                    sor_idx = list(self._source.index.unique().compute())
+                    self._object = self._object.map_partitions(lambda x: x[x.index.isin(sor_idx)])
+                    self._object = self._object.persist()  # persist the object frame
 
             # Drop Temporary Object Columns on Sync
             if len(self._object_temp):
