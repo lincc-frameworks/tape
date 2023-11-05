@@ -32,6 +32,7 @@ def test_with_client():
     "data_fixture",
     [
         "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
         "parquet_ensemble_without_client",
         "parquet_ensemble_from_source",
         "parquet_ensemble_from_hipscat",
@@ -54,6 +55,11 @@ def test_parquet_construction(data_fixture, request):
     # Check to make sure the source and object tables were created
     assert parquet_ensemble._source is not None
     assert parquet_ensemble._object is not None
+
+    # Make sure divisions are set
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert parquet_ensemble._source.known_divisions
+        assert parquet_ensemble._object.known_divisions
 
     # Check that the data is not empty.
     obj, source = parquet_ensemble.compute()
@@ -691,7 +697,16 @@ def test_temporary_cols(parquet_ensemble):
     assert "f2" not in ens._source.columns
 
 
-def test_dropna(parquet_ensemble):
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        # "parquet_ensemble_with_divisions",
+    ],
+)
+def test_dropna(data_fixture, request):
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
         parquet_ensemble.dropna(table="banana")
@@ -719,6 +734,10 @@ def test_dropna(parquet_ensemble):
     parquet_ensemble.dropna(table="source")
     assert len(parquet_ensemble._source.compute().index) == source_length - occurrences_source
 
+    if data_fixture == "parquet_ensemble_with_divisions":
+        # divisions should be preserved
+        assert parquet_ensemble._source.known_divisions
+
     # Sync the table and check that the number of objects decreased.
     # parquet_ensemble._sync_tables()
 
@@ -745,6 +764,10 @@ def test_dropna(parquet_ensemble):
     # Try dropping NaNs from object and confirm that we did.
     parquet_ensemble.dropna(table="object")
     assert len(parquet_ensemble._object.compute().index) == object_length - occurrences_object
+
+    if data_fixture == "parquet_ensemble_with_divisions":
+        # divisions should be preserved
+        assert parquet_ensemble._object.known_divisions
 
     new_objects_pdf = parquet_ensemble._object.compute()
     assert len(new_objects_pdf.index) == len(object_pdf.index) - occurrences_object
@@ -806,14 +829,29 @@ def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
     assert lc["nobs_total"].values[0] == 499
 
 
-def test_prune(parquet_ensemble):
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
+def test_prune(data_fixture, request):
     """
     Test that ensemble.prune() appropriately filters the dataframe
     """
+
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     threshold = 10
-    parquet_ensemble.prune(threshold)
+    parquet_ensemble.prune(threshold, col_name="nobs_total")
 
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
+
+    if data_fixture == "parquet_ensemble_with_divisions":
+        # divisions should be preserved
+        assert parquet_ensemble._source.known_divisions
+        assert parquet_ensemble._object.known_divisions
 
 
 def test_query(dask_client):

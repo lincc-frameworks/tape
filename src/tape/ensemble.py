@@ -677,8 +677,9 @@ class Ensemble:
             col_name = "nobs_total"
 
         # Mask on object table
-        mask = self._object[col_name] >= threshold
-        self._object = self._object[mask]
+        self = self.query(f"{col_name} >= {threshold}", table="object")
+        # mask = self._object[col_name] >= threshold
+        # self._object = self._object[mask]
 
         self._object_dirty = True  # Object Table is now dirty
 
@@ -1278,7 +1279,7 @@ class Ensemble:
                 columns.append(self._provenance_col)
 
         # Read in the source parquet file(s)
-        source = dd.read_parquet(source_file, columns=columns, split_row_groups=True)
+        source = dd.read_parquet(source_file, index=False, columns=columns, split_row_groups=True)
 
         # Generate a provenance column if not provided
         if self._provenance_col is None:
@@ -1288,7 +1289,7 @@ class Ensemble:
         object = None
         if object_file:
             # Read in the object file(s)
-            object = dd.read_parquet(object_file, split_row_groups=True)
+            object = dd.read_parquet(object_file, index=False, split_row_groups=True)
         return self.from_dask_dataframe(
             source_frame=source,
             object_frame=object,
