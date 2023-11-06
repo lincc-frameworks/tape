@@ -707,8 +707,6 @@ def test_temporary_cols(parquet_ensemble):
 def test_dropna(data_fixture, request):
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
-    # print(parquet_ensemble._object.compute(), len(parquet_ensemble._object.index), len(parquet_ensemble._object.index.unique()))
-
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
         parquet_ensemble.dropna(table="banana")
@@ -717,11 +715,9 @@ def test_dropna(data_fixture, request):
     #
     source_pdf = parquet_ensemble._source.compute()
     source_length = len(source_pdf.index)
-    # source_length = len(parquet_ensemble._source)
 
     # Try dropping NaNs from source and confirm nothing is dropped (there are no NaNs).
     parquet_ensemble.dropna(table="source")
-    # assert len(parquet_ensemble._source.compute().index) == source_length
     assert len(parquet_ensemble._source) == source_length
 
     # Get a valid ID to use and count its occurrences.
@@ -742,11 +738,7 @@ def test_dropna(data_fixture, request):
         # divisions should be preserved
         assert parquet_ensemble._source.known_divisions
 
-    # Sync the table and check that the number of objects decreased.
-    # parquet_ensemble._sync_tables()
-
     # Now test dropping na from 'object' table
-    #
 
     object_pdf = parquet_ensemble._object.compute()
     object_length = len(object_pdf.index)
