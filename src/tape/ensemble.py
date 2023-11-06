@@ -1125,9 +1125,7 @@ class Ensemble:
                 # expensive computation.
                 warnings.warn(
                     f"""Warning: Batch successfully computed but failed to track frame under label,
-                      {label}, due to incompatible meta: {meta}""",
-                      label,
-                      meta)
+                      {label}, due to incompatible meta: {meta}""")
 
         if compute:
             return batch.compute()

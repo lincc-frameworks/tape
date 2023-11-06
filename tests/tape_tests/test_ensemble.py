@@ -1480,8 +1480,6 @@ def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
     """
     num_frames = len(parquet_ensemble.frames)
 
-    assert isinstance(custom_meta, TapeFrame)
-
     parquet_ensemble.prune(10).batch(
         calc_sf2, parquet_ensemble._flux_col, meta=custom_meta, label="sf2_result")
 
