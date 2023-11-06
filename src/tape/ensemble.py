@@ -13,7 +13,7 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame
+from .ensemble_frame import EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeSeries
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
@@ -983,7 +983,7 @@ class Ensemble:
         self._source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, label=None, **kwargs):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1021,6 +1021,9 @@ class Ensemble:
             Designates which column(s) to groupby. Columns may be from the
             source or object tables. For TAPE and `light-curve` functions
             this is populated automatically.
+        label: 'str', optional
+            If provided the ensemble will use this label to track the result 
+            dataframe. If `None`, the frame will not be tracked. 
         **kwargs:
             Additional optional parameters passed for the selected function
 
@@ -1071,6 +1074,10 @@ class Ensemble:
         if meta is None:
             meta = (self._id_col, float)  # return a series of ids, default assume a float is returned
 
+        # Translate the meta into an appropriate TapeFrame or TapeSeries. This ensures that the
+        # batch result will be an EnsembleFrame or EnsembleSeries.
+        meta = self._translate_meta(meta)
+
         if on is None:
             on = self._id_col  # Default grouping is by id_col
         if isinstance(on, str):
@@ -1107,6 +1114,20 @@ class Ensemble:
                 ),
                 meta=meta,
             )
+
+        if label is not None:
+            if isinstance(batch, EnsembleFrame) or isinstance(batch, EnsembleSeries):
+                # Track the result frame under the provided label
+                self.add_frame(batch, label)
+            else:
+                # The result of the batch function was not a frame/series we don't support tracking.
+                # However we opt to provide a warning so that the user won't lose a potentially
+                # expensive computation.
+                warnings.warn(
+                    f"""Warning: Batch successfully computed but failed to track frame under label,
+                      {label}, due to incompatible meta: {meta}""",
+                      label,
+                      meta)
 
         if compute:
             return batch.compute()
@@ -1830,3 +1851,26 @@ class Ensemble:
             result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
 
             return result
+
+    def _translate_meta(self, meta):
+        """Translates Dask-style meta into a TapeFrame or TapeSeries object.
+        """
+        if isinstance(meta, TapeFrame) or isinstance(meta, TapeSeries):
+            return meta
+        
+        # If the meta is not a DataFrame or Series, have Dask attempt translate the meta into an
+        # appropriate Pandas object.
+        meta_object = meta 
+        if not (isinstance(meta_object, pd.DataFrame) or isinstance(meta_object, pd.Series)):
+            meta_object = dd.backends.make_meta_object(meta_object)
+        
+        # Convert meta_object into the appropriate TAPE extension.
+        if isinstance(meta_object, pd.DataFrame):
+            return TapeFrame(meta_object)
+        elif isinstance(meta_object, pd.Series):
+            return TapeSeries(meta_object)
+        else:
+            raise ValueError(
+                "Unsupported Meta: " + str(meta) + "\nTry a Pandas DataFrame or Series instead."
+            )
+        

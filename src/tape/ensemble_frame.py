@@ -4,7 +4,7 @@ import dask.dataframe as dd
 
 import dask
 from dask.dataframe.dispatch import make_meta_dispatch
-from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe
+from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe, _nonempty_series
 
 from dask.dataframe.core import get_parallel_type
 from dask.dataframe.extensions import make_array_nonempty
@@ -978,7 +978,8 @@ def make_meta_frame(x, index=None):
 @meta_nonempty.register(TapeSeries)
 def _nonempty_tapeseries(x, index=None):
     # Construct a new TapeSeries with the same underlying data.
-    return TapeSeries(data, name=x.name, crs=x.crs)
+    data = _nonempty_series(x)
+    return TapeSeries(data)
 
 @meta_nonempty.register(TapeFrame)
 def _nonempty_tapeseries(x, index=None):

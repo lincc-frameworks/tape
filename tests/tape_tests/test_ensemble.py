@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import tape
 
-from tape import Ensemble, EnsembleFrame, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
+from tape import Ensemble, EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -1400,12 +1400,27 @@ def test_batch(data_fixture, request, use_map, on):
     """
 
     parquet_ensemble = request.getfixturevalue(data_fixture)
+    frame_cnt = len(parquet_ensemble.frames)
 
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
-        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
+        .batch(
+            calc_stetson_J,
+            use_map=use_map,
+            on=on,
+            band_to_calc=None,
+            compute=False,
+            label="stetson_j")
     )
+
+    # Validate that the ensemble is now tracking a new result frame.
+    assert len(parquet_ensemble.frames) == frame_cnt + 1
+    tracked_result = parquet_ensemble.select_frame("stetson_j")
+    assert isinstance(tracked_result, EnsembleSeries)
+    assert result is tracked_result
+
+    result = result.compute()
 
     if on is None:
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
