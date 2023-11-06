@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import tape
 
-from tape import Ensemble, EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
+from tape import Ensemble, EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeSeries, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -1441,6 +1441,53 @@ def test_batch_with_custom_func(parquet_ensemble):
     result = parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col)
     assert len(result) > 0
 
+@pytest.mark.parametrize("custom_meta", [
+    ("flux_mean", float), # A tuple representing a series
+    pd.Series(name="flux_mean_pandas", dtype="float64"),
+    TapeSeries(name="flux_mean_tape", dtype="float64")])
+def test_batch_with_custom_series_meta(parquet_ensemble, custom_meta):
+    """
+    Test Ensemble.batch with various styles of output meta for a Series-style result.
+    """
+    num_frames = len(parquet_ensemble.frames)
+
+    parquet_ensemble.prune(10).batch(
+        np.mean, parquet_ensemble._flux_col, meta=custom_meta, label="flux_mean")
+
+    assert len(parquet_ensemble.frames) == num_frames + 1
+    assert len(parquet_ensemble.select_frame("flux_mean")) > 0
+    assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleSeries)
+
+@pytest.mark.parametrize("custom_meta", [
+    {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
+    [("lc_id", int), ("band", str), ("dt", float), ("sf2", float), ("1_sigma", float)],
+    pd.DataFrame({
+        "lc_id": pd.Series([], dtype=int),
+        "band": pd.Series([], dtype=str),
+        "dt": pd.Series([], dtype=float),
+        "sf2": pd.Series([], dtype=float),
+        "1_sigma": pd.Series([], dtype=float)}),
+    TapeFrame({
+        "lc_id": pd.Series([], dtype=int),
+        "band": pd.Series([], dtype=str),
+        "dt": pd.Series([], dtype=float),
+        "sf2": pd.Series([], dtype=float),
+        "1_sigma": pd.Series([], dtype=float)}),
+])
+def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
+    """
+    Test Ensemble.batch with various sytles of output meta for a DataFrame-style result.
+    """
+    num_frames = len(parquet_ensemble.frames)
+
+    assert isinstance(custom_meta, TapeFrame)
+
+    parquet_ensemble.prune(10).batch(
+        calc_sf2, parquet_ensemble._flux_col, meta=custom_meta, label="sf2_result")
+
+    assert len(parquet_ensemble.frames) == num_frames + 1
+    assert len(parquet_ensemble.select_frame("sf2_result")) > 0
+    assert isinstance(parquet_ensemble.select_frame("sf2_result"), EnsembleFrame)
 
 def test_to_timeseries(parquet_ensemble):
     """

@@ -1854,6 +1854,16 @@ class Ensemble:
 
     def _translate_meta(self, meta):
         """Translates Dask-style meta into a TapeFrame or TapeSeries object.
+
+        Parameters
+        ----------
+        meta : `dict`, `tuple`, `list`, `pd.Series`, `pd.DataFrame`, `pd.Index`, `dtype`, `scalar`
+
+        Returns
+        ----------
+        result : `ensemble.TapeFrame` or `ensemble.TapeSeries`
+            The appropriate meta for Dask producing an `Ensemble.EnsembleFrame` or
+            `Ensemble.EnsembleSeries` respectively
         """
         if isinstance(meta, TapeFrame) or isinstance(meta, TapeSeries):
             return meta
