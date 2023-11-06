@@ -618,8 +618,10 @@ class Ensemble:
 
             # repartition the result to align with object
             if self._object.known_divisions:
-                self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
-                band_counts = band_counts.repartition(npartitions=self._object.npartitions)
+                # self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
+                band_counts.divisions = self._source.divisions
+                band_counts = band_counts.repartition(divisions=self._object.divisions)
+                # band_counts = band_counts.repartition(npartitions=self._object.npartitions)
             else:
                 band_counts = band_counts.repartition(npartitions=self._object.npartitions)
 
@@ -636,9 +638,10 @@ class Ensemble:
             counts = self._source.groupby([self._id_col])[[self._band_col]].aggregate("count")
 
             # repartition the result to align with object
-            if self._object.known_divisions:
-                self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
-                counts = counts.repartition(npartitions=self._object.npartitions)
+            if self._object.known_divisions and self._source.known_divisions:
+                # self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
+                counts.divisions = self._source.divisions
+                counts = counts.repartition(divisions=self._object.divisions)
             else:
                 counts = counts.repartition(npartitions=self._object.npartitions)
 

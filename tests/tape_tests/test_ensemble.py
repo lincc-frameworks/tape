@@ -701,11 +701,13 @@ def test_temporary_cols(parquet_ensemble):
     "data_fixture",
     [
         "parquet_ensemble",
-        # "parquet_ensemble_with_divisions",
+        "parquet_ensemble_with_divisions",
     ],
 )
 def test_dropna(data_fixture, request):
     parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # print(parquet_ensemble._object.compute(), len(parquet_ensemble._object.index), len(parquet_ensemble._object.index.unique()))
 
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
@@ -715,10 +717,12 @@ def test_dropna(data_fixture, request):
     #
     source_pdf = parquet_ensemble._source.compute()
     source_length = len(source_pdf.index)
+    # source_length = len(parquet_ensemble._source)
 
     # Try dropping NaNs from source and confirm nothing is dropped (there are no NaNs).
     parquet_ensemble.dropna(table="source")
-    assert len(parquet_ensemble._source.compute().index) == source_length
+    # assert len(parquet_ensemble._source.compute().index) == source_length
+    assert len(parquet_ensemble._source) == source_length
 
     # Get a valid ID to use and count its occurrences.
     valid_source_id = source_pdf.index.values[1]
@@ -743,6 +747,7 @@ def test_dropna(data_fixture, request):
 
     # Now test dropping na from 'object' table
     #
+
     object_pdf = parquet_ensemble._object.compute()
     object_length = len(object_pdf.index)
 
@@ -750,10 +755,8 @@ def test_dropna(data_fixture, request):
     parquet_ensemble.dropna(table="object")
     assert len(parquet_ensemble._object.compute().index) == object_length
 
-    # get a valid object id and set at least two occurences of that id in the object table
+    # select an id from the object table
     valid_object_id = object_pdf.index.values[1]
-    object_pdf.index.values[0] = valid_object_id
-    occurrences_object = len(object_pdf.loc[valid_object_id].values)
 
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
@@ -761,16 +764,16 @@ def test_dropna(data_fixture, request):
     object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
     parquet_ensemble._object = dd.from_pandas(object_pdf, npartitions=1)
 
-    # Try dropping NaNs from object and confirm that we did.
+    # Try dropping NaNs from object and confirm that we dropped a row
     parquet_ensemble.dropna(table="object")
-    assert len(parquet_ensemble._object.compute().index) == object_length - occurrences_object
+    assert len(parquet_ensemble._object.compute().index) == object_length - 1
 
     if data_fixture == "parquet_ensemble_with_divisions":
         # divisions should be preserved
         assert parquet_ensemble._object.known_divisions
 
     new_objects_pdf = parquet_ensemble._object.compute()
-    assert len(new_objects_pdf.index) == len(object_pdf.index) - occurrences_object
+    assert len(new_objects_pdf.index) == len(object_pdf.index) - 1
 
     # Assert the filtered ID is no longer in the objects.
     assert valid_source_id not in new_objects_pdf.index.values
@@ -806,18 +809,25 @@ def test_keep_zeros(parquet_ensemble):
     assert parquet_ensemble._object.npartitions == prev_npartitions
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
 @pytest.mark.parametrize("by_band", [True, False])
-@pytest.mark.parametrize("know_divisions", [True, False])
-def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
-    ens = parquet_ensemble
+def test_calc_nobs(data_fixture, request, by_band):
+    # Get the Ensemble from a fixture
+    ens = request.getfixturevalue(data_fixture)
+
+    # Drop the existing nobs columns
     ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
 
-    if know_divisions:
-        ens._object = ens._object.reset_index().set_index(ens._id_col)
-        assert ens._object.known_divisions
-
+    # Calculate nobs
     ens.calc_nobs(by_band)
 
+    # Check that things turned out as we expect
     lc = ens._object.loc[88472935274829959].compute()
 
     if by_band:
@@ -828,6 +838,11 @@ def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
     assert "nobs_total" in ens._object.columns
     assert lc["nobs_total"].values[0] == 499
 
+    # Make sure that if divisions were set previously, they are preserved
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert ens._object.known_divisions
+        assert ens._source.known_divisions
+
 
 @pytest.mark.parametrize(
     "data_fixture",
@@ -836,20 +851,30 @@ def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
         "parquet_ensemble_with_divisions",
     ],
 )
-def test_prune(data_fixture, request):
+@pytest.mark.parametrize("generate_nobs", [False, True])
+def test_prune(data_fixture, request, generate_nobs):
     """
     Test that ensemble.prune() appropriately filters the dataframe
     """
 
+    # Get the Ensemble from a fixture
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
     threshold = 10
-    parquet_ensemble.prune(threshold, col_name="nobs_total")
+    # Generate the nobs cols from within prune
+    if generate_nobs:
+        # Drop the existing nobs columns
+        parquet_ensemble._object = parquet_ensemble._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+        parquet_ensemble.prune(threshold)
+
+    # Use an existing column
+    else:
+        parquet_ensemble.prune(threshold, col_name="nobs_total")
 
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
 
+    # Make sure that if divisions were set previously, they are preserved
     if data_fixture == "parquet_ensemble_with_divisions":
-        # divisions should be preserved
         assert parquet_ensemble._source.known_divisions
         assert parquet_ensemble._object.known_divisions
 
