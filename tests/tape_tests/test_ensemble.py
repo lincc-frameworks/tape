@@ -1219,6 +1219,7 @@ def test_bin_sources_two_days(dask_client):
     "data_fixture",
     [
         "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
         "parquet_ensemble_without_client",
     ],
 )
@@ -1234,8 +1235,14 @@ def test_batch(data_fixture, request, use_map, on):
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
-        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
+        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None, compute=False)
     )
+
+    # Make sure that divisions information is propagated if known
+    if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
+        assert result.known_divisions
+
+    result = result.compute()
 
     if on is None:
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
@@ -1289,13 +1296,21 @@ def test_build_index(dask_client):
     assert result_ids == target
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
 @pytest.mark.parametrize("method", ["size", "length", "loglength"])
 @pytest.mark.parametrize("combine", [True, False])
 @pytest.mark.parametrize("sthresh", [50, 100])
-def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
+def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
     """
     Test calling sf2 from the ensemble
     """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = method
@@ -1304,6 +1319,9 @@ def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
 
     res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+
+    if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
+        assert res_sf2.known_divisions
 
     if combine:
         assert not res_sf2.equals(res_batch)  # output should be different

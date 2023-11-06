@@ -618,10 +618,8 @@ class Ensemble:
 
             # repartition the result to align with object
             if self._object.known_divisions:
-                # self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
                 band_counts.divisions = self._source.divisions
                 band_counts = band_counts.repartition(divisions=self._object.divisions)
-                # band_counts = band_counts.repartition(npartitions=self._object.npartitions)
             else:
                 band_counts = band_counts.repartition(npartitions=self._object.npartitions)
 
@@ -639,7 +637,6 @@ class Ensemble:
 
             # repartition the result to align with object
             if self._object.known_divisions and self._source.known_divisions:
-                # self._object.divisions = tuple([None for i in range(self._object.npartitions + 1)])
                 counts.divisions = self._source.divisions
                 counts = counts.repartition(divisions=self._object.divisions)
             else:
@@ -956,6 +953,11 @@ class Ensemble:
                 ),
                 meta=meta,
             )
+
+        # Inherit divisions if known from source and the resulting index is the id
+        # Groupby on index should always return a subset that adheres to the same divisions criteria
+        if self._source.known_divisions and batch.index.name == self._id_col:
+            batch.divisions = self._source.divisions
 
         if compute:
             return batch.compute()
@@ -1687,8 +1689,12 @@ class Ensemble:
                 self._source.index,
                 argument_container=argument_container,
             )
-            return result
+
         else:
             result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
 
-            return result
+        # Inherit divisions information if known
+        if self._source.known_divisions and self._object.known_divisions:
+            result.divisions = self._source.divisions
+
+        return result
