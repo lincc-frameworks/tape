@@ -1647,7 +1647,7 @@ class Ensemble:
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
 
-    def sf2(self, sf_method="basic", argument_container=None, use_map=True):
+    def sf2(self, sf_method="basic", argument_container=None, use_map=True, compute=True):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
         Parameters
@@ -1691,7 +1691,9 @@ class Ensemble:
             )
 
         else:
-            result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
+            result = self.batch(
+                calc_sf2, use_map=use_map, argument_container=argument_container, compute=compute
+            )
 
         # Inherit divisions information if known
         if self._source.known_divisions and self._object.known_divisions:

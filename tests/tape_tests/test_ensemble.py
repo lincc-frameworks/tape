@@ -1309,15 +1309,20 @@ def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
     arg_container.combine = combine
     arg_container.bin_count_target = sthresh
 
-    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
+    if not combine:
+        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map, compute=False)
+    else:
+        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
 
     if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
-        assert res_sf2.known_divisions
+        if not combine:
+            assert res_sf2.known_divisions
 
     if combine:
         assert not res_sf2.equals(res_batch)  # output should be different
     else:
+        res_sf2 = res_sf2.compute()
         assert res_sf2.equals(res_batch)  # output should be identical
 
 
