@@ -678,8 +678,6 @@ class Ensemble:
 
         # Mask on object table
         self = self.query(f"{col_name} >= {threshold}", table="object")
-        # mask = self._object[col_name] >= threshold
-        # self._object = self._object[mask]
 
         self._object_dirty = True  # Object Table is now dirty
 
