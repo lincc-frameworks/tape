@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import tape
 
-from tape import Ensemble, EnsembleFrame, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame
+from tape import Ensemble, EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeSeries, TapeObjectFrame, TapeSourceFrame
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -1398,14 +1398,28 @@ def test_batch(data_fixture, request, use_map, on):
     """
     Test that ensemble.batch() returns the correct values of the first result
     """
-
     parquet_ensemble = request.getfixturevalue(data_fixture)
+    frame_cnt = len(parquet_ensemble.frames)
 
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
-        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None)
+        .batch(
+            calc_stetson_J,
+            use_map=use_map,
+            on=on,
+            band_to_calc=None,
+            compute=False,
+            label="stetson_j")
     )
+
+    # Validate that the ensemble is now tracking a new result frame.
+    assert len(parquet_ensemble.frames) == frame_cnt + 1
+    tracked_result = parquet_ensemble.select_frame("stetson_j")
+    assert isinstance(tracked_result, EnsembleSeries)
+    assert result is tracked_result
+
+    result = result.compute()
 
     if on is None:
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
@@ -1417,6 +1431,41 @@ def test_batch(data_fixture, request, use_map, on):
         assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
+def test_batch_labels(parquet_ensemble):
+    """
+    Test that ensemble.batch() generates unique labels for result frames when none are provided.
+    """
+    # Since no label was provided we generate a label of "result_1"
+    parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col)
+    assert "result_1" in parquet_ensemble.frames
+    assert len(parquet_ensemble.select_frame("result_1")) > 0
+
+    # Now give a user-provided custom label.
+    parquet_ensemble.batch(np.mean, parquet_ensemble._flux_col, label="flux_mean")
+    assert "flux_mean" in parquet_ensemble.frames
+    assert len(parquet_ensemble.select_frame("flux_mean")) > 0
+
+    # Since this is the second batch call where a label is *not* provided, we generate label "result_2"
+    parquet_ensemble.batch(np.mean, parquet_ensemble._flux_col)
+    assert "result_2" in parquet_ensemble.frames
+    assert len(parquet_ensemble.select_frame("result_2")) > 0
+
+    # Explicitly provide label "result_3"
+    parquet_ensemble.batch(np.mean, parquet_ensemble._flux_col, label="result_3")
+    assert "result_3" in parquet_ensemble.frames
+    assert len(parquet_ensemble.select_frame("result_3")) > 0
+
+    # Validate that the next generated label is "result_4" since "result_3" is taken.
+    parquet_ensemble.batch(np.mean, parquet_ensemble._flux_col)
+    assert "result_4" in parquet_ensemble.frames
+    assert len(parquet_ensemble.select_frame("result_4")) > 0
+
+    frame_cnt = len(parquet_ensemble.frames)
+
+    # Validate that when the label is None, the result frame isn't tracked by the Ensemble.s
+    result = parquet_ensemble.batch(np.mean, parquet_ensemble._flux_col, label=None)
+    assert frame_cnt == len(parquet_ensemble.frames)
+    assert len(result) > 0
 
 def test_batch_with_custom_func(parquet_ensemble):
     """
@@ -1426,6 +1475,51 @@ def test_batch_with_custom_func(parquet_ensemble):
     result = parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col)
     assert len(result) > 0
 
+@pytest.mark.parametrize("custom_meta", [
+    ("flux_mean", float), # A tuple representing a series
+    pd.Series(name="flux_mean_pandas", dtype="float64"),
+    TapeSeries(name="flux_mean_tape", dtype="float64")])
+def test_batch_with_custom_series_meta(parquet_ensemble, custom_meta):
+    """
+    Test Ensemble.batch with various styles of output meta for a Series-style result.
+    """
+    num_frames = len(parquet_ensemble.frames)
+
+    parquet_ensemble.prune(10).batch(
+        np.mean, parquet_ensemble._flux_col, meta=custom_meta, label="flux_mean")
+
+    assert len(parquet_ensemble.frames) == num_frames + 1
+    assert len(parquet_ensemble.select_frame("flux_mean")) > 0
+    assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleSeries)
+
+@pytest.mark.parametrize("custom_meta", [
+    {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
+    [("lc_id", int), ("band", str), ("dt", float), ("sf2", float), ("1_sigma", float)],
+    pd.DataFrame({
+        "lc_id": pd.Series([], dtype=int),
+        "band": pd.Series([], dtype=str),
+        "dt": pd.Series([], dtype=float),
+        "sf2": pd.Series([], dtype=float),
+        "1_sigma": pd.Series([], dtype=float)}),
+    TapeFrame({
+        "lc_id": pd.Series([], dtype=int),
+        "band": pd.Series([], dtype=str),
+        "dt": pd.Series([], dtype=float),
+        "sf2": pd.Series([], dtype=float),
+        "1_sigma": pd.Series([], dtype=float)}),
+])
+def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
+    """
+    Test Ensemble.batch with various sytles of output meta for a DataFrame-style result.
+    """
+    num_frames = len(parquet_ensemble.frames)
+
+    parquet_ensemble.prune(10).batch(
+        calc_sf2, parquet_ensemble._flux_col, meta=custom_meta, label="sf2_result")
+
+    assert len(parquet_ensemble.frames) == num_frames + 1
+    assert len(parquet_ensemble.select_frame("sf2_result")) > 0
+    assert isinstance(parquet_ensemble.select_frame("sf2_result"), EnsembleFrame)
 
 def test_to_timeseries(parquet_ensemble):
     """

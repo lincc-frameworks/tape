@@ -13,13 +13,15 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame
+from .ensemble_frame import EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeSeries
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
 # TODO import from EnsembleFrame...?
 SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
+
+DEFAULT_FRAME_LABEL = "result" # A base default label for an Ensemble's result frames.
 
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
@@ -42,6 +44,9 @@ class Ensemble:
         self._object = None  # Object Table
 
         self.frames = {} # Frames managed by this Ensemble, keyed by label
+
+        # A unique ID to allocate new result frame labels.
+        self.default_frame_id = 1
 
         # TODO(wbeebe@uw.edu) Replace self._source and self._object with these 
         self.source = None # Source Table EnsembleFrame
@@ -208,7 +213,7 @@ class Ensemble:
                 f"Unable to select frame: no frame with label" f"'{label}'" f" is in the Ensemble."
                 )
         return self.frames[label]
-
+    
     def frame_info(self, labels=None, verbose=True, memory_usage=True, **kwargs):
         """Wrapper for calling dask.dataframe.DataFrame.info() on frames tracked by the Ensemble.
 
@@ -242,6 +247,18 @@ class Ensemble:
                     )
             print(label, "Frame")
             print(self.frames[label].info(verbose=verbose, memory_usage=memory_usage, **kwargs))
+
+    def _generate_frame_label(self):
+        """ Generates a new unique label for a result frame. """
+        result = DEFAULT_FRAME_LABEL + "_" + str(self.default_frame_id)
+        self.default_frame_id += 1 # increment to guarantee uniqueness
+        while result in self.frames:
+            # If the generated label has been taken by a user, increment again.
+            # In most workflows, we expect the number of frames to be O(100) so it's unlikely for
+            # the performance cost of this method to be high.
+            result = DEFAULT_FRAME_LABEL + "_" + str(self.default_frame_id)
+            self.default_frame_id += 1
+        return result
 
     def insert_sources(
         self,
@@ -983,7 +1000,7 @@ class Ensemble:
         self._source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, label="", **kwargs):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1021,6 +1038,11 @@ class Ensemble:
             Designates which column(s) to groupby. Columns may be from the
             source or object tables. For TAPE and `light-curve` functions
             this is populated automatically.
+        label: 'str', optional
+            If provided the ensemble will use this label to track the result 
+            dataframe. If not provided, a label of the from "result_{x}" where x
+            is a monotonically increasing integer is generated. If `None`,
+            the result frame will not be tracked. 
         **kwargs:
             Additional optional parameters passed for the selected function
 
@@ -1071,6 +1093,10 @@ class Ensemble:
         if meta is None:
             meta = (self._id_col, float)  # return a series of ids, default assume a float is returned
 
+        # Translate the meta into an appropriate TapeFrame or TapeSeries. This ensures that the
+        # batch result will be an EnsembleFrame or EnsembleSeries.
+        meta = self._translate_meta(meta)
+
         if on is None:
             on = self._id_col  # Default grouping is by id_col
         if isinstance(on, str):
@@ -1108,6 +1134,12 @@ class Ensemble:
                 meta=meta,
             )
 
+        if label is not None:
+            if  label == "":
+                label = self._generate_frame_label()
+                print(f"Using generated label, {label}, for a batch result.")
+            # Track the result frame under the provided label
+            self.add_frame(batch, label)
         if compute:
             return batch.compute()
         else:
@@ -1830,3 +1862,36 @@ class Ensemble:
             result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
 
             return result
+
+    def _translate_meta(self, meta):
+        """Translates Dask-style meta into a TapeFrame or TapeSeries object.
+
+        Parameters
+        ----------
+        meta : `dict`, `tuple`, `list`, `pd.Series`, `pd.DataFrame`, `pd.Index`, `dtype`, `scalar`
+
+        Returns
+        ----------
+        result : `ensemble.TapeFrame` or `ensemble.TapeSeries`
+            The appropriate meta for Dask producing an `Ensemble.EnsembleFrame` or
+            `Ensemble.EnsembleSeries` respectively
+        """
+        if isinstance(meta, TapeFrame) or isinstance(meta, TapeSeries):
+            return meta
+        
+        # If the meta is not a DataFrame or Series, have Dask attempt translate the meta into an
+        # appropriate Pandas object.
+        meta_object = meta 
+        if not (isinstance(meta_object, pd.DataFrame) or isinstance(meta_object, pd.Series)):
+            meta_object = dd.backends.make_meta_object(meta_object)
+        
+        # Convert meta_object into the appropriate TAPE extension.
+        if isinstance(meta_object, pd.DataFrame):
+            return TapeFrame(meta_object)
+        elif isinstance(meta_object, pd.Series):
+            return TapeSeries(meta_object)
+        else:
+            raise ValueError(
+                "Unsupported Meta: " + str(meta) + "\nTry a Pandas DataFrame or Series instead."
+            )
+        
