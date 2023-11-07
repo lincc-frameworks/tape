@@ -21,6 +21,8 @@ from .utils import ColumnMapper
 SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
 
+DEFAULT_FRAME_LABEL = "result" # A base default label for an Ensemble's result frames.
+
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
 
@@ -42,6 +44,9 @@ class Ensemble:
         self._object = None  # Object Table
 
         self.frames = {} # Frames managed by this Ensemble, keyed by label
+
+        # A unique ID to allocate new result frame labels.
+        self.default_frame_id = 1
 
         # TODO(wbeebe@uw.edu) Replace self._source and self._object with these 
         self.source = None # Source Table EnsembleFrame
@@ -208,7 +213,7 @@ class Ensemble:
                 f"Unable to select frame: no frame with label" f"'{label}'" f" is in the Ensemble."
                 )
         return self.frames[label]
-
+    
     def frame_info(self, labels=None, verbose=True, memory_usage=True, **kwargs):
         """Wrapper for calling dask.dataframe.DataFrame.info() on frames tracked by the Ensemble.
 
@@ -242,6 +247,18 @@ class Ensemble:
                     )
             print(label, "Frame")
             print(self.frames[label].info(verbose=verbose, memory_usage=memory_usage, **kwargs))
+
+    def _generate_frame_label(self):
+        """ Generates a new unique label for a result frame. """
+        result = DEFAULT_FRAME_LABEL + "_" + str(self.default_frame_id)
+        self.default_frame_id += 1 # increment to guarantee uniqueness
+        while result in self.frames:
+            # If the generated label has been taken by a user, increment again.
+            # In most workflows, we expect the number of frames to be O(100) so it's unlikely for
+            # the performance cost of this method to be high.
+            result = DEFAULT_FRAME_LABEL + "_" + str(self.default_frame_id)
+            self.default_frame_id += 1
+        return result
 
     def insert_sources(
         self,
@@ -983,7 +1000,7 @@ class Ensemble:
         self._source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, label=None, **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, label="", **kwargs):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1023,7 +1040,9 @@ class Ensemble:
             this is populated automatically.
         label: 'str', optional
             If provided the ensemble will use this label to track the result 
-            dataframe. If `None`, the frame will not be tracked. 
+            dataframe. If not provided, a label of the from "result_{x}" where x
+            is a monotonically increasing integer is generated. If `None`,
+            the result frame will not be tracked. 
         **kwargs:
             Additional optional parameters passed for the selected function
 
@@ -1116,17 +1135,11 @@ class Ensemble:
             )
 
         if label is not None:
-            if isinstance(batch, EnsembleFrame) or isinstance(batch, EnsembleSeries):
-                # Track the result frame under the provided label
-                self.add_frame(batch, label)
-            else:
-                # The result of the batch function was not a frame/series we don't support tracking.
-                # However we opt to provide a warning so that the user won't lose a potentially
-                # expensive computation.
-                warnings.warn(
-                    f"""Warning: Batch successfully computed but failed to track frame under label,
-                      {label}, due to incompatible meta: {meta}""")
-
+            if  label == "":
+                label = self._generate_frame_label()
+                print(f"Using generated label, {label}, for a batch result.")
+            # Track the result frame under the provided label
+            self.add_frame(batch, label)
         if compute:
             return batch.compute()
         else:
