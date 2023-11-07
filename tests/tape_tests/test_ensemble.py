@@ -572,10 +572,19 @@ def test_update_column_map(dask_client):
     assert cmap_2.map["provenance_col"] == "p"
 
 
-def test_sync_tables(parquet_ensemble):
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
+def test_sync_tables(data_fixture, request):
     """
     Test that _sync_tables works as expected
     """
+
+    parquet_ensemble = request.getfixturevalue(data_fixture)
 
     assert len(parquet_ensemble.compute("object")) == 15
     assert len(parquet_ensemble.compute("source")) == 2000
@@ -598,6 +607,11 @@ def test_sync_tables(parquet_ensemble):
     # dirty flags should be unset after sync
     assert not parquet_ensemble._object_dirty
     assert not parquet_ensemble._source_dirty
+
+    # Make sure that divisions are preserved
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert parquet_ensemble._source.known_divisions
+        assert parquet_ensemble._object.known_divisions
 
 
 def test_lazy_sync_tables(parquet_ensemble):
