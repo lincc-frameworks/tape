@@ -611,6 +611,7 @@ class Ensemble:
                 self._source.groupby([self._id_col])[self._band_col]  # group by each object
                 .value_counts()  # count occurence of each band
                 .to_frame()  # convert series to dataframe
+                .rename(columns={self._band_col: "counts"})  # rename column
                 .reset_index()  # break up the multiindex
                 .categorize(columns=[self._band_col])  # retype the band labels as categories
                 .pivot_table(values=self._band_col, index=self._id_col, columns=self._band_col, aggfunc="sum")
