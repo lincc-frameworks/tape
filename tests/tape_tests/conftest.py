@@ -254,6 +254,25 @@ def parquet_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
+def parquet_ensemble_with_divisions(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+    ens.from_parquet(
+        "tests/tape_tests/data/source/test_source.parquet",
+        "tests/tape_tests/data/object/test_object.parquet",
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        band_col="filterName",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+        sort=True,
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
 def parquet_ensemble_from_source(dask_client):
     """Create an Ensemble from parquet data, with object file withheld."""
     ens = Ensemble(client=dask_client)
