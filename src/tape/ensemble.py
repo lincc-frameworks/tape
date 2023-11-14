@@ -1084,11 +1084,11 @@ class Ensemble:
             self._source = self._source.repartition(partition_size=partition_size)
 
         # Check that Divisions are established, warn if not.
-        if not self._object.known_divisions or not self._source.known_divisions:
-            warnings.warn(
-                "Divisions for one or both of object and source are not set, certain downstream dask operations may fail as a result. We recommend setting the `sort` or `sorted` flags when loading data to establish division information."
-            )
-
+        for name, table in [("object", self._object), ("source", self._source)]:
+            if not table.known_divisions:
+                warnings.warn(
+                    f"Divisions for {name} are not set, certain downstream dask operations may fail as a result. We recommend setting the `sort` or `sorted` flags when loading data to establish division information."
+                )
         return self
 
     def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
@@ -1283,6 +1283,9 @@ class Ensemble:
                 columns.append(self._provenance_col)
 
         # Read in the source parquet file(s)
+        # Index is set False so that we can set it with a future set_index call
+        # This has the advantage of letting Dask set partition boundaries based
+        # on the divisions between the sources of different objects.
         source = dd.read_parquet(source_file, index=False, columns=columns, split_row_groups=True)
 
         # Generate a provenance column if not provided
@@ -1293,6 +1296,8 @@ class Ensemble:
         object = None
         if object_file:
             # Read in the object file(s)
+            # Index is False so that we can set it with a future set_index call
+            # More meaningful for source than object but parity seems good here
             object = dd.read_parquet(object_file, index=False, split_row_groups=True)
         return self.from_dask_dataframe(
             source_frame=source,
