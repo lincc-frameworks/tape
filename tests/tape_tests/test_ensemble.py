@@ -823,9 +823,13 @@ def test_keep_zeros(parquet_ensemble):
     ],
 )
 @pytest.mark.parametrize("by_band", [True, False])
-def test_calc_nobs(data_fixture, request, by_band):
+@pytest.mark.parametrize("multi_partition", [True, False])
+def test_calc_nobs(data_fixture, request, by_band, multi_partition):
     # Get the Ensemble from a fixture
     ens = request.getfixturevalue(data_fixture)
+
+    if multi_partition:
+        ens._source = ens._source.repartition(3)
 
     # Drop the existing nobs columns
     ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
