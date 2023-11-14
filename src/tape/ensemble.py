@@ -613,6 +613,10 @@ class Ensemble:
                 id_col = self._id_col
                 band_col = self._band_col
 
+                # Get the band metadata
+                unq_bands = np.unique(self._source[band_col])
+                meta = {f"{band}": float for band in unq_bands}
+
                 # Map the groupby to each partition
                 band_counts = self._source.map_partitions(
                     lambda x: x.groupby(id_col)[[band_col]]
@@ -620,7 +624,7 @@ class Ensemble:
                     .to_frame()
                     .reset_index()
                     .pivot_table(values=band_col, index=id_col, columns=band_col, aggfunc="sum"),
-                    enforce_metadata=False,  # needs to ignore the meta, non-ideal?
+                    meta=meta,
                 ).repartition(divisions=self._object.divisions)
             else:
                 band_counts = (
