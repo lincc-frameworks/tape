@@ -615,7 +615,7 @@ class Ensemble:
 
                 # Get the band metadata
                 unq_bands = np.unique(self._source[band_col])
-                meta = {f"{band}": float for band in unq_bands}
+                meta = {band: float for band in unq_bands}
 
                 # Map the groupby to each partition
                 band_counts = self._source.map_partitions(
