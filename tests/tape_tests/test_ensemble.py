@@ -1253,7 +1253,7 @@ def test_select(dask_client):
 @pytest.mark.parametrize("legacy", [True, False])
 def test_assign(dask_client, legacy):
     """Tests assign for column-manipulation, using Ensemble.assign when `legacy` is `True`,
-    and EnsembleFrame.assign when `legacy` is `False`.
+    and EnsembleFrame.assign when `legacy` is `False`."""
     ens = Ensemble(client=dask_client)
 
     num_points = 1000
