@@ -723,46 +723,84 @@ def test_update_column_map(dask_client):
     assert cmap_2.map["provenance_col"] == "p"
 
 
-def test_sync_tables(parquet_ensemble):
+@pytest.mark.parametrize("legacy", [True, False])
+def test_sync_tables(parquet_ensemble, legacy):
     """
-    Test that _sync_tables works as expected
+    Test that _sync_tables works as expected, using Ensemble-level APIs
+    when `legacy` is `True`, and EsnembleFrame APIs when `legacy` is `False`.
     """
-
-    assert len(parquet_ensemble.compute("object")) == 15
-    assert len(parquet_ensemble.compute("source")) == 2000
+    if legacy:
+        assert len(parquet_ensemble.compute("object")) == 15
+        assert len(parquet_ensemble.compute("source")) == 2000
+    else:
+        assert len(parquet_ensemble.object.compute()) == 15
+        assert len(parquet_ensemble.source.compute()) == 2000
 
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
-    assert parquet_ensemble._object.is_dirty()  # Prune should set the object dirty flag
+    assert parquet_ensemble.object.is_dirty()  # Prune should set the object dirty flag
+
+    if legacy:
+        assert len(parquet_ensemble.compute("object")) == 5
+    else:
+        assert len(parquet_ensemble.object.compute()) == 5
 
     # Replace the maximum flux value with a NaN so that we will have a row to drop.
-    max_flux = max(parquet_ensemble._source[parquet_ensemble._flux_col])
-    parquet_ensemble._source[parquet_ensemble._flux_col] = parquet_ensemble._source[
+    max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
+    parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
         parquet_ensemble._flux_col].apply(
             lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
     )
-    parquet_ensemble.dropna(table="source")
-    assert parquet_ensemble._source.is_dirty()  # Dropna should set the source dirty flag
+    if legacy:
+        parquet_ensemble.dropna(table="source")
+    else:
+        parquet_ensemble.source.dropna().update_ensemble()
+    assert parquet_ensemble.source.is_dirty()  # Dropna should set the source dirty flag
 
     # Drop a whole object to test that the object is dropped in the object table
-    parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
+    if legacy:
+        parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
+        assert parquet_ensemble.source.is_dirty()
+        parquet_ensemble.compute()
+        assert not parquet_ensemble.source.is_dirty()
+    else:
+        filtered_src = parquet_ensemble.source.query(f"{parquet_ensemble._id_col} != 88472935274829959")
 
-    parquet_ensemble._sync_tables()
+        # Since we have not yet called update_ensemble, the compute call should not trigger
+        # a sync and the source table should remain dirty.
+        assert parquet_ensemble.source.is_dirty()
+        filtered_src.compute() 
+        assert parquet_ensemble.source.is_dirty()
+
+        # After updating the ensemble validate that a sync occurred and the table is no longer dirty.
+        filtered_src.update_ensemble()
+        filtered_src.compute() # Now equivalent to parquet_ensemble.source.compute()
+        assert not parquet_ensemble.source.is_dirty()
 
     # both tables should have the expected number of rows after a sync
-    assert len(parquet_ensemble.compute("object")) == 4
-    assert len(parquet_ensemble.compute("source")) == 1063
+    if legacy:
+        assert len(parquet_ensemble.compute("object")) == 4
+        assert len(parquet_ensemble.compute("source")) == 1063
+    else:
+        assert len(parquet_ensemble.object.compute()) == 4
+        assert len(parquet_ensemble.source.compute()) == 1063
 
     # dirty flags should be unset after sync
     assert not parquet_ensemble._object.is_dirty()
     assert not parquet_ensemble._source.is_dirty()
 
 
-def test_lazy_sync_tables(parquet_ensemble):
+@pytest.mark.parametrize("legacy", [True, False])
+def test_lazy_sync_tables(parquet_ensemble, legacy):
     """
-    Test that _lazy_sync_tables works as expected
+    Test that _lazy_sync_tables works as expected, using Ensemble-level APIs
+    when `legacy` is `True`, and EsnembleFrame APIs when `legacy` is `False`.
     """
-    assert len(parquet_ensemble.compute("object")) == 15
-    assert len(parquet_ensemble.compute("source")) == 2000
+    if legacy:
+        assert len(parquet_ensemble.compute("object")) == 15
+        assert len(parquet_ensemble.compute("source")) == 2000
+    else:
+        assert len(parquet_ensemble.object.compute()) == 15
+        assert len(parquet_ensemble.source.compute()) == 2000
 
     # Modify only the object table.
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
@@ -771,12 +809,18 @@ def test_lazy_sync_tables(parquet_ensemble):
 
     # For a lazy sync on the object table, nothing should change, because
     # it is already dirty.
-    parquet_ensemble._lazy_sync_tables(table="object")
+    if legacy:
+        parquet_ensemble.compute("object")
+    else:
+        parquet_ensemble.object.compute()
     assert parquet_ensemble._object.is_dirty()
     assert not parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source table, the source table should be updated.
-    parquet_ensemble._lazy_sync_tables(table="source")
+    if legacy:
+        parquet_ensemble.compute("source")
+    else:
+        parquet_ensemble.source.compute()
     assert not parquet_ensemble._object.is_dirty()
     assert not parquet_ensemble._source.is_dirty()
 
@@ -787,20 +831,78 @@ def test_lazy_sync_tables(parquet_ensemble):
         parquet_ensemble._flux_col].apply(
             lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
     )
-    parquet_ensemble.dropna(table="source")
+    
+    assert not parquet_ensemble._object.is_dirty()
+    assert not parquet_ensemble._source.is_dirty()
+
+    if legacy:
+        parquet_ensemble.dropna(table="source")
+    else:
+        parquet_ensemble.source.dropna().update_ensemble()
     assert not parquet_ensemble._object.is_dirty()
     assert parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source table, nothing should change, because
     # it is already dirty.
-    parquet_ensemble._lazy_sync_tables(table="source")
+    if legacy:
+        parquet_ensemble.compute("source")
+    else:
+        parquet_ensemble.source.compute()
     assert not parquet_ensemble._object.is_dirty()
     assert parquet_ensemble._source.is_dirty()
 
     # For a lazy sync on the source, the object table should be updated.
-    parquet_ensemble._lazy_sync_tables(table="object")
+    if legacy:
+        parquet_ensemble.compute("object")
+    else:
+        parquet_ensemble.object.compute()
     assert not parquet_ensemble._object.is_dirty()
     assert not parquet_ensemble._source.is_dirty()
+
+
+def test_compute_triggers_syncing(parquet_ensemble):
+    """
+    Tests that tape.EnsembleFrame.compute() only triggers an Ensemble sync if the
+    frame is the actively tracked source or object table of the Ensemble.
+    """
+    # Test that an object table can trigger a sync that will clean a dirty
+    # source table.
+    parquet_ensemble.source.set_dirty(True)
+    updated_obj = parquet_ensemble.object.dropna()
+
+    # Because we have not yet called update_ensemble(), a sync is not triggered
+    # and the source table remains dirty.
+    updated_obj.compute()
+    assert parquet_ensemble.source.is_dirty()
+
+    # Update the Ensemble so that computing the object table will trigger
+    # a sync
+    updated_obj.update_ensemble()
+    updated_obj.compute() # Now equivalent to Ensemble.object.compute() 
+    assert not parquet_ensemble.source.is_dirty()
+
+    # Test that an source table can trigger a sync that will clean a dirty
+    # object table.
+    parquet_ensemble.object.set_dirty(True)
+    updated_src = parquet_ensemble.source.dropna()
+
+    # Because we have not yet called update_ensemble(), a sync is not triggered
+    # and the object table remains dirty.
+    updated_src.compute()
+    assert parquet_ensemble.object.is_dirty()
+
+    # Update the Ensemble so that computing the object table will trigger
+    # a sync
+    updated_src.update_ensemble()
+    updated_src.compute() # Now equivalent to Ensemble.source.compute() 
+    assert not parquet_ensemble.object.is_dirty()
+
+    # Generate a new Object frame and set the Ensemble to None to
+    # validate that we return a valid result even for untracked frames
+    # which cannot be synced. 
+    new_obj_frame = parquet_ensemble.object.dropna()
+    new_obj_frame.ensemble = None
+    assert len(new_obj_frame.compute()) > 0
 
 
 def test_temporary_cols(parquet_ensemble):
@@ -924,19 +1026,24 @@ def test_temporary_cols(parquet_ensemble):
     assert "f2" not in ens._source.columns
 
 
-def test_dropna(parquet_ensemble):
+@pytest.mark.parametrize("legacy", [True, False])
+def test_dropna(parquet_ensemble, legacy):
+    """Tests dropna, using Ensemble.dropna when `legacy` is `True`, and 
+    EnsembleFrame.dropna when `legacy` is `False`."""
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
         parquet_ensemble.dropna(table="banana")
 
     # First test dropping na from the 'source' table
-    #
-    source_pdf = parquet_ensemble._source.compute()
+    source_pdf = parquet_ensemble.source.compute()
     source_length = len(source_pdf.index)
 
     # Try dropping NaNs from source and confirm nothing is dropped (there are no NaNs).
-    parquet_ensemble.dropna(table="source")
-    assert len(parquet_ensemble._source.compute().index) == source_length
+    if legacy:
+        parquet_ensemble.dropna(table="source")
+    else:
+        parquet_ensemble.source.dropna().update_ensemble()
+    assert len(parquet_ensemble.source) == source_length
 
     # Get a valid ID to use and count its occurrences.
     valid_source_id = source_pdf.index.values[1]
@@ -949,19 +1056,26 @@ def test_dropna(parquet_ensemble):
     parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(source_pdf), label="source", npartitions=1))
 
     # Try dropping NaNs from source and confirm that we did.
-    parquet_ensemble.dropna(table="source")
+    if legacy:
+        parquet_ensemble.dropna(table="source")
+    else:
+        parquet_ensemble.source.dropna().update_ensemble()
     assert len(parquet_ensemble._source.compute().index) == source_length - occurrences_source
 
-    # Sync the table and check that the number of objects decreased.
-    # parquet_ensemble._sync_tables()
-
     # Now test dropping na from 'object' table
-    object_pdf = parquet_ensemble._object.compute()
+    # Sync the tables
+    parquet_ensemble._sync_tables()
+
+    # Sync (triggered by the compute) the table and check that the number of objects decreased.
+    object_pdf = parquet_ensemble.object.compute()
     object_length = len(object_pdf.index)
 
     # Try dropping NaNs from object and confirm nothing is dropped (there are no NaNs).
-    parquet_ensemble.dropna(table="object")
-    assert len(parquet_ensemble._object.compute().index) == object_length
+    if legacy:
+        parquet_ensemble.dropna(table="object")
+    else:
+        parquet_ensemble.object.dropna().update_ensemble()
+    assert len(parquet_ensemble.object.compute().index) == object_length
 
     # get a valid object id and set at least two occurences of that id in the object table
     valid_object_id = object_pdf.index.values[1]
@@ -975,10 +1089,12 @@ def test_dropna(parquet_ensemble):
     parquet_ensemble.update_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
 
     # Try dropping NaNs from object and confirm that we did.
-    parquet_ensemble.dropna(table="object")
-    assert len(parquet_ensemble._object.compute().index) == object_length - occurrences_object
-
-    new_objects_pdf = parquet_ensemble._object.compute()
+    if legacy:
+        parquet_ensemble.dropna(table="object")
+    else:
+        parquet_ensemble.object.dropna().update_ensemble()
+    assert len(parquet_ensemble.object.compute().index) == object_length - occurrences_object
+    new_objects_pdf = parquet_ensemble.object.compute()
     assert len(new_objects_pdf.index) == len(object_pdf.index) - occurrences_object
 
     # Assert the filtered ID is no longer in the objects.
@@ -989,9 +1105,10 @@ def test_dropna(parquet_ensemble):
         for c in new_objects_pdf.columns.values:
             assert new_objects_pdf.loc[i, c] == object_pdf.loc[i, c]
 
-
-def test_keep_zeros(parquet_ensemble):
-    """Test that we can sync the tables and keep objects with zero sources."""
+@pytest.mark.parametrize("legacy", [True, False])
+def test_keep_zeros(parquet_ensemble, legacy):
+    """Test that we can sync the tables and keep objects with zero sources, using 
+    Ensemble.dropna when `legacy` is `True`, and EnsembleFrame.dropna when `legacy` is `False`."""
     parquet_ensemble.keep_empty_objects = True
 
     prev_npartitions = parquet_ensemble._object.npartitions
@@ -1007,7 +1124,10 @@ def test_keep_zeros(parquet_ensemble):
     parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(pdf), npartitions=1, label="source"))
 
     # Sync the table and check that the number of objects decreased.
-    parquet_ensemble.dropna(table="source")
+    if legacy:
+        parquet_ensemble.dropna("source")
+    else:
+        parquet_ensemble.source.dropna().update_ensemble()
     parquet_ensemble._sync_tables()
 
     # Check that objects are preserved after sync
@@ -1130,8 +1250,10 @@ def test_select(dask_client):
     assert "count" not in ens._source.columns
     assert "something_else" not in ens._source.columns
 
-
-def test_assign(dask_client):
+@pytest.mark.parametrize("legacy", [True, False])
+def test_assign(dask_client, legacy):
+    """Tests assign for column-manipulation, using Ensemble.assign when `legacy` is `True`,
+    and EnsembleFrame.assign when `legacy` is `False`.
     ens = Ensemble(client=dask_client)
 
     num_points = 1000
@@ -1145,29 +1267,35 @@ def test_assign(dask_client):
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=1)
-    assert len(ens._source.columns) == 4
+    assert len(ens.source.columns) == 4
     assert "lower_bnd" not in ens._source.columns
 
     # Insert a new column for the "lower bound" computation.
-    ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
-    assert len(ens._source.columns) == 5
-    assert "lower_bnd" in ens._source.columns
+    if legacy:
+        ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
+    else:
+        ens.source.assign(lower_bnd=lambda x: x["flux"] - 2.0 * x["err"]).update_ensemble()
+    assert len(ens.source.columns) == 5
+    assert "lower_bnd" in ens.source.columns
 
     # Check the values in the new column.
-    new_source = ens.compute(table="source")
+    new_source = ens.source.compute() if not legacy else ens.compute(table="source")
     assert new_source.shape[0] == 1000
     for i in range(1000):
         expected = new_source.iloc[i]["flux"] - 2.0 * new_source.iloc[i]["err"]
         assert new_source.iloc[i]["lower_bnd"] == expected
 
     # Create a series directly from the table.
-    res_col = ens._source["band"] + "2"
-    ens.assign(table="source", band2=res_col)
-    assert len(ens._source.columns) == 6
-    assert "band2" in ens._source.columns
+    res_col = ens.source["band"] + "2"
+    if legacy:
+        ens.assign(table="source", band2=res_col)
+    else:
+        ens.source.assign(band2=res_col).update_ensemble()
+    assert len(ens.source.columns) == 6
+    assert "band2" in ens.source.columns
 
     # Check the values in the new column.
-    new_source = ens.compute(table="source")
+    new_source = ens.source.compute() if not legacy else ens.compute(table="source")
     for i in range(1000):
         assert new_source.iloc[i]["band2"] == new_source.iloc[i]["band"] + "2"
 
