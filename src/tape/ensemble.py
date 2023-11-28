@@ -1670,6 +1670,25 @@ class Ensemble:
 
         return res
 
+    def _lazy_sync_tables_from_frame(self, frame):
+        """Call the sync operation for the frame only if the 
+        table being modified (`frame`) needs to be synced.
+        Does nothing in the case that only the table to be modified
+        is dirty or if it is not the object or source frame for this
+        `Ensemble`.
+
+        Parameters
+        ----------
+        frame: `tape.EnsembleFrame`
+            The frame being modified. Only an `ObjectFrame` or
+            `SourceFrame tracked by this `Ensemble` may trigger
+            a sync.
+        """
+        if frame is self.object or frame is self.source:
+            # See if we should sync the Object or Source tables.
+            self._lazy_sync_tables(frame.label)
+        return self
+
     def _lazy_sync_tables(self, table="object"):
         """Call the sync operation for the table only if the
         the table being modified (`table`) needs to be synced.

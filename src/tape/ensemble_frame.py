@@ -556,6 +556,35 @@ class _Frame(dd.core._Frame):
             # If the output of func is another _Frame, let's propagate any metadata.
             return self._propagate_metadata(result)
         return result
+    
+    def compute(self, **kwargs):
+        """Compute this Dask collection, returning the underlying dataframe or series.
+        If tracked by an `Ensemble`, the `Ensemble` is informed of this operation and
+        is given the opportunity to sync any of its tables prior to this Dask collection
+        being computed.
+
+        Doc string below derived from dask.dataframe.DataFrame.compute
+
+        This turns a lazy Dask collection into its in-memory equivalent. For example 
+        a Dask array turns into a NumPy array and a Dask dataframe turns into a
+        Pandas dataframe. The entire dataset must fit into memory before calling
+        this operation.
+
+        Parameters
+        ----------
+        scheduler: `string`, optional
+            Which scheduler to use like “threads”, “synchronous” or “processes”. 
+            If not provided, the default is to check the global settings first,
+            and then fall back to the collection defaults.
+        optimize_graph: `bool`, optional
+            If True [default], the graph is optimized before computation. 
+            Otherwise the graph is run as is. This can be useful for debugging.
+        **kwargs: `dict`, optional
+            Extra keywords to forward to the scheduler function.
+        """
+        if self.ensemble is not None:
+            self.ensemble._lazy_sync_tables_from_frame(self)
+        return super().compute(**kwargs)
 
 class TapeSeries(pd.Series):
     """A barebones extension of a Pandas series to be used for underlying Ensemble data.
