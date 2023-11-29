@@ -287,7 +287,63 @@ class _Frame(dd.core._Frame):
         return self._propagate_metadata(result)
     
     def join(self, other, **kwargs):
-        """
+        """Join columns of another DataFrame. Note that if `other` is a different type,
+        we expect the result to have the type of this object regardless of the value
+        of the`how` parameter.
+
+        This docstring was copied from pandas.core.frame.DataFrame.join.
+
+        Some inconsistencies with this version may exist.
+
+        Join columns with `other` DataFrame either on index or on a key
+        column. Efficiently join multiple DataFrame objects by index at once by
+        passing a list.
+
+        Parameters
+        ----------
+        other : DataFrame, Series, or a list containing any combination of them
+            Index should be similar to one of the columns in this one. If a
+            Series is passed, its name attribute must be set, and that will be
+            used as the column name in the resulting joined DataFrame.
+        on : str, list of str, or array-like, optional
+            Column or index level name(s) in the caller to join on the index
+            in `other`, otherwise joins index-on-index. If multiple
+            values given, the `other` DataFrame must have a MultiIndex. Can
+            pass an array as the join key if it is not already contained in
+            the calling DataFrame. Like an Excel VLOOKUP operation.
+        how : {'left', 'right', 'outer', 'inner', 'cross'}, default 'left'
+            How to handle the operation of the two objects.
+
+            * left: use calling frame's index (or column if on is specified)
+            * right: use `other`'s index.
+            * outer: form union of calling frame's index (or column if on is
+              specified) with `other`'s index, and sort it lexicographically.
+            * inner: form intersection of calling frame's index (or column if
+              on is specified) with `other`'s index, preserving the order
+              of the calling's one.
+            * cross: creates the cartesian product from both frames, preserves the order
+              of the left keys.
+        lsuffix : str, default ''
+            Suffix to use from left frame's overlapping columns.
+        rsuffix : str, default ''
+            Suffix to use from right frame's overlapping columns.
+        sort : bool, default False
+            Order result DataFrame lexicographically by the join key. If False,
+            the order of the join key depends on the join type (how keyword).
+        validate : str, optional
+            If specified, checks if join is of specified type.
+
+            * "one_to_one" or "1:1": check if join keys are unique in both left
+              and right datasets.
+            * "one_to_many" or "1:m": check if join keys are unique in left dataset.
+            * "many_to_one" or "m:1": check if join keys are unique in right dataset.
+            * "many_to_many" or "m:m": allowed, but does not result in checks.
+
+        Returns
+        -------
+        result: `tape._Frame`
+            A TAPE dataframe containing columns from both the caller and `other`.
+
         """
         result = super().join(other, **kwargs)
         return self._propagate_metadata(result)
@@ -322,7 +378,7 @@ class _Frame(dd.core._Frame):
         Returns
         -------
         result: `tape._Frame`
-            Returns the frame or Nonewith the specified
+            Returns the frame or None with the specified
             index or column labels removed or None if inplace=True.
         """
         result = self._propagate_metadata(super().drop(labels=labels, axis=axis, columns=columns, errors=errors))
