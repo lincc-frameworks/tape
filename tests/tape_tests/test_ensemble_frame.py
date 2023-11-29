@@ -298,3 +298,40 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert merged_frame.label == SOURCE_LABEL
     assert merged_frame.ensemble == ens
     assert merged_frame.is_dirty()
+
+
+def test_object_and_source_joins(parquet_ensemble):
+    """
+    Test that SourceFrame and ObjectFrame metadata and class type are correctly propagated across
+    joins.
+    """
+    # Get Source and object frames to test joins on.
+    source_frame, object_frame = parquet_ensemble.source.copy(), parquet_ensemble.object.copy()
+
+    # Verify their metadata was preserved in the copy()
+    assert source_frame.label == SOURCE_LABEL
+    assert source_frame.ensemble is parquet_ensemble
+    assert object_frame.label == OBJECT_LABEL
+    assert object_frame.ensemble is parquet_ensemble
+
+    # Join a SourceFrame (left) with an ObjectFrame (right)
+    # Validate that metadata is preserved and the outputted object is a SourceFrame
+    joined_source = source_frame.join(object_frame, how='left')
+    assert joined_source.label is SOURCE_LABEL
+    assert type(joined_source) is SourceFrame
+    assert joined_source.ensemble is parquet_ensemble
+
+    # Now the same form of join (in terms of left/right) but produce an ObjectFrame. This is
+    # because frame1.join(frame2) will yield frame1's type regardless of left vs right.
+    assert type(object_frame.join(source_frame, how='right')) is ObjectFrame
+
+    # Join an ObjectFrame (left) with a SourceFrame (right)
+    # Validate that metadata is preserved and the outputted object is an ObjectFrame
+    joined_object = object_frame.join(source_frame, how='left')
+    assert joined_object.label is OBJECT_LABEL
+    assert type(joined_object) is ObjectFrame
+    assert joined_object.ensemble is parquet_ensemble
+
+    # Now the same form of join (in terms of left/right) but produce a SourceFrame. This is
+    # because frame1.join(frame2) will yield frame1's type regardless of left vs right.
+    assert type(source_frame.join(object_frame, how='right')) is SourceFrame
