@@ -286,6 +286,12 @@ class _Frame(dd.core._Frame):
         result = super().merge(right, **kwargs)
         return self._propagate_metadata(result)
     
+    def join(self, other, **kwargs):
+        """
+        """
+        result = super().join(other, **kwargs)
+        return self._propagate_metadata(result)
+    
     def drop(self, labels=None, axis=0, columns=None, errors="raise"):
         """Drop specified labels from rows or columns.
 

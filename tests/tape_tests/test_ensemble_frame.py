@@ -298,3 +298,35 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert merged_frame.label == SOURCE_LABEL
     assert merged_frame.ensemble == ens
     assert merged_frame.is_dirty()
+
+
+def test_object_and_source_frame_propagation(parquet_ensemble):
+    """
+    Test that SourceFrame and ObjectFrame metadata and class type is correctly preserved across
+    typical Pandas operations. 
+    """
+    source_frame, object_frame = parquet_ensemble.source.copy(), parquet_ensemble.object.copy()
+
+    assert source_frame.label == SOURCE_LABEL
+    assert source_frame.ensemble is parquet_ensemble
+
+    assert object_frame.label == OBJECT_LABEL
+    assert object_frame.ensemble is parquet_ensemble
+
+    # Join a source frame (left) with an object frame(right)
+    joined_source = source_frame.join(object_frame)
+    assert joined_source.label is SOURCE_LABEL
+    assert type(joined_source) is SourceFrame
+    assert joined_source.ensemble is parquet_ensemble
+
+    # Now the same form of join but produce an ObjectFrame
+    assert type(object_frame.join(source_frame, how="right"))
+
+    # Join an object frame (left) with a source frame(right)
+    joined_object = object_frame.join(source_frame)
+    assert joined_object.label is OBJECT_LABEL
+    assert type(joined_object) is ObjectFrame
+    assert joined_object.ensemble is parquet_ensemble
+
+    # Now the same form of join but produce an ObjectFrame
+    assert type(source_frame.join(object_frame, how="right"))
