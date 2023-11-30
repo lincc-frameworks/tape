@@ -1550,8 +1550,8 @@ class Ensemble:
                 # Lazily Create an empty object table (just index) for joining
                 empty_obj = self._object.map_partitions(lambda x: pd.DataFrame(index=x.index))
 
-                # Join source onto the empty object table to align
-                self._source = empty_obj.join(self._source)
+                # Join source onto the empty object table to remove IDs not present in both tables
+                self._source = self._source.join(empty_obj, how='inner')
             else:
                 warnings.warn("Divisions are not known, syncing using a non-lazy method.")
                 obj_idx = list(self._object.index.compute())
@@ -1570,8 +1570,9 @@ class Ensemble:
                     # Lazily Create an empty source table (just unique indexes) for joining
                     empty_src = self._source.map_partitions(lambda x: pd.DataFrame(index=x.index.unique()))
 
-                    # Join object onto the empty unique source table to align
-                    self._object = empty_src.join(self._object)
+                    # Join object onto the empty unique source table to remove IDs not present in
+                    # both tables
+                    self._object = self._object.join(empty_src, how='inner')
 
                 else:
                     warnings.warn("Divisions are not known, syncing using a non-lazy method.")
