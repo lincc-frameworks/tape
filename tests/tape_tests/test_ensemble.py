@@ -595,16 +595,29 @@ def test_sync_tables(data_fixture, request):
     parquet_ensemble.dropna(table="source")
     assert parquet_ensemble._source_dirty  # Dropna should set the source dirty flag
 
-    # Drop a whole object to test that the object is dropped in the object table
-    parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
+    # Drop a whole object from Source to test that the object is dropped in the object table
+    dropped_obj_id = 88472935274829959
+    parquet_ensemble.query(f"{parquet_ensemble._id_col} != {dropped_obj_id}", table="source")
 
-    parquet_ensemble._sync_tables()
+    # Marks the Object table as dirty without triggering a sync. This is good to test since
+    # we always sync the object table first.
+    parquet_ensemble.dropna("object")
 
-    # both tables should have the expected number of rows after a sync
+    # Verify that the object ID we removed from the source table is present in the object table
+    assert dropped_obj_id in parquet_ensemble._object.index.compute().values
+
+    # Perform an operation which should trigger syncing both tables.
+    parquet_ensemble.compute()
+
+    # Both tables should have the expected number of rows after a sync
     assert len(parquet_ensemble.compute("object")) == 4
     assert len(parquet_ensemble.compute("source")) == 1063
 
-    # dirty flags should be unset after sync
+    # Validate that the filtered object has been removed from both tables.
+    assert dropped_obj_id not in parquet_ensemble._source.index.compute().values
+    assert dropped_obj_id not in parquet_ensemble._object.index.compute().values
+
+    # Dirty flags should be unset after sync
     assert not parquet_ensemble._object_dirty
     assert not parquet_ensemble._source_dirty
 
