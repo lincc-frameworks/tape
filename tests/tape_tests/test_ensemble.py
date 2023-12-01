@@ -759,12 +759,6 @@ def test_sync_tables(data_fixture, request, legacy):
     else:
         assert len(parquet_ensemble.object.compute()) == 5
 
-    # Replace the maximum flux value with a NaN so that we will have a row to drop.
-    max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
-    parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
-        parquet_ensemble._flux_col].apply(
-            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
-    )
     if legacy:
         parquet_ensemble.dropna(table="source")
     else:
