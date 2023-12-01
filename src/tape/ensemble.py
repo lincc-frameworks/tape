@@ -1551,7 +1551,7 @@ class Ensemble:
                 empty_obj = self._object.map_partitions(lambda x: pd.DataFrame(index=x.index))
 
                 # Join source onto the empty object table to remove IDs not present in both tables
-                self._source = self._source.join(empty_obj, how='inner')
+                self._source = self._source.join(empty_obj, how="inner")
             else:
                 warnings.warn("Divisions are not known, syncing using a non-lazy method.")
                 obj_idx = list(self._object.index.compute())
@@ -1572,7 +1572,7 @@ class Ensemble:
 
                     # Join object onto the empty unique source table to remove IDs not present in
                     # both tables
-                    self._object = self._object.join(empty_src, how='inner')
+                    self._object = self._object.join(empty_src, how="inner")
 
                 else:
                     warnings.warn("Divisions are not known, syncing using a non-lazy method.")
