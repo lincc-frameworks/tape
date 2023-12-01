@@ -765,12 +765,10 @@ def test_sync_tables(data_fixture, request, legacy):
         parquet_ensemble.source.dropna().update_ensemble()
     assert parquet_ensemble.source.is_dirty()  # Dropna should set the source dirty flag
 
-    # Drop a whole object to test that the object is dropped in the object table
+    # Drop a whole object from Source to test that the object is dropped in the object table
+    dropped_obj_id = 88472935274829959
     if legacy:
-        parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
-        assert parquet_ensemble.source.is_dirty()
-        parquet_ensemble.compute()
-        assert not parquet_ensemble.source.is_dirty()
+        parquet_ensemble.query(f"{parquet_ensemble._id_col} != {dropped_obj_id}", table="source")
     else:
         filtered_src = parquet_ensemble.source.query(f"{parquet_ensemble._id_col} != 88472935274829959")
 
@@ -780,12 +778,16 @@ def test_sync_tables(data_fixture, request, legacy):
         filtered_src.compute() 
         assert parquet_ensemble.source.is_dirty()
 
-        # After updating the ensemble validate that a sync occurred and the table is no longer dirty.
+        # Update the ensemble to use the filtered source.
         filtered_src.update_ensemble()
-        filtered_src.compute() # Now equivalent to parquet_ensemble.source.compute()
-        assert not parquet_ensemble.source.is_dirty()
 
-    # both tables should have the expected number of rows after a sync
+    # Verify that the object ID we removed from the source table is present in the object table
+    assert dropped_obj_id in parquet_ensemble._object.index.compute().values
+
+    # Perform an operation which should trigger syncing both tables.
+    parquet_ensemble.compute()
+
+    # Both tables should have the expected number of rows after a sync
     if legacy:
         assert len(parquet_ensemble.compute("object")) == 4
         assert len(parquet_ensemble.compute("source")) == 1063
@@ -793,14 +795,18 @@ def test_sync_tables(data_fixture, request, legacy):
         assert len(parquet_ensemble.object.compute()) == 4
         assert len(parquet_ensemble.source.compute()) == 1063
 
-    # dirty flags should be unset after sync
-    assert not parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    # Validate that the filtered object has been removed from both tables.
+    assert dropped_obj_id not in parquet_ensemble.source.index.compute().values
+    assert dropped_obj_id not in parquet_ensemble.object.index.compute().values
+
+    # Dirty flags should be unset after sync
+    assert not parquet_ensemble.object_dirty
+    assert not parquet_ensemble.source_dirty
 
     # Make sure that divisions are preserved
     if data_fixture == "parquet_ensemble_with_divisions":
-        assert parquet_ensemble._source.known_divisions
-        assert parquet_ensemble._object.known_divisions
+        assert parquet_ensemble.source.known_divisions
+        assert parquet_ensemble.object.known_divisions
 
 
 @pytest.mark.parametrize("legacy", [True, False])

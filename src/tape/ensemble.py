@@ -1760,7 +1760,7 @@ class Ensemble:
                     raise ValueError("Bad type for empty_obj: " + str(type(empty_obj)))
 
                 # Join source onto the empty object table to align
-                self.update_frame(self._source.join(empty_obj, how='right'))
+                self.update_frame(self._source.join(empty_obj, how="inner"))
             else:
                 warnings.warn("Divisions are not known, syncing using a non-lazy method.")
                 obj_idx = list(self._object.index.compute())
@@ -1782,7 +1782,7 @@ class Ensemble:
                         raise ValueError("Bad type for empty_src: " + str(type(empty_src)))
 
                     # Join object onto the empty unique source table to align
-                    self.update_frame(self._object.join(empty_src, how='right'))
+                    self.update_frame(self._object.join(empty_src, how="inner"))
                 else:
                     warnings.warn("Divisions are not known, syncing using a non-lazy method.")
                     # Sync Source to Object; remove any objects that do not have sources
