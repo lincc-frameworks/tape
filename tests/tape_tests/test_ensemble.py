@@ -32,6 +32,7 @@ def test_with_client():
     "data_fixture",
     [
         "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
         "parquet_ensemble_without_client",
         "parquet_ensemble_from_source",
         "parquet_ensemble_from_hipscat",
@@ -60,6 +61,11 @@ def test_parquet_construction(data_fixture, request):
     # Check to make sure the source and object tables were created
     assert parquet_ensemble._source is not None
     assert parquet_ensemble._object is not None
+
+    # Make sure divisions are set
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert parquet_ensemble._source.known_divisions
+        assert parquet_ensemble._object.known_divisions
 
     # Check that the data is not empty.
     obj, source = parquet_ensemble.compute()
@@ -723,12 +729,21 @@ def test_update_column_map(dask_client):
     assert cmap_2.map["provenance_col"] == "p"
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
 @pytest.mark.parametrize("legacy", [True, False])
-def test_sync_tables(parquet_ensemble, legacy):
+def test_sync_tables(data_fixture, request, legacy):
     """
     Test that _sync_tables works as expected, using Ensemble-level APIs
     when `legacy` is `True`, and EsnembleFrame APIs when `legacy` is `False`.
     """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     if legacy:
         assert len(parquet_ensemble.compute("object")) == 15
         assert len(parquet_ensemble.compute("source")) == 2000
@@ -744,24 +759,16 @@ def test_sync_tables(parquet_ensemble, legacy):
     else:
         assert len(parquet_ensemble.object.compute()) == 5
 
-    # Replace the maximum flux value with a NaN so that we will have a row to drop.
-    max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
-    parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
-        parquet_ensemble._flux_col].apply(
-            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
-    )
     if legacy:
         parquet_ensemble.dropna(table="source")
     else:
         parquet_ensemble.source.dropna().update_ensemble()
     assert parquet_ensemble.source.is_dirty()  # Dropna should set the source dirty flag
 
-    # Drop a whole object to test that the object is dropped in the object table
+    # Drop a whole object from Source to test that the object is dropped in the object table
+    dropped_obj_id = 88472935274829959
     if legacy:
-        parquet_ensemble.query(f"{parquet_ensemble._id_col} != 88472935274829959", table="source")
-        assert parquet_ensemble.source.is_dirty()
-        parquet_ensemble.compute()
-        assert not parquet_ensemble.source.is_dirty()
+        parquet_ensemble.query(f"{parquet_ensemble._id_col} != {dropped_obj_id}", table="source")
     else:
         filtered_src = parquet_ensemble.source.query(f"{parquet_ensemble._id_col} != 88472935274829959")
 
@@ -771,12 +778,16 @@ def test_sync_tables(parquet_ensemble, legacy):
         filtered_src.compute() 
         assert parquet_ensemble.source.is_dirty()
 
-        # After updating the ensemble validate that a sync occurred and the table is no longer dirty.
+        # Update the ensemble to use the filtered source.
         filtered_src.update_ensemble()
-        filtered_src.compute() # Now equivalent to parquet_ensemble.source.compute()
-        assert not parquet_ensemble.source.is_dirty()
 
-    # both tables should have the expected number of rows after a sync
+    # Verify that the object ID we removed from the source table is present in the object table
+    assert dropped_obj_id in parquet_ensemble._object.index.compute().values
+
+    # Perform an operation which should trigger syncing both tables.
+    parquet_ensemble.compute()
+
+    # Both tables should have the expected number of rows after a sync
     if legacy:
         assert len(parquet_ensemble.compute("object")) == 4
         assert len(parquet_ensemble.compute("source")) == 1063
@@ -784,9 +795,18 @@ def test_sync_tables(parquet_ensemble, legacy):
         assert len(parquet_ensemble.object.compute()) == 4
         assert len(parquet_ensemble.source.compute()) == 1063
 
-    # dirty flags should be unset after sync
-    assert not parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    # Validate that the filtered object has been removed from both tables.
+    assert dropped_obj_id not in parquet_ensemble.source.index.compute().values
+    assert dropped_obj_id not in parquet_ensemble.object.index.compute().values
+
+    # Dirty flags should be unset after sync
+    assert not parquet_ensemble.object_dirty
+    assert not parquet_ensemble.source_dirty
+
+    # Make sure that divisions are preserved
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert parquet_ensemble.source.known_divisions
+        assert parquet_ensemble.object.known_divisions
 
 
 @pytest.mark.parametrize("legacy", [True, False])
@@ -1026,10 +1046,19 @@ def test_temporary_cols(parquet_ensemble):
     assert "f2" not in ens._source.columns
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
 @pytest.mark.parametrize("legacy", [True, False])
-def test_dropna(parquet_ensemble, legacy):
+def test_dropna(data_fixture, request, legacy):
     """Tests dropna, using Ensemble.dropna when `legacy` is `True`, and 
     EnsembleFrame.dropna when `legacy` is `False`."""
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     # Try passing in an unrecognized 'table' parameter and verify an exception is thrown
     with pytest.raises(ValueError):
         parquet_ensemble.dropna(table="banana")
@@ -1062,6 +1091,10 @@ def test_dropna(parquet_ensemble, legacy):
         parquet_ensemble.source.dropna().update_ensemble()
     assert len(parquet_ensemble._source.compute().index) == source_length - occurrences_source
 
+    if data_fixture == "parquet_ensemble_with_divisions":
+        # divisions should be preserved
+        assert parquet_ensemble._source.known_divisions
+
     # Now test dropping na from 'object' table
     # Sync the tables
     parquet_ensemble._sync_tables()
@@ -1077,10 +1110,8 @@ def test_dropna(parquet_ensemble, legacy):
         parquet_ensemble.object.dropna().update_ensemble()
     assert len(parquet_ensemble.object.compute().index) == object_length
 
-    # get a valid object id and set at least two occurences of that id in the object table
+    # select an id from the object table
     valid_object_id = object_pdf.index.values[1]
-    object_pdf.index.values[0] = valid_object_id
-    occurrences_object = len(object_pdf.loc[valid_object_id].values)
 
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
@@ -1088,14 +1119,19 @@ def test_dropna(parquet_ensemble, legacy):
     object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
     parquet_ensemble.update_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
 
-    # Try dropping NaNs from object and confirm that we did.
+    # Try dropping NaNs from object and confirm that we dropped a row
     if legacy:
         parquet_ensemble.dropna(table="object")
     else:
         parquet_ensemble.object.dropna().update_ensemble()
-    assert len(parquet_ensemble.object.compute().index) == object_length - occurrences_object
+    assert len(parquet_ensemble.object.compute().index) == object_length - 1
+
+    if data_fixture == "parquet_ensemble_with_divisions":
+        # divisions should be preserved
+        assert parquet_ensemble._object.known_divisions
+
     new_objects_pdf = parquet_ensemble.object.compute()
-    assert len(new_objects_pdf.index) == len(object_pdf.index) - occurrences_object
+    assert len(new_objects_pdf.index) == len(object_pdf.index) - 1
 
     # Assert the filtered ID is no longer in the objects.
     assert valid_source_id not in new_objects_pdf.index.values
@@ -1136,18 +1172,29 @@ def test_keep_zeros(parquet_ensemble, legacy):
     assert parquet_ensemble._object.npartitions == prev_npartitions
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
 @pytest.mark.parametrize("by_band", [True, False])
-@pytest.mark.parametrize("know_divisions", [True, False])
-def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
-    ens = parquet_ensemble
+@pytest.mark.parametrize("multi_partition", [True, False])
+def test_calc_nobs(data_fixture, request, by_band, multi_partition):
+    # Get the Ensemble from a fixture
+    ens = request.getfixturevalue(data_fixture)
+
+    if multi_partition:
+        ens._source = ens._source.repartition(3)
+
+    # Drop the existing nobs columns
     ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
 
-    if know_divisions:
-        ens._object = ens._object.reset_index().set_index(ens._id_col)
-        assert ens._object.known_divisions
-
+    # Calculate nobs
     ens.calc_nobs(by_band)
 
+    # Check that things turned out as we expect
     lc = ens._object.loc[88472935274829959].compute()
 
     if by_band:
@@ -1158,15 +1205,45 @@ def test_calc_nobs(parquet_ensemble, by_band, know_divisions):
     assert "nobs_total" in ens._object.columns
     assert lc["nobs_total"].values[0] == 499
 
+    # Make sure that if divisions were set previously, they are preserved
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert ens._object.known_divisions
+        assert ens._source.known_divisions
 
-def test_prune(parquet_ensemble):
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
+@pytest.mark.parametrize("generate_nobs", [False, True])
+def test_prune(data_fixture, request, generate_nobs):
     """
     Test that ensemble.prune() appropriately filters the dataframe
     """
+
+    # Get the Ensemble from a fixture
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
     threshold = 10
-    parquet_ensemble.prune(threshold)
+    # Generate the nobs cols from within prune
+    if generate_nobs:
+        # Drop the existing nobs columns
+        parquet_ensemble._object = parquet_ensemble._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+        parquet_ensemble.prune(threshold)
+
+    # Use an existing column
+    else:
+        parquet_ensemble.prune(threshold, col_name="nobs_total")
 
     assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
+
+    # Make sure that if divisions were set previously, they are preserved
+    if data_fixture == "parquet_ensemble_with_divisions":
+        assert parquet_ensemble._source.known_divisions
+        assert parquet_ensemble._object.known_divisions
 
 
 def test_query(dask_client):
@@ -1517,6 +1594,7 @@ def test_bin_sources_two_days(dask_client):
     "data_fixture",
     [
         "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
         "parquet_ensemble_without_client",
     ],
 )
@@ -1546,6 +1624,10 @@ def test_batch(data_fixture, request, use_map, on):
     tracked_result = parquet_ensemble.select_frame("stetson_j")
     assert isinstance(tracked_result, EnsembleSeries)
     assert result is tracked_result
+
+    # Make sure that divisions information is propagated if known
+    if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
+        assert result.known_divisions
 
     result = result.compute()
 
@@ -1681,25 +1763,41 @@ def test_build_index(dask_client):
     assert result_ids == target
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
 @pytest.mark.parametrize("method", ["size", "length", "loglength"])
 @pytest.mark.parametrize("combine", [True, False])
 @pytest.mark.parametrize("sthresh", [50, 100])
-def test_sf2(parquet_ensemble, method, combine, sthresh, use_map=False):
+def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
     """
     Test calling sf2 from the ensemble
     """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
 
     arg_container = StructureFunctionArgumentContainer()
     arg_container.bin_method = method
     arg_container.combine = combine
     arg_container.bin_count_target = sthresh
 
-    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
+    if not combine:
+        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map, compute=False)
+    else:
+        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+
+    if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
+        if not combine:
+            assert res_sf2.known_divisions
 
     if combine:
         assert not res_sf2.equals(res_batch)  # output should be different
     else:
+        res_sf2 = res_sf2.compute()
         assert res_sf2.equals(res_batch)  # output should be identical
 
 
