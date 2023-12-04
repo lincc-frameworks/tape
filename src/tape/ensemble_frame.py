@@ -458,13 +458,13 @@ class _Frame(dd.core._Frame):
 
     def set_index(
         self,
-        other: str | pd.Series,
-        drop: bool = True,
-        sorted: bool = False,
-        npartitions: int | Literal["auto"] | None = None,
-        divisions: Sequence | None = None,
-        inplace: bool = False,
-        sort: bool = True,
+        other,
+        drop=True,
+        sorted=False,
+        npartitions=None,
+        divisions=None,
+        inplace=False,
+        sort=True,
         **kwargs,
     ):
         """Set the DataFrame index (row labels) using an existing column.
