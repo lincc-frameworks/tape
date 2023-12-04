@@ -13,14 +13,24 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeObjectFrame, TapeSourceFrame, TapeSeries
+from .ensemble_frame import (
+    EnsembleFrame,
+    EnsembleSeries,
+    ObjectFrame,
+    SourceFrame,
+    TapeFrame,
+    TapeObjectFrame,
+    TapeSourceFrame,
+    TapeSeries,
+)
 from .timeseries import TimeSeries
 from .utils import ColumnMapper
 
 SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
 
-DEFAULT_FRAME_LABEL = "result" # A base default label for an Ensemble's result frames.
+DEFAULT_FRAME_LABEL = "result"  # A base default label for an Ensemble's result frames.
+
 
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
@@ -42,13 +52,13 @@ class Ensemble:
         self._source = None  # Source Table
         self._object = None  # Object Table
 
-        self.frames = {} # Frames managed by this Ensemble, keyed by label
+        self.frames = {}  # Frames managed by this Ensemble, keyed by label
 
         # A unique ID to allocate new result frame labels.
         self.default_frame_id = 1
 
-        self.source = None # Source Table EnsembleFrame
-        self.object = None # Object Table EnsembleFrame
+        self.source = None  # Source Table EnsembleFrame
+        self.object = None  # Object Table EnsembleFrame
 
         self._source_temp = []  # List of temporary columns in Source
         self._object_temp = []  # List of temporary columns in Object
@@ -99,7 +109,7 @@ class Ensemble:
         frame: `tape.ensemble.EnsembleFrame`
             The frame object for the Ensemble to track.
         label: `str`
-        |   The label for the Ensemble to use to track the frame.    
+        |   The label for the Ensemble to use to track the frame.
 
         Returns
         -------
@@ -110,13 +120,9 @@ class Ensemble:
         ValueError if the label is "source", "object", or already tracked by the Ensemble.
         """
         if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
-            raise ValueError(
-                f"Unable to add frame with reserved label " f"'{label}'"
-                )
+            raise ValueError(f"Unable to add frame with reserved label " f"'{label}'")
         if label in self.frames:
-            raise ValueError(
-                f"Unable to add frame: a frame with label " f"'{label}'" f"is in the Ensemble."
-                )
+            raise ValueError(f"Unable to add frame: a frame with label " f"'{label}'" f"is in the Ensemble.")
         # Assign the frame to the requested tracking label.
         frame.label = label
         # Update the ensemble to track this labeled frame.
@@ -142,14 +148,11 @@ class Ensemble:
         but uses the reserved labels.
         """
         if frame.label is None:
-            raise ValueError(
-                f"Unable to update frame with no populated `EnsembleFrame.label`."
-                )
+            raise ValueError(f"Unable to update frame with no populated `EnsembleFrame.label`.")
         if isinstance(frame, SourceFrame) or isinstance(frame, ObjectFrame):
             expected_label = SOURCE_FRAME_LABEL if isinstance(frame, SourceFrame) else OBJECT_FRAME_LABEL
             if frame.label != expected_label:
-                raise ValueError(f"Unable to update frame with reserved label " f"'{frame.label}'"
-                )
+                raise ValueError(f"Unable to update frame with reserved label " f"'{frame.label}'")
             if isinstance(frame, SourceFrame):
                 self._source = frame
                 self.source = frame
@@ -161,7 +164,7 @@ class Ensemble:
         frame.ensemble = self
         self.frames[frame.label] = frame
         return self
-    
+
     def drop_frame(self, label):
         """Drops a frame tracked by the Ensemble.
 
@@ -180,13 +183,9 @@ class Ensemble:
         KeyError if the label is not tracked by the Ensemble.
         """
         if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
-            raise ValueError(
-                f"Unable to drop frame with reserved label " f"'{label}'"
-                )
+            raise ValueError(f"Unable to drop frame with reserved label " f"'{label}'")
         if label not in self.frames:
-            raise KeyError(
-                f"Unable to drop frame: no frame with label " f"'{label}'" f"is in the Ensemble."
-                )
+            raise KeyError(f"Unable to drop frame: no frame with label " f"'{label}'" f"is in the Ensemble.")
         del self.frames[label]
         return self
 
@@ -209,9 +208,9 @@ class Ensemble:
         if label not in self.frames:
             raise KeyError(
                 f"Unable to select frame: no frame with label" f"'{label}'" f" is in the Ensemble."
-                )
+            )
         return self.frames[label]
-    
+
     def frame_info(self, labels=None, verbose=True, memory_usage=True, **kwargs):
         """Wrapper for calling dask.dataframe.DataFrame.info() on frames tracked by the Ensemble.
 
@@ -242,14 +241,14 @@ class Ensemble:
             if label not in self.frames:
                 raise KeyError(
                     f"Unable to get frame info: no frame with label " f"'{label}'" f" is in the Ensemble."
-                    )
+                )
             print(label, "Frame")
             print(self.frames[label].info(verbose=verbose, memory_usage=memory_usage, **kwargs))
 
     def _generate_frame_label(self):
-        """ Generates a new unique label for a result frame. """
+        """Generates a new unique label for a result frame."""
         result = DEFAULT_FRAME_LABEL + "_" + str(self.default_frame_id)
-        self.default_frame_id += 1 # increment to guarantee uniqueness
+        self.default_frame_id += 1  # increment to guarantee uniqueness
         while result in self.frames:
             # If the generated label has been taken by a user, increment again.
             # In most workflows, we expect the number of frames to be O(100) so it's unlikely for
@@ -349,7 +348,7 @@ class Ensemble:
                 self.update_frame(self._source.repartition(divisions=prev_div))
             elif self._source.npartitions != prev_num:
                 self._source = self._source.repartition(npartitions=prev_num)
-        
+
         return self
 
     def client_info(self):
@@ -877,7 +876,7 @@ class Ensemble:
         # Mask on object table
         self = self.query(f"{col_name} >= {threshold}", table="object")
 
-        self._object.set_dirty(True) # Object table is now dirty
+        self._object.set_dirty(True)  # Object table is now dirty
 
         return self
 
@@ -1016,7 +1015,9 @@ class Ensemble:
                 aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.
-        self.update_frame(self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs))
+        self.update_frame(
+            self._source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+        )
 
         # Fix the indices and remove the temporary column.
         self.update_frame(self._source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1))
@@ -1064,10 +1065,10 @@ class Ensemble:
             source or object tables. For TAPE and `light-curve` functions
             this is populated automatically.
         label: 'str', optional
-            If provided the ensemble will use this label to track the result 
+            If provided the ensemble will use this label to track the result
             dataframe. If not provided, a label of the from "result_{x}" where x
             is a monotonically increasing integer is generated. If `None`,
-            the result frame will not be tracked. 
+            the result frame will not be tracked.
         **kwargs:
             Additional optional parameters passed for the selected function
 
@@ -1165,7 +1166,7 @@ class Ensemble:
             batch.divisions = self._source.divisions
 
         if label is not None:
-            if  label == "":
+            if label == "":
                 label = self._generate_frame_label()
                 print(f"Using generated label, {label}, for a batch result.")
             # Track the result frame under the provided label
@@ -1277,8 +1278,7 @@ class Ensemble:
         source_frame = SourceFrame.from_dask_dataframe(source_frame, self)
 
         # Set the index of the source frame and save the resulting table
-        self.update_frame(
-            source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
+        self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
 
         if object_frame is None:  # generate an indexed object table from source
             self.update_frame(self._generate_object_table())
@@ -1669,34 +1669,40 @@ class Ensemble:
 
         if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
             if isinstance(zero_point, str):
-                self.update_frame(self._source.assign(
-                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
-                ))
+                self.update_frame(
+                    self._source.assign(
+                        **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
+                    )
+                )
             else:
-                self.update_frame(self._source.assign(
-                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / zero_point)}
-                ))
+                self.update_frame(
+                    self._source.assign(**{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / zero_point)})
+                )
 
         elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
             if isinstance(zero_point, str):
-                self.update_frame(self._source.assign(
-                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
-                ))
+                self.update_frame(
+                    self._source.assign(
+                        **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
+                    )
+                )
             else:
-                self.update_frame(self._source.assign(
-                    **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + zero_point}
-                ))
+                self.update_frame(
+                    self._source.assign(**{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + zero_point})
+                )
         else:
             raise ValueError(f"{zp_form} is not a valid zero_point format.")
 
         # Calculate Errors
         if err_col is not None:
-            self.update_frame(self._source.assign(
-                **{out_col_name + "_err": lambda x: (2.5 / np.log(10)) * (x[err_col] / x[flux_col])}
-            ))
+            self.update_frame(
+                self._source.assign(
+                    **{out_col_name + "_err": lambda x: (2.5 / np.log(10)) * (x[err_col] / x[flux_col])}
+                )
+            )
 
         return self
- 
+
     def _generate_object_table(self):
         """Generate an empty object table from the source table."""
         res = self._source.map_partitions(lambda x: TapeObjectFrame(index=x.index.unique()))
@@ -1704,7 +1710,7 @@ class Ensemble:
         return res
 
     def _lazy_sync_tables_from_frame(self, frame):
-        """Call the sync operation for the frame only if the 
+        """Call the sync operation for the frame only if the
         table being modified (`frame`) needs to be synced.
         Does nothing in the case that only the table to be modified
         is dirty or if it is not the object or source frame for this
@@ -1957,20 +1963,17 @@ class Ensemble:
         """
         if isinstance(meta, TapeFrame) or isinstance(meta, TapeSeries):
             return meta
-        
+
         # If the meta is not a DataFrame or Series, have Dask attempt translate the meta into an
         # appropriate Pandas object.
-        meta_object = meta 
+        meta_object = meta
         if not (isinstance(meta_object, pd.DataFrame) or isinstance(meta_object, pd.Series)):
             meta_object = dd.backends.make_meta_object(meta_object)
-        
+
         # Convert meta_object into the appropriate TAPE extension.
         if isinstance(meta_object, pd.DataFrame):
             return TapeFrame(meta_object)
         elif isinstance(meta_object, pd.Series):
             return TapeSeries(meta_object)
         else:
-            raise ValueError(
-                "Unsupported Meta: " + str(meta) + "\nTry a Pandas DataFrame or Series instead."
-            )
-        
+            raise ValueError("Unsupported Meta: " + str(meta) + "\nTry a Pandas DataFrame or Series instead.")

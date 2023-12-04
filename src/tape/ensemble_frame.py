@@ -17,11 +17,12 @@ from typing import Literal
 
 from functools import partial
 from dask.dataframe.io.parquet.arrow import (
-        ArrowDatasetEngine as DaskArrowDatasetEngine,
-    )
+    ArrowDatasetEngine as DaskArrowDatasetEngine,
+)
 
-SOURCE_FRAME_LABEL = "source" # Reserved label for source table
-OBJECT_FRAME_LABEL = "object" # Reserved label for object table.
+SOURCE_FRAME_LABEL = "source"  # Reserved label for source table
+OBJECT_FRAME_LABEL = "object"  # Reserved label for object table.
+
 
 class TapeArrowEngine(DaskArrowDatasetEngine):
     """
@@ -52,10 +53,11 @@ class TapeArrowEngine(DaskArrowDatasetEngine):
         meta = cls._creates_meta(meta, schema)
         return meta
 
+
 class TapeSourceArrowEngine(TapeArrowEngine):
     """
     Barebones subclass of TapeArrowEngine for assigning the meta when loading from a parquet file
-    of source data. 
+    of source data.
     """
 
     @classmethod
@@ -65,10 +67,11 @@ class TapeSourceArrowEngine(TapeArrowEngine):
         """
         return TapeSourceFrame(meta)
 
+
 class TapeObjectArrowEngine(TapeArrowEngine):
     """
     Barebones subclass of TapeArrowEngine for assigning the meta when loading from a parquet file
-    of object data. 
+    of object data.
     """
 
     @classmethod
@@ -78,21 +81,22 @@ class TapeObjectArrowEngine(TapeArrowEngine):
         """
         return TapeObjectFrame(meta)
 
+
 class _Frame(dd.core._Frame):
     """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
 
     def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
         # We define relevant object fields before super().__init__ since that call may lead to a
         # map_partitions call which will assume these fields exist.
-        self.label = label # A label used by the Ensemble to identify this frame.
-        self.ensemble = ensemble # The Ensemble object containing this frame.
-        self.dirty = False # True if the underlying data is out of sync with the Ensemble
+        self.label = label  # A label used by the Ensemble to identify this frame.
+        self.ensemble = ensemble  # The Ensemble object containing this frame.
+        self.dirty = False  # True if the underlying data is out of sync with the Ensemble
 
         super().__init__(dsk, name, meta, divisions)
 
     def is_dirty(self):
         return self.dirty
-    
+
     def set_dirty(self, dirty):
         self.dirty = dirty
 
@@ -123,7 +127,7 @@ class _Frame(dd.core._Frame):
     def copy(self):
         self_copy = super().copy()
         return self._propagate_metadata(self_copy)
-    
+
     def assign(self, **kwargs):
         """Assign new columns to a DataFrame.
 
@@ -150,7 +154,7 @@ class _Frame(dd.core._Frame):
         result = self._propagate_metadata(super().assign(**kwargs))
         result.set_dirty(True)
         return result
-    
+
     def query(self, expr, **kwargs):
         """Filter dataframe with complex expression
 
@@ -174,7 +178,7 @@ class _Frame(dd.core._Frame):
         ----------
         result: `tape._Frame`
             The modifed frame
-            
+
         Notes
         -----
         This is like the sequential version except that this will also happen
@@ -190,7 +194,7 @@ class _Frame(dd.core._Frame):
         result = self._propagate_metadata(super().query(expr, **kwargs))
         result.set_dirty(True)
         return result
-        
+
     def merge(self, right, **kwargs):
         """Merge the Dataframe with another DataFrame
 
@@ -198,7 +202,7 @@ class _Frame(dd.core._Frame):
 
         This will merge the two datasets, either on the indices, a certain column
         in each dataset or the index in one dataset and the column in another.
-        
+
         Parameters
         ----------
         right: dask.dataframe.DataFrame
@@ -285,7 +289,7 @@ class _Frame(dd.core._Frame):
         """
         result = super().merge(right, **kwargs)
         return self._propagate_metadata(result)
-    
+
     def join(self, other, **kwargs):
         """Join columns of another DataFrame. Note that if `other` is a different type,
         we expect the result to have the type of this object regardless of the value
@@ -347,12 +351,12 @@ class _Frame(dd.core._Frame):
         """
         result = super().join(other, **kwargs)
         return self._propagate_metadata(result)
-    
+
     def drop(self, labels=None, axis=0, columns=None, errors="raise"):
         """Drop specified labels from rows or columns.
 
         Doc string below derived from dask.dataframe.core
-        
+
         Remove rows or columns by specifying label names and corresponding
         axis, or by directly specifying index or column names. When using a
         multi-index, labels on different levels can be removed by specifying
@@ -381,10 +385,12 @@ class _Frame(dd.core._Frame):
             Returns the frame or None with the specified
             index or column labels removed or None if inplace=True.
         """
-        result = self._propagate_metadata(super().drop(labels=labels, axis=axis, columns=columns, errors=errors))
+        result = self._propagate_metadata(
+            super().drop(labels=labels, axis=axis, columns=columns, errors=errors)
+        )
         result.set_dirty(True)
         return result
-    
+
     def dropna(self, **kwargs):
         """
         Remove missing values.
@@ -420,7 +426,7 @@ class _Frame(dd.core._Frame):
         """Persist this dask collection into memory
 
         Doc string below derived from dask.base
-        
+
         This turns a lazy Dask collection into a Dask collection with the same
         metadata, but now with the results fully computed or actively computing
         in the background.
@@ -449,7 +455,7 @@ class _Frame(dd.core._Frame):
         """
         result = super().persist(**kwargs)
         return self._propagate_metadata(result)
-    
+
     def set_index(
         self,
         other: str | pd.Series,
@@ -461,7 +467,6 @@ class _Frame(dd.core._Frame):
         sort: bool = True,
         **kwargs,
     ):
-
         """Set the DataFrame index (row labels) using an existing column.
 
         Doc string below derived from dask.dataframe.core
@@ -532,7 +537,7 @@ class _Frame(dd.core._Frame):
         partition_size: int, optional
             Desired size of each partitions in bytes.
             Only used when ``npartitions='auto'``
-  
+
         Returns
         ----------
         result: `tape._Frame`
@@ -540,7 +545,7 @@ class _Frame(dd.core._Frame):
         """
         result = super().set_index(other, drop, sorted, npartitions, divisions, inplace, sort, **kwargs)
         return self._propagate_metadata(result)
-    
+
     def map_partitions(self, func, *args, **kwargs):
         """Apply Python function on each DataFrame partition.
 
@@ -618,7 +623,7 @@ class _Frame(dd.core._Frame):
             # If the output of func is another _Frame, let's propagate any metadata.
             return self._propagate_metadata(result)
         return result
-    
+
     def compute(self, **kwargs):
         """Compute this Dask collection, returning the underlying dataframe or series.
         If tracked by an `Ensemble`, the `Ensemble` is informed of this operation and
@@ -627,7 +632,7 @@ class _Frame(dd.core._Frame):
 
         Doc string below derived from dask.dataframe.DataFrame.compute
 
-        This turns a lazy Dask collection into its in-memory equivalent. For example 
+        This turns a lazy Dask collection into its in-memory equivalent. For example
         a Dask array turns into a NumPy array and a Dask dataframe turns into a
         Pandas dataframe. The entire dataset must fit into memory before calling
         this operation.
@@ -635,11 +640,11 @@ class _Frame(dd.core._Frame):
         Parameters
         ----------
         scheduler: `string`, optional
-            Which scheduler to use like “threads”, “synchronous” or “processes”. 
+            Which scheduler to use like “threads”, “synchronous” or “processes”.
             If not provided, the default is to check the global settings first,
             and then fall back to the collection defaults.
         optimize_graph: `bool`, optional
-            If True [default], the graph is optimized before computation. 
+            If True [default], the graph is optimized before computation.
             Otherwise the graph is run as is. This can be useful for debugging.
         **kwargs: `dict`, optional
             Extra keywords to forward to the scheduler function.
@@ -648,37 +653,42 @@ class _Frame(dd.core._Frame):
             self.ensemble._lazy_sync_tables_from_frame(self)
         return super().compute(**kwargs)
 
+
 class TapeSeries(pd.Series):
     """A barebones extension of a Pandas series to be used for underlying Ensemble data.
-    
+
     See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
     """
+
     @property
     def _constructor(self):
         return TapeSeries
-    
+
     @property
     def _constructor_sliced(self):
         return TapeSeries
-    
+
+
 class TapeFrame(pd.DataFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble data.
-    
+
     See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
     """
+
     @property
     def _constructor(self):
         return TapeFrame
-    
+
     @property
     def _constructor_expanddim(self):
         return TapeFrame
-    
-    
+
+
 class EnsembleSeries(_Frame, dd.core.Series):
-    """A barebones extension of a Dask Series for Ensemble data.
-    """
-    _partition_type = TapeSeries # Tracks the underlying data type
+    """A barebones extension of a Dask Series for Ensemble data."""
+
+    _partition_type = TapeSeries  # Tracks the underlying data type
+
 
 class EnsembleFrame(_Frame, dd.core.DataFrame):
     """An extension for a Dask Dataframe for data used by a lightcurve Ensemble.
@@ -692,7 +702,8 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     data = {...} # Some data you want tracked by the Ensemble
     ensemble_frame = tape.EnsembleFrame.from_dict(data, label="my_frame", ensemble=ens)
     """
-    _partition_type = TapeFrame # Tracks the underlying data type
+
+    _partition_type = TapeFrame  # Tracks the underlying data type
 
     def __getitem__(self, key):
         result = super().__getitem__(key)
@@ -702,10 +713,8 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         return result
 
     @classmethod
-    def from_tapeframe(
-        cls, data, npartitions=None, chunksize=None, sort=True, label=None, ensemble=None
-    ):
-        """ Returns an EnsembleFrame constructed from a TapeFrame.
+    def from_tapeframe(cls, data, npartitions=None, chunksize=None, sort=True, label=None, ensemble=None):
+        """Returns an EnsembleFrame constructed from a TapeFrame.
         Parameters
         ----------
         data: `TapeFrame`
@@ -730,10 +739,10 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         result.label = label
         result.ensemble = ensemble
         return result
-    
+
     @classmethod
     def from_dask_dataframe(cl, df, ensemble=None, label=None):
-        """ Returns an EnsembleFrame constructed from a Dask dataframe.
+        """Returns an EnsembleFrame constructed from a Dask dataframe.
         Parameters
         ----------
         df: `dask.dataframe.DataFrame` or `list`
@@ -748,13 +757,13 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         """
         # Create a EnsembleFrame by mapping the partitions to the appropriate meta, TapeFrame
         # TODO(wbeebe@uw.edu): Determine if there is a better method
-        result = df.map_partitions(TapeFrame) 
+        result = df.map_partitions(TapeFrame)
         result.ensemble = ensemble
         result.label = label
         return result
 
     def update_ensemble(self):
-        """ Updates the Ensemble linked by the `EnsembelFrame.ensemble` property to track this frame.
+        """Updates the Ensemble linked by the `EnsembelFrame.ensemble` property to track this frame.
 
         Returns
         result: `tape.Ensemble`
@@ -764,14 +773,15 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             return None
         # Update the Ensemble to track this frame and return the ensemble.
         return self.ensemble.update_frame(self)
-    
-    def convert_flux_to_mag(self, 
-                            flux_col, 
-                            zero_point, 
-                            err_col=None, 
-                            zp_form="mag", 
-                            out_col_name=None,
-                            ):
+
+    def convert_flux_to_mag(
+        self,
+        flux_col,
+        zero_point,
+        err_col=None,
+        zp_form="mag",
+        out_col_name=None,
+    ):
         """Converts this EnsembleFrame's flux column into a magnitude column, returning a new
         EnsembleFrame.
 
@@ -807,14 +817,10 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
 
         result = None
         if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
-            result = self.assign(
-                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])}
-            )
+            result = self.assign(**{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])})
 
         elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
-            result = self.assign(
-                **{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]}
-            )
+            result = self.assign(**{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]})
         else:
             raise ValueError(f"{zp_form} is not a valid zero_point format.")
 
@@ -834,7 +840,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         columns=None,
         ensemble=None,
     ):
-        """ Returns an EnsembleFrame constructed from loading a parquet file.
+        """Returns an EnsembleFrame constructed from loading a parquet file.
         Parameters
         ----------
         path: `str` or `list`
@@ -859,47 +865,56 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         # Read the parquet file with an engine that will assume the meta is a TapeFrame which Dask will
         # instantiate as EnsembleFrame via its dispatcher.
         result = dd.read_parquet(
-            path, index=index, columns=columns, split_row_groups=True, engine=TapeArrowEngine,
+            path,
+            index=index,
+            columns=columns,
+            split_row_groups=True,
+            engine=TapeArrowEngine,
         )
-        result.ensemble=ensemble
+        result.ensemble = ensemble
 
         return result
 
+
 class TapeSourceFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble source data
-    
+
     See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
     """
+
     @property
     def _constructor(self):
         return TapeSourceFrame
-    
+
     @property
     def _constructor_expanddim(self):
         return TapeSourceFrame
-    
+
+
 class TapeObjectFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble object data.
-    
+
     See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
     """
+
     @property
     def _constructor(self):
         return TapeObjectFrame
-    
+
     @property
     def _constructor_expanddim(self):
         return TapeObjectFrame
 
-class SourceFrame(EnsembleFrame):
-    """ A subclass of EnsembleFrame for Source data. """
 
-    _partition_type = TapeSourceFrame # Tracks the underlying data type
+class SourceFrame(EnsembleFrame):
+    """A subclass of EnsembleFrame for Source data."""
+
+    _partition_type = TapeSourceFrame  # Tracks the underlying data type
 
     def __init__(self, dsk, name, meta, divisions, ensemble=None):
         super().__init__(dsk, name, meta, divisions)
-        self.label = SOURCE_FRAME_LABEL # A label used by the Ensemble to identify this frame.
-        self.ensemble = ensemble # The Ensemble object containing this frame.
+        self.label = SOURCE_FRAME_LABEL  # A label used by the Ensemble to identify this frame.
+        self.ensemble = ensemble  # The Ensemble object containing this frame.
 
     def __getitem__(self, key):
         result = super().__getitem__(key)
@@ -916,7 +931,7 @@ class SourceFrame(EnsembleFrame):
         columns=None,
         ensemble=None,
     ):
-        """ Returns a SourceFrame constructed from loading a parquet file.
+        """Returns a SourceFrame constructed from loading a parquet file.
         Parameters
         ----------
         path: `str` or `list`
@@ -938,20 +953,24 @@ class SourceFrame(EnsembleFrame):
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
         """
-        # Read the source parquet file with an engine that will assume the meta is a 
+        # Read the source parquet file with an engine that will assume the meta is a
         # TapeSourceFrame which tells Dask to instantiate a SourceFrame via its
         # dispatcher.
         result = dd.read_parquet(
-            path, index=index, columns=columns, split_row_groups=True, engine=TapeSourceArrowEngine,
+            path,
+            index=index,
+            columns=columns,
+            split_row_groups=True,
+            engine=TapeSourceArrowEngine,
         )
-        result.ensemble=ensemble
+        result.ensemble = ensemble
         result.label = SOURCE_FRAME_LABEL
 
         return result
 
     @classmethod
     def from_dask_dataframe(cl, df, ensemble=None):
-        """ Returns a SourceFrame constructed from a Dask dataframe..
+        """Returns a SourceFrame constructed from a Dask dataframe..
         Parameters
         ----------
         df: `dask.dataframe.DataFrame` or `list`
@@ -964,20 +983,21 @@ class SourceFrame(EnsembleFrame):
         """
         # Create a SourceFrame by mapping the partitions to the appropriate meta, TapeSourceFrame
         # TODO(wbeebe@uw.edu): Determine if there is a better method
-        result = df.map_partitions(TapeSourceFrame) 
+        result = df.map_partitions(TapeSourceFrame)
         result.ensemble = ensemble
         result.label = SOURCE_FRAME_LABEL
         return result
-    
-class ObjectFrame(EnsembleFrame):
-    """ A subclass of EnsembleFrame for Object data. """
 
-    _partition_type = TapeObjectFrame # Tracks the underlying data type
+
+class ObjectFrame(EnsembleFrame):
+    """A subclass of EnsembleFrame for Object data."""
+
+    _partition_type = TapeObjectFrame  # Tracks the underlying data type
 
     def __init__(self, dsk, name, meta, divisions, ensemble=None):
         super().__init__(dsk, name, meta, divisions)
-        self.label = OBJECT_FRAME_LABEL # A label used by the Ensemble to identify this frame.
-        self.ensemble = ensemble # The Ensemble object containing this frame.
+        self.label = OBJECT_FRAME_LABEL  # A label used by the Ensemble to identify this frame.
+        self.ensemble = ensemble  # The Ensemble object containing this frame.
 
     @classmethod
     def from_parquet(
@@ -987,7 +1007,7 @@ class ObjectFrame(EnsembleFrame):
         columns=None,
         ensemble=None,
     ):
-        """ Returns an ObjectFrame constructed from loading a parquet file.
+        """Returns an ObjectFrame constructed from loading a parquet file.
         Parameters
         ----------
         path: `str` or `list`
@@ -1011,16 +1031,20 @@ class ObjectFrame(EnsembleFrame):
         """
         # Read in the object Parquet file
         result = dd.read_parquet(
-            path, index=index, columns=columns, split_row_groups=True, engine=TapeObjectArrowEngine,
+            path,
+            index=index,
+            columns=columns,
+            split_row_groups=True,
+            engine=TapeObjectArrowEngine,
         )
         result.ensemble = ensemble
-        result.label= OBJECT_FRAME_LABEL
+        result.label = OBJECT_FRAME_LABEL
 
         return result
 
     @classmethod
     def from_dask_dataframe(cl, df, ensemble=None):
-        """ Returns an ObjectFrame constructed from a Dask dataframe..
+        """Returns an ObjectFrame constructed from a Dask dataframe..
         Parameters
         ----------
         df: `dask.dataframe.DataFrame` or `list`
@@ -1033,10 +1057,11 @@ class ObjectFrame(EnsembleFrame):
         """
         # Create an ObjectFrame by mapping the partitions to the appropriate meta, TapeObjectFrame
         # TODO(wbeebe@uw.edu): Determine if there is a better method
-        result = df.map_partitions(TapeObjectFrame) 
+        result = df.map_partitions(TapeObjectFrame)
         result.ensemble = ensemble
         result.label = OBJECT_FRAME_LABEL
         return result
+
 
 """
 Dask Dataframes are constructed indirectly using method dispatching and inference on the
@@ -1054,11 +1079,13 @@ get_parallel_type.register(TapeFrame, lambda _: EnsembleFrame)
 get_parallel_type.register(TapeObjectFrame, lambda _: ObjectFrame)
 get_parallel_type.register(TapeSourceFrame, lambda _: SourceFrame)
 
+
 @make_meta_dispatch.register(TapeSeries)
 def make_meta_series(x, index=None):
     # Create an empty TapeSeries to use as Dask's underlying object meta.
     result = x.head(0)
     return result
+
 
 @make_meta_dispatch.register(TapeFrame)
 def make_meta_frame(x, index=None):
@@ -1066,11 +1093,13 @@ def make_meta_frame(x, index=None):
     result = x.head(0)
     return result
 
+
 @meta_nonempty.register(TapeSeries)
 def _nonempty_tapeseries(x, index=None):
     # Construct a new TapeSeries with the same underlying data.
     data = _nonempty_series(x)
     return TapeSeries(data)
+
 
 @meta_nonempty.register(TapeFrame)
 def _nonempty_tapeseries(x, index=None):
@@ -1078,11 +1107,13 @@ def _nonempty_tapeseries(x, index=None):
     df = meta_nonempty_dataframe(x)
     return TapeFrame(df)
 
+
 @make_meta_dispatch.register(TapeObjectFrame)
 def make_meta_frame(x, index=None):
     # Create an empty TapeObjectFrame to use as Dask's underlying object meta.
     result = x.head(0)
     return result
+
 
 @meta_nonempty.register(TapeObjectFrame)
 def _nonempty_tapesourceframe(x, index=None):
@@ -1090,11 +1121,13 @@ def _nonempty_tapesourceframe(x, index=None):
     df = meta_nonempty_dataframe(x)
     return TapeObjectFrame(df)
 
+
 @make_meta_dispatch.register(TapeSourceFrame)
 def make_meta_frame(x, index=None):
     # Create an empty TapeSourceFrame to use as Dask's underlying object meta.
     result = x.head(0)
     return result
+
 
 @meta_nonempty.register(TapeSourceFrame)
 def _nonempty_tapesourceframe(x, index=None):
