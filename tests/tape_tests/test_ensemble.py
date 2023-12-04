@@ -800,8 +800,8 @@ def test_sync_tables(data_fixture, request, legacy):
     assert dropped_obj_id not in parquet_ensemble.object.index.compute().values
 
     # Dirty flags should be unset after sync
-    assert not parquet_ensemble.object_dirty
-    assert not parquet_ensemble.source_dirty
+    assert not parquet_ensemble.object.is_dirty()
+    assert not parquet_ensemble.source.is_dirty()
 
     # Make sure that divisions are preserved
     if data_fixture == "parquet_ensemble_with_divisions":
