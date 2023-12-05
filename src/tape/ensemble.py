@@ -806,9 +806,7 @@ class Ensemble:
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
 
             bands = band_counts.columns.values
-            self.object = self.object.assign(
-                **{label + "_" + str(band): band_counts[band] for band in bands}
-            )
+            self.object = self.object.assign(**{label + "_" + str(band): band_counts[band] for band in bands})
 
             if temporary:
                 self._object_temp.extend(label + "_" + str(band) for band in bands)

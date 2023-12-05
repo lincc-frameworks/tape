@@ -7,7 +7,17 @@ import pandas as pd
 import pytest
 import tape
 
-from tape import Ensemble, EnsembleFrame, EnsembleSeries, ObjectFrame, SourceFrame, TapeFrame, TapeSeries, TapeObjectFrame, TapeSourceFrame
+from tape import (
+    Ensemble,
+    EnsembleFrame,
+    EnsembleSeries,
+    ObjectFrame,
+    SourceFrame,
+    TapeFrame,
+    TapeSeries,
+    TapeObjectFrame,
+    TapeSourceFrame,
+)
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
 from tape.analysis.structurefunction2 import calc_sf2
@@ -132,6 +142,7 @@ def test_dataframe_constructors(data_fixture, request):
     amplitude = ens.batch(calc_stetson_J)
     assert len(amplitude) == 5
 
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
@@ -154,7 +165,7 @@ def test_update_ensemble(data_fixture, request):
     updated_obj.update_ensemble()
     assert ens.object.is_dirty() == True
     assert updated_obj is ens.object
-    
+
     # Filter the source table and have the ensemble track the updated table.
     updated_src = ens.source.query("psFluxErr > 0.1")
     assert updated_src is not ens.source
@@ -166,7 +177,7 @@ def test_update_ensemble(data_fixture, request):
 
     # Compute a result to trigger a table sync
     obj, src = ens.compute()
-    assert len(obj) > 0 
+    assert len(obj) > 0
     assert len(src) > 0
     assert ens.object.is_dirty() == False
     assert ens.source.is_dirty() == False
@@ -187,7 +198,7 @@ def test_update_ensemble(data_fixture, request):
 
     # Test update_ensemble when a frame is unlinked to its parent ensemble.
     result_frame.ensemble = None
-    assert result_frame.update_ensemble() is None 
+    assert result_frame.update_ensemble() is None
 
 
 def test_available_datasets(dask_client):
@@ -200,6 +211,7 @@ def test_available_datasets(dask_client):
 
     assert isinstance(datasets, dict)
     assert len(datasets) > 0  # Find at least one
+
 
 @pytest.mark.parametrize(
     "data_fixture",
@@ -225,14 +237,16 @@ def test_frame_tracking(data_fixture, request):
     assert ens.select_frame("object") is ens.object
     assert isinstance(ens.select_frame("object"), ObjectFrame)
 
-    # Construct some result frames for the Ensemble to track. Underlying data is irrelevant for 
+    # Construct some result frames for the Ensemble to track. Underlying data is irrelevant for
     # this test.
     num_points = 100
-    data = TapeFrame({
-        "id": [8000 + 2 * i for i in range(num_points)],
-        "time": [float(i) for i in range(num_points)],
-        "flux": [0.5 * float(i % 4) for i in range(num_points)],
-    })
+    data = TapeFrame(
+        {
+            "id": [8000 + 2 * i for i in range(num_points)],
+            "time": [float(i) for i in range(num_points)],
+            "flux": [0.5 * float(i % 4) for i in range(num_points)],
+        }
+    )
     # Labels to give the EnsembleFrames
     label1, label2, label3 = "frame1", "frame2", "frame3"
     ens_frame1 = EnsembleFrame.from_tapeframe(data, npartitions=1, ensemble=ens, label=label1)
@@ -274,7 +288,7 @@ def test_frame_tracking(data_fixture, request):
     assert len(ens.frames) == 4
     with pytest.raises(KeyError):
         ens.select_frame(label3)
-    
+
     # Update the ensemble with the dropped frame, and then select the frame
     assert ens.update_frame(ens_frame3).select_frame(label3) is ens_frame3
     assert len(ens.frames) == 5
@@ -292,6 +306,7 @@ def test_frame_tracking(data_fixture, request):
     ens_frame4.label = label3
     assert ens.update_frame(ens_frame4).select_frame(label3) is ens_frame4
     assert len(ens.frames) == 6
+
 
 def test_from_rrl_dataset(dask_client):
     """
@@ -775,7 +790,7 @@ def test_sync_tables(data_fixture, request, legacy):
         # Since we have not yet called update_ensemble, the compute call should not trigger
         # a sync and the source table should remain dirty.
         assert parquet_ensemble.source.is_dirty()
-        filtered_src.compute() 
+        filtered_src.compute()
         assert parquet_ensemble.source.is_dirty()
 
         # Update the ensemble to use the filtered source.
@@ -844,14 +859,13 @@ def test_lazy_sync_tables(parquet_ensemble, legacy):
     assert not parquet_ensemble.object.is_dirty()
     assert not parquet_ensemble.source.is_dirty()
 
-    # Modify only the source table.    
+    # Modify only the source table.
     # Replace the maximum flux value with a NaN so that we will have a row to drop.
     max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
     parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
-        parquet_ensemble._flux_col].apply(
-            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
-    )
-    
+        parquet_ensemble._flux_col
+    ].apply(lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float))
+
     assert not parquet_ensemble.object.is_dirty()
     assert not parquet_ensemble.source.is_dirty()
 
@@ -898,7 +912,7 @@ def test_compute_triggers_syncing(parquet_ensemble):
     # Update the Ensemble so that computing the object table will trigger
     # a sync
     updated_obj.update_ensemble()
-    updated_obj.compute() # Now equivalent to Ensemble.object.compute() 
+    updated_obj.compute()  # Now equivalent to Ensemble.object.compute()
     assert not parquet_ensemble.source.is_dirty()
 
     # Test that an source table can trigger a sync that will clean a dirty
@@ -914,12 +928,12 @@ def test_compute_triggers_syncing(parquet_ensemble):
     # Update the Ensemble so that computing the object table will trigger
     # a sync
     updated_src.update_ensemble()
-    updated_src.compute() # Now equivalent to Ensemble.source.compute() 
+    updated_src.compute()  # Now equivalent to Ensemble.source.compute()
     assert not parquet_ensemble.object.is_dirty()
 
     # Generate a new Object frame and set the Ensemble to None to
     # validate that we return a valid result even for untracked frames
-    # which cannot be synced. 
+    # which cannot be synced.
     new_obj_frame = parquet_ensemble.object.dropna()
     new_obj_frame.ensemble = None
     assert len(new_obj_frame.compute()) > 0
@@ -1009,9 +1023,8 @@ def test_temporary_cols(parquet_ensemble):
     # Replace the maximum flux value with a NaN so that we will have a row to drop.
     max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
     parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
-        parquet_ensemble._flux_col].apply(
-            lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
-    )
+        parquet_ensemble._flux_col
+    ].apply(lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float))
 
     # drop NaNs from source, source should be dirty now
     ens.dropna(how="any", table="source")
@@ -1055,7 +1068,7 @@ def test_temporary_cols(parquet_ensemble):
 )
 @pytest.mark.parametrize("legacy", [True, False])
 def test_dropna(data_fixture, request, legacy):
-    """Tests dropna, using Ensemble.dropna when `legacy` is `True`, and 
+    """Tests dropna, using Ensemble.dropna when `legacy` is `True`, and
     EnsembleFrame.dropna when `legacy` is `False`."""
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
@@ -1082,7 +1095,9 @@ def test_dropna(data_fixture, request, legacy):
     # We do this on the instantiated source (pdf) and convert it back into a
     # SourceFrame.
     source_pdf.loc[valid_source_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(source_pdf), label="source", npartitions=1))
+    parquet_ensemble.update_frame(
+        SourceFrame.from_tapeframe(TapeSourceFrame(source_pdf), label="source", npartitions=1)
+    )
 
     # Try dropping NaNs from source and confirm that we did.
     if legacy:
@@ -1117,7 +1132,9 @@ def test_dropna(data_fixture, request, legacy):
     # We do this on the instantiated object (pdf) and convert it back into a
     # ObjectFrame.
     object_pdf.loc[valid_object_id, parquet_ensemble.object.columns[0]] = pd.NA
-    parquet_ensemble.update_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
+    parquet_ensemble.update_frame(
+        ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1)
+    )
 
     # Try dropping NaNs from object and confirm that we dropped a row
     if legacy:
@@ -1141,9 +1158,10 @@ def test_dropna(data_fixture, request, legacy):
         for c in new_objects_pdf.columns.values:
             assert new_objects_pdf.loc[i, c] == object_pdf.loc[i, c]
 
+
 @pytest.mark.parametrize("legacy", [True, False])
 def test_keep_zeros(parquet_ensemble, legacy):
-    """Test that we can sync the tables and keep objects with zero sources, using 
+    """Test that we can sync the tables and keep objects with zero sources, using
     Ensemble.dropna when `legacy` is `True`, and EnsembleFrame.dropna when `legacy` is `False`."""
     parquet_ensemble.keep_empty_objects = True
 
@@ -1157,7 +1175,9 @@ def test_keep_zeros(parquet_ensemble, legacy):
     valid_id = pdf.index.values[1]
     pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
     parquet_ensemble.source = dd.from_pandas(pdf, npartitions=1)
-    parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(pdf), npartitions=1, label="source"))
+    parquet_ensemble.update_frame(
+        SourceFrame.from_tapeframe(TapeSourceFrame(pdf), npartitions=1, label="source")
+    )
 
     # Sync the table and check that the number of objects decreased.
     if legacy:
@@ -1326,6 +1346,7 @@ def test_select(dask_client):
     assert "band" not in ens.source.columns
     assert "count" not in ens.source.columns
     assert "something_else" not in ens.source.columns
+
 
 @pytest.mark.parametrize("legacy", [True, False])
 def test_assign(dask_client, legacy):
@@ -1610,13 +1631,7 @@ def test_batch(data_fixture, request, use_map, on):
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
-        .batch(
-            calc_stetson_J,
-            use_map=use_map,
-            on=on,
-            band_to_calc=None,
-            compute=False,
-            label="stetson_j")
+        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None, compute=False, label="stetson_j")
     )
 
     # Validate that the ensemble is now tracking a new result frame.
@@ -1640,6 +1655,7 @@ def test_batch(data_fixture, request, use_map, on):
     elif on is ["nobs_total", "ps1_objid"]:
         assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
+
 
 def test_batch_labels(parquet_ensemble):
     """
@@ -1677,6 +1693,7 @@ def test_batch_labels(parquet_ensemble):
     assert frame_cnt == len(parquet_ensemble.frames)
     assert len(result) > 0
 
+
 def test_batch_with_custom_func(parquet_ensemble):
     """
     Test Ensemble.batch with a custom analysis function
@@ -1685,39 +1702,53 @@ def test_batch_with_custom_func(parquet_ensemble):
     result = parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col)
     assert len(result) > 0
 
-@pytest.mark.parametrize("custom_meta", [
-    ("flux_mean", float), # A tuple representing a series
-    pd.Series(name="flux_mean_pandas", dtype="float64"),
-    TapeSeries(name="flux_mean_tape", dtype="float64")])
+
+@pytest.mark.parametrize(
+    "custom_meta",
+    [
+        ("flux_mean", float),  # A tuple representing a series
+        pd.Series(name="flux_mean_pandas", dtype="float64"),
+        TapeSeries(name="flux_mean_tape", dtype="float64"),
+    ],
+)
 def test_batch_with_custom_series_meta(parquet_ensemble, custom_meta):
     """
     Test Ensemble.batch with various styles of output meta for a Series-style result.
     """
     num_frames = len(parquet_ensemble.frames)
 
-    parquet_ensemble.prune(10).batch(
-        np.mean, parquet_ensemble._flux_col, meta=custom_meta, label="flux_mean")
+    parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col, meta=custom_meta, label="flux_mean")
 
     assert len(parquet_ensemble.frames) == num_frames + 1
     assert len(parquet_ensemble.select_frame("flux_mean")) > 0
     assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleSeries)
 
-@pytest.mark.parametrize("custom_meta", [
-    {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
-    [("lc_id", int), ("band", str), ("dt", float), ("sf2", float), ("1_sigma", float)],
-    pd.DataFrame({
-        "lc_id": pd.Series([], dtype=int),
-        "band": pd.Series([], dtype=str),
-        "dt": pd.Series([], dtype=float),
-        "sf2": pd.Series([], dtype=float),
-        "1_sigma": pd.Series([], dtype=float)}),
-    TapeFrame({
-        "lc_id": pd.Series([], dtype=int),
-        "band": pd.Series([], dtype=str),
-        "dt": pd.Series([], dtype=float),
-        "sf2": pd.Series([], dtype=float),
-        "1_sigma": pd.Series([], dtype=float)}),
-])
+
+@pytest.mark.parametrize(
+    "custom_meta",
+    [
+        {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
+        [("lc_id", int), ("band", str), ("dt", float), ("sf2", float), ("1_sigma", float)],
+        pd.DataFrame(
+            {
+                "lc_id": pd.Series([], dtype=int),
+                "band": pd.Series([], dtype=str),
+                "dt": pd.Series([], dtype=float),
+                "sf2": pd.Series([], dtype=float),
+                "1_sigma": pd.Series([], dtype=float),
+            }
+        ),
+        TapeFrame(
+            {
+                "lc_id": pd.Series([], dtype=int),
+                "band": pd.Series([], dtype=str),
+                "dt": pd.Series([], dtype=float),
+                "sf2": pd.Series([], dtype=float),
+                "1_sigma": pd.Series([], dtype=float),
+            }
+        ),
+    ],
+)
 def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
     """
     Test Ensemble.batch with various sytles of output meta for a DataFrame-style result.
@@ -1725,11 +1756,13 @@ def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
     num_frames = len(parquet_ensemble.frames)
 
     parquet_ensemble.prune(10).batch(
-        calc_sf2, parquet_ensemble._flux_col, meta=custom_meta, label="sf2_result")
+        calc_sf2, parquet_ensemble._flux_col, meta=custom_meta, label="sf2_result"
+    )
 
     assert len(parquet_ensemble.frames) == num_frames + 1
     assert len(parquet_ensemble.select_frame("sf2_result")) > 0
     assert isinstance(parquet_ensemble.select_frame("sf2_result"), EnsembleFrame)
+
 
 def test_to_timeseries(parquet_ensemble):
     """
