@@ -59,13 +59,13 @@ def test_parquet_construction(data_fixture, request):
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
     # Check to make sure the source and object tables were created
-    assert parquet_ensemble._source is not None
-    assert parquet_ensemble._object is not None
+    assert parquet_ensemble.source is not None
+    assert parquet_ensemble.object is not None
 
     # Make sure divisions are set
     if data_fixture == "parquet_ensemble_with_divisions":
-        assert parquet_ensemble._source.known_divisions
-        assert parquet_ensemble._object.known_divisions
+        assert parquet_ensemble.source.known_divisions
+        assert parquet_ensemble.object.known_divisions
 
     # Check that the data is not empty.
     obj, source = parquet_ensemble.compute()
@@ -84,7 +84,7 @@ def test_parquet_construction(data_fixture, request):
         parquet_ensemble._provenance_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
-        assert parquet_ensemble._source[col] is not None
+        assert parquet_ensemble.source[col] is not None
 
 
 @pytest.mark.parametrize(
@@ -107,8 +107,8 @@ def test_dataframe_constructors(data_fixture, request):
     ens = request.getfixturevalue(data_fixture)
 
     # Check to make sure the source and object tables were created
-    assert ens._source is not None
-    assert ens._object is not None
+    assert ens.source is not None
+    assert ens.object is not None
 
     # Check that the data is not empty.
     obj, source = ens.compute()
@@ -126,7 +126,7 @@ def test_dataframe_constructors(data_fixture, request):
         ens._band_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
-        assert ens._source[col] is not None
+        assert ens.source[col] is not None
 
     # Check that we can compute an analysis function on the ensemble.
     amplitude = ens.batch(calc_stetson_J)
@@ -146,33 +146,33 @@ def test_update_ensemble(data_fixture, request):
     ens = request.getfixturevalue(data_fixture)
 
     # Filter the object table and have the ensemble track the updated table.
-    updated_obj = ens._object.query("nobs_total > 50")
-    assert updated_obj is not ens._object
+    updated_obj = ens.object.query("nobs_total > 50")
+    assert updated_obj is not ens.object
     assert updated_obj.is_dirty()
     # Update the ensemble and validate that it marks the object table dirty
-    assert ens._object.is_dirty() == False
+    assert ens.object.is_dirty() == False
     updated_obj.update_ensemble()
-    assert ens._object.is_dirty() == True
-    assert updated_obj is ens._object
+    assert ens.object.is_dirty() == True
+    assert updated_obj is ens.object
     
     # Filter the source table and have the ensemble track the updated table.
-    updated_src = ens._source.query("psFluxErr > 0.1")
-    assert updated_src is not ens._source
+    updated_src = ens.source.query("psFluxErr > 0.1")
+    assert updated_src is not ens.source
     # Update the ensemble and validate that it marks the source table dirty
-    assert ens._source.is_dirty() == False
+    assert ens.source.is_dirty() == False
     updated_src.update_ensemble()
-    assert ens._source.is_dirty() == True
-    assert updated_src is ens._source
+    assert ens.source.is_dirty() == True
+    assert updated_src is ens.source
 
     # Compute a result to trigger a table sync
     obj, src = ens.compute()
     assert len(obj) > 0 
     assert len(src) > 0
-    assert ens._object.is_dirty() == False
-    assert ens._source.is_dirty() == False
+    assert ens.object.is_dirty() == False
+    assert ens.source.is_dirty() == False
 
     # Create an additional result table for the ensemble to track.
-    cnts = ens._source.groupby([ens._id_col, ens._band_col])[ens._time_col].aggregate("count")
+    cnts = ens.source.groupby([ens._id_col, ens._band_col])[ens._time_col].aggregate("count")
     res = (
         cnts.to_frame()
         .reset_index()
@@ -464,7 +464,7 @@ def test_read_source_dict(dask_client):
 
 
 def test_insert(parquet_ensemble):
-    num_partitions = parquet_ensemble._source.npartitions
+    num_partitions = parquet_ensemble.source.npartitions
     (old_object, old_source) = parquet_ensemble.compute()
     old_size = old_source.shape[0]
 
@@ -486,7 +486,7 @@ def test_insert(parquet_ensemble):
     )
 
     # Check we did not increase the number of partitions.
-    assert parquet_ensemble._source.npartitions == num_partitions
+    assert parquet_ensemble.source.npartitions == num_partitions
 
     # Check that all the new data points are in there. The order may be different
     # due to the repartitioning.
@@ -515,7 +515,7 @@ def test_insert(parquet_ensemble):
     )
 
     # Check we *did* increase the number of partitions and the size increased.
-    assert parquet_ensemble._source.npartitions != num_partitions
+    assert parquet_ensemble.source.npartitions != num_partitions
     (new_obj, new_source) = parquet_ensemble.compute()
     assert new_source.shape[0] == old_size + 10
 
@@ -544,8 +544,8 @@ def test_insert_paritioned(dask_client):
 
     # Save the old data for comparison.
     old_data = ens.compute("source")
-    old_div = copy.copy(ens._source.divisions)
-    old_sizes = [len(ens._source.partitions[i]) for i in range(4)]
+    old_div = copy.copy(ens.source.divisions)
+    old_sizes = [len(ens.source.partitions[i]) for i in range(4)]
     assert old_data.shape[0] == num_points
 
     # Test an insertion of 5 observations.
@@ -558,12 +558,12 @@ def test_insert_paritioned(dask_client):
 
     # Check we did not increase the number of partitions and the points
     # were placed in the correct partitions.
-    assert ens._source.npartitions == 4
-    assert ens._source.divisions == old_div
-    assert len(ens._source.partitions[0]) == old_sizes[0] + 3
-    assert len(ens._source.partitions[1]) == old_sizes[1]
-    assert len(ens._source.partitions[2]) == old_sizes[2] + 2
-    assert len(ens._source.partitions[3]) == old_sizes[3]
+    assert ens.source.npartitions == 4
+    assert ens.source.divisions == old_div
+    assert len(ens.source.partitions[0]) == old_sizes[0] + 3
+    assert len(ens.source.partitions[1]) == old_sizes[1]
+    assert len(ens.source.partitions[2]) == old_sizes[2] + 2
+    assert len(ens.source.partitions[3]) == old_sizes[3]
 
     # Check that all the new data points are in there. The order may be different
     # due to the repartitioning.
@@ -581,12 +581,12 @@ def test_insert_paritioned(dask_client):
 
     # Check we did not increase the number of partitions and the points
     # were placed in the correct partitions.
-    assert ens._source.npartitions == 4
-    assert ens._source.divisions == old_div
-    assert len(ens._source.partitions[0]) == old_sizes[0] + 3
-    assert len(ens._source.partitions[1]) == old_sizes[1] + 5
-    assert len(ens._source.partitions[2]) == old_sizes[2] + 2
-    assert len(ens._source.partitions[3]) == old_sizes[3]
+    assert ens.source.npartitions == 4
+    assert ens.source.divisions == old_div
+    assert len(ens.source.partitions[0]) == old_sizes[0] + 3
+    assert len(ens.source.partitions[1]) == old_sizes[1] + 5
+    assert len(ens.source.partitions[2]) == old_sizes[2] + 2
+    assert len(ens.source.partitions[3]) == old_sizes[3]
 
 
 def test_core_wrappers(parquet_ensemble):
@@ -677,9 +677,9 @@ def test_persist(dask_client):
     ens.query("flux <= 1.5", table="source")
 
     # Compute the task graph size before and after the persist.
-    old_graph_size = len(ens._source.dask)
+    old_graph_size = len(ens.source.dask)
     ens.persist()
-    new_graph_size = len(ens._source.dask)
+    new_graph_size = len(ens.source.dask)
     assert new_graph_size < old_graph_size
 
 
@@ -782,7 +782,7 @@ def test_sync_tables(data_fixture, request, legacy):
         filtered_src.update_ensemble()
 
     # Verify that the object ID we removed from the source table is present in the object table
-    assert dropped_obj_id in parquet_ensemble._object.index.compute().values
+    assert dropped_obj_id in parquet_ensemble.object.index.compute().values
 
     # Perform an operation which should trigger syncing both tables.
     parquet_ensemble.compute()
@@ -824,8 +824,8 @@ def test_lazy_sync_tables(parquet_ensemble, legacy):
 
     # Modify only the object table.
     parquet_ensemble.prune(50, col_name="nobs_r").prune(50, col_name="nobs_g")
-    assert parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    assert parquet_ensemble.object.is_dirty()
+    assert not parquet_ensemble.source.is_dirty()
 
     # For a lazy sync on the object table, nothing should change, because
     # it is already dirty.
@@ -833,34 +833,34 @@ def test_lazy_sync_tables(parquet_ensemble, legacy):
         parquet_ensemble.compute("object")
     else:
         parquet_ensemble.object.compute()
-    assert parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    assert parquet_ensemble.object.is_dirty()
+    assert not parquet_ensemble.source.is_dirty()
 
     # For a lazy sync on the source table, the source table should be updated.
     if legacy:
         parquet_ensemble.compute("source")
     else:
         parquet_ensemble.source.compute()
-    assert not parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    assert not parquet_ensemble.object.is_dirty()
+    assert not parquet_ensemble.source.is_dirty()
 
     # Modify only the source table.    
     # Replace the maximum flux value with a NaN so that we will have a row to drop.
-    max_flux = max(parquet_ensemble._source[parquet_ensemble._flux_col])
-    parquet_ensemble._source[parquet_ensemble._flux_col] = parquet_ensemble._source[
+    max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
+    parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
         parquet_ensemble._flux_col].apply(
             lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
     )
     
-    assert not parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    assert not parquet_ensemble.object.is_dirty()
+    assert not parquet_ensemble.source.is_dirty()
 
     if legacy:
         parquet_ensemble.dropna(table="source")
     else:
         parquet_ensemble.source.dropna().update_ensemble()
-    assert not parquet_ensemble._object.is_dirty()
-    assert parquet_ensemble._source.is_dirty()
+    assert not parquet_ensemble.object.is_dirty()
+    assert parquet_ensemble.source.is_dirty()
 
     # For a lazy sync on the source table, nothing should change, because
     # it is already dirty.
@@ -868,16 +868,16 @@ def test_lazy_sync_tables(parquet_ensemble, legacy):
         parquet_ensemble.compute("source")
     else:
         parquet_ensemble.source.compute()
-    assert not parquet_ensemble._object.is_dirty()
-    assert parquet_ensemble._source.is_dirty()
+    assert not parquet_ensemble.object.is_dirty()
+    assert parquet_ensemble.source.is_dirty()
 
     # For a lazy sync on the source, the object table should be updated.
     if legacy:
         parquet_ensemble.compute("object")
     else:
         parquet_ensemble.object.compute()
-    assert not parquet_ensemble._object.is_dirty()
-    assert not parquet_ensemble._source.is_dirty()
+    assert not parquet_ensemble.object.is_dirty()
+    assert not parquet_ensemble.source.is_dirty()
 
 
 def test_compute_triggers_syncing(parquet_ensemble):
@@ -931,7 +931,7 @@ def test_temporary_cols(parquet_ensemble):
     """
 
     ens = parquet_ensemble
-    ens.update_frame(ens._object.drop(columns=["nobs_r", "nobs_g", "nobs_total"]))
+    ens.update_frame(ens.object.drop(columns=["nobs_r", "nobs_g", "nobs_total"]))
 
     # Make sure temp lists are available but empty
     assert not len(ens._source_temp)
@@ -941,29 +941,29 @@ def test_temporary_cols(parquet_ensemble):
 
     # nobs_total should be a temporary column
     assert "nobs_total" in ens._object_temp
-    assert "nobs_total" in ens._object.columns
+    assert "nobs_total" in ens.object.columns
 
     ens.assign(nobs2=lambda x: x["nobs_total"] * 2, table="object", temporary=True)
 
     # nobs2 should be a temporary column
     assert "nobs2" in ens._object_temp
-    assert "nobs2" in ens._object.columns
+    assert "nobs2" in ens.object.columns
 
     # drop NaNs from source, source should be dirty now
     ens.dropna(how="any", table="source")
 
-    assert ens._source.is_dirty()
+    assert ens.source.is_dirty()
 
     # try a sync
     ens._sync_tables()
 
     # nobs_total should be removed from object
     assert "nobs_total" not in ens._object_temp
-    assert "nobs_total" not in ens._object.columns
+    assert "nobs_total" not in ens.object.columns
 
     # nobs2 should be removed from object
     assert "nobs2" not in ens._object_temp
-    assert "nobs2" not in ens._object.columns
+    assert "nobs2" not in ens.object.columns
 
     # add a source column that we manually set as dirty, don't have a function
     # that adds temporary source columns at the moment
@@ -972,14 +972,14 @@ def test_temporary_cols(parquet_ensemble):
     # prune object, object should be dirty
     ens.prune(threshold=10)
 
-    assert ens._object.is_dirty()
+    assert ens.object.is_dirty()
 
     # try a sync
     ens._sync_tables()
 
     # f2 should be removed from source
     assert "f2" not in ens._source_temp
-    assert "f2" not in ens._source.columns
+    assert "f2" not in ens.source.columns
 
 
 def test_temporary_cols(parquet_ensemble):
@@ -988,7 +988,7 @@ def test_temporary_cols(parquet_ensemble):
     """
 
     ens = parquet_ensemble
-    ens._object = ens._object.drop(columns=["nobs_r", "nobs_g", "nobs_total"])
+    ens.object = ens.object.drop(columns=["nobs_r", "nobs_g", "nobs_total"])
 
     # Make sure temp lists are available but empty
     assert not len(ens._source_temp)
@@ -998,17 +998,17 @@ def test_temporary_cols(parquet_ensemble):
 
     # nobs_total should be a temporary column
     assert "nobs_total" in ens._object_temp
-    assert "nobs_total" in ens._object.columns
+    assert "nobs_total" in ens.object.columns
 
     ens.assign(nobs2=lambda x: x["nobs_total"] * 2, table="object", temporary=True)
 
     # nobs2 should be a temporary column
     assert "nobs2" in ens._object_temp
-    assert "nobs2" in ens._object.columns
+    assert "nobs2" in ens.object.columns
 
     # Replace the maximum flux value with a NaN so that we will have a row to drop.
-    max_flux = max(parquet_ensemble._source[parquet_ensemble._flux_col])
-    parquet_ensemble._source[parquet_ensemble._flux_col] = parquet_ensemble._source[
+    max_flux = max(parquet_ensemble.source[parquet_ensemble._flux_col])
+    parquet_ensemble.source[parquet_ensemble._flux_col] = parquet_ensemble.source[
         parquet_ensemble._flux_col].apply(
             lambda x: np.nan if x == max_flux else x, meta=pd.Series(dtype=float)
     )
@@ -1016,18 +1016,18 @@ def test_temporary_cols(parquet_ensemble):
     # drop NaNs from source, source should be dirty now
     ens.dropna(how="any", table="source")
 
-    assert ens._source.is_dirty()
+    assert ens.source.is_dirty()
 
     # try a sync
     ens._sync_tables()
 
     # nobs_total should be removed from object
     assert "nobs_total" not in ens._object_temp
-    assert "nobs_total" not in ens._object.columns
+    assert "nobs_total" not in ens.object.columns
 
     # nobs2 should be removed from object
     assert "nobs2" not in ens._object_temp
-    assert "nobs2" not in ens._object.columns
+    assert "nobs2" not in ens.object.columns
 
     # add a source column that we manually set as dirty, don't have a function
     # that adds temporary source columns at the moment
@@ -1036,14 +1036,14 @@ def test_temporary_cols(parquet_ensemble):
     # prune object, object should be dirty
     ens.prune(threshold=10)
 
-    assert ens._object.is_dirty()
+    assert ens.object.is_dirty()
 
     # try a sync
     ens._sync_tables()
 
     # f2 should be removed from source
     assert "f2" not in ens._source_temp
-    assert "f2" not in ens._source.columns
+    assert "f2" not in ens.source.columns
 
 
 @pytest.mark.parametrize(
@@ -1089,11 +1089,11 @@ def test_dropna(data_fixture, request, legacy):
         parquet_ensemble.dropna(table="source")
     else:
         parquet_ensemble.source.dropna().update_ensemble()
-    assert len(parquet_ensemble._source.compute().index) == source_length - occurrences_source
+    assert len(parquet_ensemble.source.compute().index) == source_length - occurrences_source
 
     if data_fixture == "parquet_ensemble_with_divisions":
         # divisions should be preserved
-        assert parquet_ensemble._source.known_divisions
+        assert parquet_ensemble.source.known_divisions
 
     # Now test dropping na from 'object' table
     # Sync the tables
@@ -1116,7 +1116,7 @@ def test_dropna(data_fixture, request, legacy):
     # Set the nobs_g values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
     # ObjectFrame.
-    object_pdf.loc[valid_object_id, parquet_ensemble._object.columns[0]] = pd.NA
+    object_pdf.loc[valid_object_id, parquet_ensemble.object.columns[0]] = pd.NA
     parquet_ensemble.update_frame(ObjectFrame.from_tapeframe(TapeObjectFrame(object_pdf), label="object", npartitions=1))
 
     # Try dropping NaNs from object and confirm that we dropped a row
@@ -1128,7 +1128,7 @@ def test_dropna(data_fixture, request, legacy):
 
     if data_fixture == "parquet_ensemble_with_divisions":
         # divisions should be preserved
-        assert parquet_ensemble._object.known_divisions
+        assert parquet_ensemble.object.known_divisions
 
     new_objects_pdf = parquet_ensemble.object.compute()
     assert len(new_objects_pdf.index) == len(object_pdf.index) - 1
@@ -1147,16 +1147,16 @@ def test_keep_zeros(parquet_ensemble, legacy):
     Ensemble.dropna when `legacy` is `True`, and EnsembleFrame.dropna when `legacy` is `False`."""
     parquet_ensemble.keep_empty_objects = True
 
-    prev_npartitions = parquet_ensemble._object.npartitions
-    old_objects_pdf = parquet_ensemble._object.compute()
-    pdf = parquet_ensemble._source.compute()
+    prev_npartitions = parquet_ensemble.object.npartitions
+    old_objects_pdf = parquet_ensemble.object.compute()
+    pdf = parquet_ensemble.source.compute()
 
     # Set the psFlux values for one object to NaN so we can drop it.
     # We do this on the instantiated object (pdf) and convert it back into a
     # Dask DataFrame.
     valid_id = pdf.index.values[1]
     pdf.loc[valid_id, parquet_ensemble._flux_col] = pd.NA
-    parquet_ensemble._source = dd.from_pandas(pdf, npartitions=1)
+    parquet_ensemble.source = dd.from_pandas(pdf, npartitions=1)
     parquet_ensemble.update_frame(SourceFrame.from_tapeframe(TapeSourceFrame(pdf), npartitions=1, label="source"))
 
     # Sync the table and check that the number of objects decreased.
@@ -1167,9 +1167,9 @@ def test_keep_zeros(parquet_ensemble, legacy):
     parquet_ensemble._sync_tables()
 
     # Check that objects are preserved after sync
-    new_objects_pdf = parquet_ensemble._object.compute()
+    new_objects_pdf = parquet_ensemble.object.compute()
     assert len(new_objects_pdf.index) == len(old_objects_pdf.index)
-    assert parquet_ensemble._object.npartitions == prev_npartitions
+    assert parquet_ensemble.object.npartitions == prev_npartitions
 
 
 @pytest.mark.parametrize(
@@ -1186,29 +1186,29 @@ def test_calc_nobs(data_fixture, request, by_band, multi_partition):
     ens = request.getfixturevalue(data_fixture)
 
     if multi_partition:
-        ens._source = ens._source.repartition(3)
+        ens.source = ens.source.repartition(3)
 
     # Drop the existing nobs columns
-    ens._object = ens._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+    ens.object = ens.object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
 
     # Calculate nobs
     ens.calc_nobs(by_band)
 
     # Check that things turned out as we expect
-    lc = ens._object.loc[88472935274829959].compute()
+    lc = ens.object.loc[88472935274829959].compute()
 
     if by_band:
-        assert np.all([col in ens._object.columns for col in ["nobs_g", "nobs_r"]])
+        assert np.all([col in ens.object.columns for col in ["nobs_g", "nobs_r"]])
         assert lc["nobs_g"].values[0] == 98
         assert lc["nobs_r"].values[0] == 401
 
-    assert "nobs_total" in ens._object.columns
+    assert "nobs_total" in ens.object.columns
     assert lc["nobs_total"].values[0] == 499
 
     # Make sure that if divisions were set previously, they are preserved
     if data_fixture == "parquet_ensemble_with_divisions":
-        assert ens._object.known_divisions
-        assert ens._source.known_divisions
+        assert ens.object.known_divisions
+        assert ens.source.known_divisions
 
 
 @pytest.mark.parametrize(
@@ -1231,19 +1231,19 @@ def test_prune(data_fixture, request, generate_nobs):
     # Generate the nobs cols from within prune
     if generate_nobs:
         # Drop the existing nobs columns
-        parquet_ensemble._object = parquet_ensemble._object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
+        parquet_ensemble.object = parquet_ensemble.object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
         parquet_ensemble.prune(threshold)
 
     # Use an existing column
     else:
         parquet_ensemble.prune(threshold, col_name="nobs_total")
 
-    assert not np.any(parquet_ensemble._object["nobs_total"].values < threshold)
+    assert not np.any(parquet_ensemble.object["nobs_total"].values < threshold)
 
     # Make sure that if divisions were set previously, they are preserved
     if data_fixture == "parquet_ensemble_with_divisions":
-        assert parquet_ensemble._source.known_divisions
-        assert parquet_ensemble._object.known_divisions
+        assert parquet_ensemble.source.known_divisions
+        assert parquet_ensemble.object.known_divisions
 
 
 def test_query(dask_client):
@@ -1285,7 +1285,7 @@ def test_filter_from_series(dask_client):
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
 
     # Filter the data set to low flux sources only.
-    keep_series = ens._source[ens._time_col] >= 250.0
+    keep_series = ens.source[ens._time_col] >= 250.0
     ens.filter_from_series(keep_series, table="source")
 
     # Check that all of the filtered rows are value.
@@ -1310,22 +1310,22 @@ def test_select(dask_client):
     }
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=2)
-    assert len(ens._source.columns) == 5
-    assert "time" in ens._source.columns
-    assert "flux" in ens._source.columns
-    assert "band" in ens._source.columns
-    assert "count" in ens._source.columns
-    assert "something_else" in ens._source.columns
+    assert len(ens.source.columns) == 5
+    assert "time" in ens.source.columns
+    assert "flux" in ens.source.columns
+    assert "band" in ens.source.columns
+    assert "count" in ens.source.columns
+    assert "something_else" in ens.source.columns
 
     # Select on just time and flux
     ens.select(["time", "flux"], table="source")
 
-    assert len(ens._source.columns) == 2
-    assert "time" in ens._source.columns
-    assert "flux" in ens._source.columns
-    assert "band" not in ens._source.columns
-    assert "count" not in ens._source.columns
-    assert "something_else" not in ens._source.columns
+    assert len(ens.source.columns) == 2
+    assert "time" in ens.source.columns
+    assert "flux" in ens.source.columns
+    assert "band" not in ens.source.columns
+    assert "count" not in ens.source.columns
+    assert "something_else" not in ens.source.columns
 
 @pytest.mark.parametrize("legacy", [True, False])
 def test_assign(dask_client, legacy):
@@ -1345,7 +1345,7 @@ def test_assign(dask_client, legacy):
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=1)
     assert len(ens.source.columns) == 4
-    assert "lower_bnd" not in ens._source.columns
+    assert "lower_bnd" not in ens.source.columns
 
     # Insert a new column for the "lower bound" computation.
     if legacy:
@@ -1400,7 +1400,7 @@ def test_coalesce(dask_client, drop_inputs):
     ens.coalesce(["flux1", "flux2", "flux3"], "flux", table="source", drop_inputs=drop_inputs)
 
     # Coalesce should return this exact flux array
-    assert list(ens._source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
+    assert list(ens.source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
 
     if drop_inputs:
         # The column mapping should be updated
@@ -1408,7 +1408,7 @@ def test_coalesce(dask_client, drop_inputs):
 
         # The columns to drop should be dropped
         for col in ["flux1", "flux2", "flux3"]:
-            assert col not in ens._source.columns
+            assert col not in ens.source.columns
 
         # Test for the drop warning
         with pytest.warns(UserWarning):
@@ -1417,7 +1417,7 @@ def test_coalesce(dask_client, drop_inputs):
     else:
         # The input columns should still be present
         for col in ["flux1", "flux2", "flux3"]:
-            assert col in ens._source.columns
+            assert col in ens.source.columns
 
 
 @pytest.mark.parametrize("zero_point", [("zp_mag", "zp_flux"), (25.0, 10**10)])
@@ -1448,19 +1448,19 @@ def test_convert_flux_to_mag(dask_client, zero_point, zp_form, out_col_name):
     if zp_form == "flux":
         ens.convert_flux_to_mag(zero_point[1], zp_form, out_col_name)
 
-        res_mag = ens._source.compute()[output_column].to_list()[0]
+        res_mag = ens.source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
 
-        res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
+        res_err = ens.source.compute()[output_column + "_err"].to_list()[0]
         assert pytest.approx(res_err, 0.001) == 0.355979
 
     elif zp_form == "mag" or zp_form == "magnitude":
         ens.convert_flux_to_mag(zero_point[0], zp_form, out_col_name)
 
-        res_mag = ens._source.compute()[output_column].to_list()[0]
+        res_mag = ens.source.compute()[output_column].to_list()[0]
         assert pytest.approx(res_mag, 0.001) == 21.28925
 
-        res_err = ens._source.compute()[output_column + "_err"].to_list()[0]
+        res_err = ens.source.compute()[output_column + "_err"].to_list()[0]
         assert pytest.approx(res_err, 0.001) == 0.355979
 
     else:
@@ -1626,7 +1626,7 @@ def test_batch(data_fixture, request, use_map, on):
     assert result is tracked_result
 
     # Make sure that divisions information is propagated if known
-    if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
+    if parquet_ensemble.source.known_divisions and parquet_ensemble.object.known_divisions:
         assert result.known_divisions
 
     result = result.compute()
@@ -1790,7 +1790,7 @@ def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
         res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
 
-    if parquet_ensemble._source.known_divisions and parquet_ensemble._object.known_divisions:
+    if parquet_ensemble.source.known_divisions and parquet_ensemble.object.known_divisions:
         if not combine:
             assert res_sf2.known_divisions
 
