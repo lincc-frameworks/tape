@@ -233,6 +233,24 @@ def parquet_ensemble_without_client():
 
     return ens
 
+@pytest.fixture
+def parquet_files_and_ensemble_without_client():
+    """Create an Ensemble from parquet data without a dask client."""
+    ens = Ensemble(client=False)
+    source_file = "tests/tape_tests/data/source/test_source.parquet"
+    object_file = "tests/tape_tests/data/object/test_object.parquet"
+    colmap = ColumnMapper().assign(
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+        band_col="filterName",
+    )
+    ens = ens.from_parquet(
+        source_file,
+        object_file,
+        column_mapper=colmap)
+    return ens, source_file, object_file, colmap
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
@@ -471,3 +489,26 @@ def pandas_with_object_ensemble(dask_client):
     )
 
     return ens
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def ensemble_from_source_dict(dask_client):
+    """Create an Ensemble from a source dict, returning the ensemble and the source dict."""
+    ens = Ensemble(client=dask_client)
+
+    # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
+    # a few time steps, flux, and data for zero point calculations.
+    source_dict = {
+        "id": [8001, 8001, 8002, 8002, 8002],
+        "time": [1, 2, 3, 4, 5],
+        "flux": [30.5, 70, 80.6, 30.2, 60.3],
+        "zp_mag": [25.0, 25.0, 25.0, 25.0, 25.0],
+        "zp_flux": [10**10, 10**10, 10**10, 10**10, 10**10],
+        "error": [10, 10, 10, 10, 10],
+        "band": ["g", "g", "b", "b", "b"],
+    }
+    # map flux_col to one of the flux columns at the start
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="error", band_col="band")
+    ens.from_source_dict(source_dict, column_mapper=cmap)
+
+    return ens, source_dict
