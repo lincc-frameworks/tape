@@ -191,7 +191,7 @@ class Ensemble:
 
         Returns
         -------
-        result: `tape.ensemeble.EnsembleFrame`
+        result: `tape.ensemble.EnsembleFrame`
 
         Raises
         ------

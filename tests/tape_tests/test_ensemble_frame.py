@@ -1,7 +1,15 @@
 """ Test EnsembleFrame (inherited from Dask.DataFrame) creation and manipulations. """
 import numpy as np
 import pandas as pd
-from tape import ColumnMapper, EnsembleFrame, ObjectFrame, SourceFrame, TapeObjectFrame, TapeSourceFrame, TapeFrame
+from tape import (
+    ColumnMapper,
+    EnsembleFrame,
+    ObjectFrame,
+    SourceFrame,
+    TapeObjectFrame,
+    TapeSourceFrame,
+    TapeFrame,
+)
 
 import pytest
 
@@ -22,15 +30,15 @@ def test_from_dict(data_fixture, request):
     Test creating an EnsembleFrame from a dictionary and verify that dask lazy evaluation was appropriately inherited.
     """
     _, data = request.getfixturevalue(data_fixture)
-    ens_frame = EnsembleFrame.from_dict(data, 
-                                        npartitions=1)
+    ens_frame = EnsembleFrame.from_dict(data, npartitions=1)
 
     assert isinstance(ens_frame, EnsembleFrame)
     assert isinstance(ens_frame._meta, TapeFrame)
 
     # The calculation for finding the max flux from the data. Note that the
-    # inherited dask compute method must be called to obtain the result. 
+    # inherited dask compute method must be called to obtain the result.
     assert ens_frame.flux.max().compute() == 80.6
+
 
 @pytest.mark.parametrize(
     "data_fixture",
@@ -44,10 +52,7 @@ def test_from_pandas(data_fixture, request):
     """
     ens, data = request.getfixturevalue(data_fixture)
     frame = TapeFrame(data)
-    ens_frame = EnsembleFrame.from_tapeframe(frame, 
-                                          label=TEST_LABEL, 
-                                          ensemble=ens,
-                                          npartitions=1)
+    ens_frame = EnsembleFrame.from_tapeframe(frame, label=TEST_LABEL, ensemble=ens, npartitions=1)
 
     assert isinstance(ens_frame, EnsembleFrame)
     assert isinstance(ens_frame._meta, TapeFrame)
@@ -55,8 +60,24 @@ def test_from_pandas(data_fixture, request):
     assert ens_frame.ensemble is ens
 
     # The calculation for finding the max flux from the data. Note that the
-    # inherited dask compute method must be called to obtain the result. 
+    # inherited dask compute method must be called to obtain the result.
     assert ens_frame.flux.max().compute() == 80.6
+
+
+def test_from_parquet():
+    """
+    Test creating an EnsembleFrame from a parquet file.
+    """
+    frame = EnsembleFrame.from_parquet(
+        "tests/tape_tests/data/source/test_source.parquet", label=TEST_LABEL, ensemble=None
+    )
+    assert isinstance(frame, EnsembleFrame)
+    assert isinstance(frame._meta, TapeFrame)
+    assert frame.label == TEST_LABEL
+    assert frame.ensemble is None
+
+    # Validate that we loaded a non-empty frame.
+    assert len(frame) > 0
 
 
 @pytest.mark.parametrize(
@@ -70,11 +91,10 @@ def test_ensemble_frame_propagation(data_fixture, request):
     Test ensuring that slices and copies of an EnsembleFrame or still the same class.
     """
     ens, data = request.getfixturevalue(data_fixture)
-    ens_frame = EnsembleFrame.from_dict(data,
-                                        npartitions=1)
+    ens_frame = EnsembleFrame.from_dict(data, npartitions=1)
     # Set a label and ensemble for the frame and copies/transformations retain them.
     ens_frame.label = TEST_LABEL
-    ens_frame.ensemble=ens
+    ens_frame.ensemble = ens
     assert not ens_frame.is_dirty()
     ens_frame.set_dirty(True)
 
@@ -113,14 +133,14 @@ def test_ensemble_frame_propagation(data_fixture, request):
 
     # Test merging two subsets of the dataframe, dropping some columns, and persisting the result.
     merged_frame = ens_frame.copy()[["id", "time", "error"]].merge(
-        ens_frame.copy()[["id", "time", "flux"]], on=["id"], suffixes=(None, "_drop_me"))
+        ens_frame.copy()[["id", "time", "flux"]], on=["id"], suffixes=(None, "_drop_me")
+    )
     cols_to_drop = [col for col in merged_frame.columns if "_drop_me" in col]
     merged_frame = merged_frame.drop(cols_to_drop, axis=1).persist()
     assert isinstance(merged_frame, EnsembleFrame)
     assert merged_frame.label == TEST_LABEL
     assert merged_frame.ensemble == ens
     assert merged_frame.is_dirty()
-    
 
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)
@@ -128,18 +148,19 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert len(h) == 5
 
     # Test that the inherited dask.DataFrame.compute method returns
-    # the underlying TapeFrame. 
+    # the underlying TapeFrame.
     assert isinstance(ens_frame.compute(), TapeFrame)
     assert len(ens_frame) == len(ens_frame.compute())
 
     # Set an index and then group by that index.
     ens_frame = ens_frame.set_index("id", drop=True)
     assert ens_frame.label == TEST_LABEL
-    assert ens_frame.ensemble == ens    
+    assert ens_frame.ensemble == ens
     group_result = ens_frame.groupby(["id"]).count()
     assert len(group_result) > 0
     assert isinstance(group_result, EnsembleFrame)
     assert isinstance(group_result._meta, TapeFrame)
+
 
 @pytest.mark.parametrize(
     "data_fixture",
@@ -195,6 +216,7 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
     assert ens_frame.label == TEST_LABEL
     assert ens_frame.ensemble is ens
 
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
@@ -204,7 +226,7 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
 def test_object_and_source_frame_propagation(data_fixture, request):
     """
     Test that SourceFrame and ObjectFrame metadata and class type is correctly preserved across
-    typical Pandas operations. 
+    typical Pandas operations.
     """
     ens, source_file, object_file, _ = request.getfixturevalue(data_fixture)
 
@@ -243,8 +265,8 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     # Set an index and then group by that index.
     result_source_frame = result_source_frame.set_index("psFlux", drop=True)
     assert result_source_frame.label == SOURCE_LABEL
-    assert result_source_frame.ensemble == ens    
-    assert not result_source_frame.is_dirty() # frame is still clean.
+    assert result_source_frame.ensemble == ens
+    assert not result_source_frame.is_dirty()  # frame is still clean.
     group_result = result_source_frame.groupby(["psFlux"]).count()
     assert len(group_result) > 0
     assert isinstance(group_result, SourceFrame)
@@ -283,7 +305,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     result_object_frame = result_object_frame.set_index("nobs_g", drop=True)
     assert result_object_frame.label == OBJECT_LABEL
     assert result_object_frame.ensemble == ens
-    assert not result_object_frame.is_dirty() # frame is still clean
+    assert not result_object_frame.is_dirty()  # frame is still clean
     group_result = result_object_frame.groupby(["nobs_g"]).count()
     assert len(group_result) > 0
     assert isinstance(group_result, ObjectFrame)
@@ -291,7 +313,8 @@ def test_object_and_source_frame_propagation(data_fixture, request):
 
     # Test merging source and object frames, dropping some columns, and persisting the result.
     merged_frame = source_frame.copy().merge(
-        object_frame.copy(), on=[ens._id_col], suffixes=(None, "_drop_me"))
+        object_frame.copy(), on=[ens._id_col], suffixes=(None, "_drop_me")
+    )
     cols_to_drop = [col for col in merged_frame.columns if "_drop_me" in col]
     merged_frame = merged_frame.drop(cols_to_drop, axis=1).persist()
     assert isinstance(merged_frame, SourceFrame)
@@ -316,22 +339,22 @@ def test_object_and_source_joins(parquet_ensemble):
 
     # Join a SourceFrame (left) with an ObjectFrame (right)
     # Validate that metadata is preserved and the outputted object is a SourceFrame
-    joined_source = source_frame.join(object_frame, how='left')
+    joined_source = source_frame.join(object_frame, how="left")
     assert joined_source.label is SOURCE_LABEL
     assert type(joined_source) is SourceFrame
     assert joined_source.ensemble is parquet_ensemble
 
     # Now the same form of join (in terms of left/right) but produce an ObjectFrame. This is
     # because frame1.join(frame2) will yield frame1's type regardless of left vs right.
-    assert type(object_frame.join(source_frame, how='right')) is ObjectFrame
+    assert type(object_frame.join(source_frame, how="right")) is ObjectFrame
 
     # Join an ObjectFrame (left) with a SourceFrame (right)
     # Validate that metadata is preserved and the outputted object is an ObjectFrame
-    joined_object = object_frame.join(source_frame, how='left')
+    joined_object = object_frame.join(source_frame, how="left")
     assert joined_object.label is OBJECT_LABEL
     assert type(joined_object) is ObjectFrame
     assert joined_object.ensemble is parquet_ensemble
 
     # Now the same form of join (in terms of left/right) but produce a SourceFrame. This is
     # because frame1.join(frame2) will yield frame1's type regardless of left vs right.
-    assert type(source_frame.join(object_frame, how='right')) is SourceFrame
+    assert type(source_frame.join(object_frame, how="right")) is SourceFrame

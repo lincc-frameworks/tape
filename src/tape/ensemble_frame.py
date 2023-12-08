@@ -23,6 +23,17 @@ from dask.dataframe.io.parquet.arrow import (
 SOURCE_FRAME_LABEL = "source"  # Reserved label for source table
 OBJECT_FRAME_LABEL = "object"  # Reserved label for object table.
 
+__all__ = [
+    "EnsembleFrame",
+    "EnsembleSeries",
+    "ObjectFrame",
+    "SourceFrame",
+    "TapeFrame",
+    "TapeObjectFrame",
+    "TapeSourceFrame",
+    "TapeSeries",
+]
+
 
 class TapeArrowEngine(DaskArrowDatasetEngine):
     """
@@ -838,6 +849,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         path,
         index=None,
         columns=None,
+        label=None,
         ensemble=None,
     ):
         """Returns an EnsembleFrame constructed from loading a parquet file.
@@ -848,14 +860,16 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             protocol like s3:// to read from alternative filesystems. To read from multiple
             files you can pass a globstring or a list of paths, with the caveat that they must all
             have the same protocol.
-        columns: `str` or `list`, optional
-            Field name(s) to read in as columns in the output. By default all non-index fields will
-            be read (as determined by the pandas parquet metadata, if present). Provide a single
-            field name instead of a list to read in the data as a Series.
         index: `str`, `list`, `False`, optional
             Field name(s) to use as the output frame index. Default is None and index will be
             inferred from the pandas parquet file metadata, if present. Use False to read all
             fields as columns.
+        columns: `str` or `list`, optional
+            Field name(s) to read in as columns in the output. By default all non-index fields will
+            be read (as determined by the pandas parquet metadata, if present). Provide a single
+            field name instead of a list to read in the data as a Series.
+        label: `str`, optional
+        |   The label used to by the Ensemble to identify the frame.
         ensemble: `tape.ensemble.Ensemble`, optional
         |   A link to the Ensemble object that owns this frame.
         Returns
@@ -871,6 +885,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             split_row_groups=True,
             engine=TapeArrowEngine,
         )
+        result.label = label
         result.ensemble = ensemble
 
         return result
@@ -1063,17 +1078,16 @@ class ObjectFrame(EnsembleFrame):
         return result
 
 
-"""
-Dask Dataframes are constructed indirectly using method dispatching and inference on the
-underlying data. So to ensure our subclasses behave correctly, we register the methods
-below.
+# Dask Dataframes are constructed indirectly using method dispatching and inference on the
+# underlying data. So to ensure our subclasses behave correctly, we register the methods
+# below.
+#
+# For more information, see https://docs.dask.org/en/latest/dataframe-extend.html
+#
+# The following should ensure that any Dask Dataframes which use TapeSeries or TapeFrames as their
+# underlying data will be resolved as EnsembleFrames or EnsembleSeries as their parrallel
+# counterparts. The underlying Dask Dataframe _meta will be a TapeSeries or TapeFrame.
 
-For more information, see https://docs.dask.org/en/latest/dataframe-extend.html
-
-The following should ensure that any Dask Dataframes which use TapeSeries or TapeFrames as their
-underlying data will be resolved as EnsembleFrames or EnsembleSeries as their parrallel
-counterparts. The underlying Dask Dataframe _meta will be a TapeSeries or TapeFrame.
-"""
 get_parallel_type.register(TapeSeries, lambda _: EnsembleSeries)
 get_parallel_type.register(TapeFrame, lambda _: EnsembleFrame)
 get_parallel_type.register(TapeObjectFrame, lambda _: ObjectFrame)
