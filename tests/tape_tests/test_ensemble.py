@@ -91,7 +91,6 @@ def test_parquet_construction(data_fixture, request):
         parquet_ensemble._flux_col,
         parquet_ensemble._err_col,
         parquet_ensemble._band_col,
-        parquet_ensemble._provenance_col,
     ]:
         # Check to make sure the critical quantity labels are bound to real columns
         assert parquet_ensemble.source[col] is not None
@@ -488,7 +487,6 @@ def test_insert(parquet_ensemble):
     flux_col = parquet_ensemble._flux_col
     err_col = parquet_ensemble._err_col
     band_col = parquet_ensemble._band_col
-    prov_col = parquet_ensemble._provenance_col
 
     # Test an insertion of 5 observations.
     new_inds = [2, 1, 100, 110, 111]
@@ -512,7 +510,6 @@ def test_insert(parquet_ensemble):
         assert new_source.loc[new_inds[i]][flux_col] == new_fluxes[i]
         assert new_source.loc[new_inds[i]][err_col] == new_errs[i]
         assert new_source.loc[new_inds[i]][band_col] == new_bands[i]
-        assert new_source.loc[new_inds[i]][prov_col] == "custom"
 
     # Check that all of the old data is still in there.
     obj_ids = old_source.index.unique()
@@ -553,7 +550,6 @@ def test_insert_paritioned(dask_client):
         flux_col="flux",
         err_col="err",
         band_col="band",
-        provenance_col="provenance",
     )
     ens.from_source_dict(rows, column_mapper=cmap, npartitions=4, sort=True)
 
@@ -725,14 +721,12 @@ def test_update_column_map(dask_client):
     assert cmap_1.map["flux_col"] == "flux"
     assert cmap_1.map["err_col"] == "err"
     assert cmap_1.map["band_col"] == "band"
-    assert cmap_1.map["provenance_col"] is None
 
     # Update the column map.
-    ens.update_column_mapping(flux_col="f2", provenance_col="p")
+    ens.update_column_mapping(flux_col="f2")
 
-    # Check that the flux and provenance columns have been updates.
+    # Check that the flux column has been updated.
     assert ens._flux_col == "f2"
-    assert ens._provenance_col == "p"
 
     # Check that we retrieve the updated column map.
     cmap_2 = ens.make_column_map()
@@ -741,7 +735,6 @@ def test_update_column_map(dask_client):
     assert cmap_2.map["flux_col"] == "f2"
     assert cmap_2.map["err_col"] == "err"
     assert cmap_2.map["band_col"] == "band"
-    assert cmap_2.map["provenance_col"] == "p"
 
 
 @pytest.mark.parametrize(

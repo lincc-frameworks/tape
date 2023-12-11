@@ -11,7 +11,6 @@ class ColumnMapper:
         flux_col=None,
         err_col=None,
         band_col=None,
-        provenance_col=None,
     ):
         """
 
@@ -27,9 +26,6 @@ class ColumnMapper:
             Identifies which column contains the flux/mag error information
         band_col: 'str', optional
             Identifies which column contains the band information
-        provenance_col: 'str', optional
-            Identifies which column contains the provenance information, if
-            None the provenance column is generated.
 
         Returns
         -------
@@ -44,7 +40,6 @@ class ColumnMapper:
             "flux_col": flux_col,
             "err_col": err_col,
             "band_col": band_col,
-            "provenance_col": provenance_col,
         }
 
         self.required = [
@@ -53,7 +48,6 @@ class ColumnMapper:
             Column("flux_col", True),
             Column("err_col", True),
             Column("band_col", True),
-            Column("provenance_col", False),
         ]
 
         self.known_maps = {"ZTF": ZTFColumnMapper}
@@ -76,8 +70,8 @@ class ColumnMapper:
 
         Returns
         -------
-        A ColumnMapper subclass object dependent on the map_id provided, for example
-        ZTFColumnMapper in the case of "ZTF"
+        A ColumnMapper subclass object dependent on the map_id provided,
+        ZTFColumnMapper in the case of "ZTF" for example
 
         """
         if map_id in self.known_maps:
@@ -122,7 +116,6 @@ class ColumnMapper:
         flux_col=None,
         err_col=None,
         band_col=None,
-        provenance_col=None,
     ):
         """Updates a given set of columns
 
@@ -144,9 +137,6 @@ class ColumnMapper:
         nobs_tot_col: 'str', optional
             Identifies which column contains the total number of observations,
             if available in the input object file
-        provenance_col: 'str', optional
-            Identifies which column contains the provenance information, if
-            None the provenance column is generated.
         """
         assign_map = {
             "id_col": id_col,
@@ -154,7 +144,6 @@ class ColumnMapper:
             "flux_col": flux_col,
             "err_col": err_col,
             "band_col": band_col,
-            "provenance_col": provenance_col,
         }
 
         for item in assign_map.items():
@@ -175,7 +164,6 @@ class ZTFColumnMapper(ColumnMapper):
             "flux_col": "psFlux",
             "err_col": "psFluxErr",
             "band_col": "filterName",
-            "provenance_col": None,
         }
         return self
 

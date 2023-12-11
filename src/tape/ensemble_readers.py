@@ -132,7 +132,6 @@ def read_parquet(
     object_file=None,
     column_mapper=None,
     dask_client=True,
-    provenance_label="survey_1",
     sync_tables=True,
     additional_cols=True,
     npartitions=None,
@@ -158,8 +157,6 @@ def read_parquet(
         `client=True`, passing any additional kwargs to a
         dask.distributed.Client constructor call. If `client=False`, the
         Ensemble is created without a distributed client.
-    provenance_label: 'str', optional
-        Determines the label to use if a provenance column is generated
     sync_tables: 'bool', optional
         In the case where object files are loaded in, determines whether an
         initial sync is performed between the object and source tables. If
@@ -188,7 +185,6 @@ def read_parquet(
         source_file=source_file,
         object_file=object_file,
         column_mapper=column_mapper,
-        provenance_label=provenance_label,
         sync_tables=sync_tables,
         additional_cols=additional_cols,
         npartitions=npartitions,
@@ -322,7 +318,6 @@ def read_dataset(dataset, dask_client=True, **kwargs):
         source_file=dataset_info["source_file"],
         object_file=dataset_info["object_file"],
         column_mapper=col_map,
-        provenance_label=dataset,
         dask_client=dask_client,
         **kwargs,
     )

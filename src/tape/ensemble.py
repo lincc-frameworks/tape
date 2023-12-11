@@ -69,7 +69,6 @@ class Ensemble:
         self._flux_col = None
         self._err_col = None
         self._band_col = None
-        self._provenance_col = None
 
         self.client = None
         self.cleanup_client = False
@@ -256,7 +255,6 @@ class Ensemble:
         timestamps,
         fluxes,
         flux_errs=None,
-        provenance_label="custom",
         force_repartition=False,
         **kwargs,
     ):
@@ -282,8 +280,6 @@ class Ensemble:
             A list of the fluxes of the observations.
         flux_errs: `list`, optional
             A list of the errors in the flux.
-        provenance_label: `str`, optional
-            A label that denotes the provenance of the new observations.
         force_repartition: `bool` optional
             Do an immediate repartition of the dataframes.
         """
@@ -302,16 +298,12 @@ class Ensemble:
                 f"Incorrect flux_errs length during insert" f"{num_inserting} != {len(flux_errs)}"
             )
 
-        # Construct provenance array
-        provenance = [provenance_label] * len(obj_ids)
-
         # Create a dictionary with the new information.
         rows = {
             self._id_col: obj_ids,
             self._band_col: bands,
             self._time_col: timestamps,
             self._flux_col: fluxes,
-            self._provenance_col: provenance,
         }
         if flux_errs is not None:
             rows[self._err_col] = flux_errs
@@ -1350,7 +1342,6 @@ class Ensemble:
             flux_col=self._flux_col,
             err_col=self._err_col,
             band_col=self._band_col,
-            provenance_col=self._provenance_col,
         )
         return result
 
@@ -1408,11 +1399,6 @@ class Ensemble:
             self._flux_col = column_mapper.map["flux_col"]
             self._err_col = column_mapper.map["err_col"]
             self._band_col = column_mapper.map["band_col"]
-
-            # Assign optional columns if provided
-            if column_mapper.map["provenance_col"] is not None:
-                self._provenance_col = column_mapper.map["provenance_col"]
-
         else:
             raise ValueError(f"Missing required column mapping information: {needed}")
 
@@ -1423,7 +1409,6 @@ class Ensemble:
         source_file,
         object_file=None,
         column_mapper=None,
-        provenance_label="survey_1",
         sync_tables=True,
         additional_cols=True,
         npartitions=None,
@@ -1446,8 +1431,6 @@ class Ensemble:
         column_mapper: 'ColumnMapper' object
             If provided, the ColumnMapper is used to populate relevant column
             information mapped from the input dataset.
-        provenance_label: 'str', optional
-            Determines the label to use if a provenance column is generated
         sync_tables: 'bool', optional
             In the case where object files are loaded in, determines whether an
             initial sync is performed between the object and source tables. If
@@ -1484,19 +1467,12 @@ class Ensemble:
             columns = None  # None will prompt read_parquet to read in all cols
         else:
             columns = [self._time_col, self._flux_col, self._err_col, self._band_col]
-            if self._provenance_col is not None:
-                columns.append(self._provenance_col)
 
         # Read in the source parquet file(s)
         # Index is set False so that we can set it with a future set_index call
         # This has the advantage of letting Dask set partition boundaries based
         # on the divisions between the sources of different objects.
         source = SourceFrame.from_parquet(source_file, index=False, columns=columns, ensemble=self)
-
-        # Generate a provenance column if not provided
-        if self._provenance_col is None:
-            source["provenance"] = provenance_label
-            self._provenance_col = "provenance"
 
         object = None
         if object_file:
@@ -1550,7 +1526,6 @@ class Ensemble:
             source_file=dataset_info["source_file"],
             object_file=dataset_info["object_file"],
             column_mapper=col_map,
-            provenance_label=dataset,
             **kwargs,
         )
 
