@@ -62,8 +62,10 @@ class FeatureExtractor(AnalysisFunction):
             Errors for "flux"
         band : `numpy.ndarray`
             Passband names.
-        band_to_calc : `str`
-            Name of the passband to calculate features for.
+        band_to_calc : `str` or `int` or `None`
+            Name of the passband to calculate features for, usually a string
+            like "g" or "r", or an integer. If None, then features are
+            calculated for all sources - band is ignored.
         **kwargs : `dict`
             Additional keyword arguments to pass to the feature extractor.
 
@@ -74,8 +76,9 @@ class FeatureExtractor(AnalysisFunction):
         """
 
         # Select passband to calculate
-        band_mask = band == band_to_calc
-        time, flux, err = (a[band_mask] for a in (time, flux, err))
+        if band_to_calc is not None:
+            band_mask = band == band_to_calc
+            time, flux, err = (a[band_mask] for a in (time, flux, err))
 
         # Sort inputs by time if not already sorted
         if not kwargs.get("sorted", False):
