@@ -1624,13 +1624,15 @@ def test_batch(data_fixture, request, use_map, on):
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
-        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None, compute=False, label="stetson_j")
+        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None, label="stetson_j")
     )
 
     # Validate that the ensemble is now tracking a new result frame.
     assert len(parquet_ensemble.frames) == frame_cnt + 1
     tracked_result = parquet_ensemble.select_frame("stetson_j")
-    assert isinstance(tracked_result, EnsembleSeries)
+
+    print(tracked_result)
+    assert isinstance(tracked_result, EnsembleFrame)
     assert result is tracked_result
 
     # Make sure that divisions information is propagated if known
@@ -1811,7 +1813,7 @@ def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
     arg_container.bin_count_target = sthresh
 
     if not combine:
-        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map, compute=False)
+        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     else:
         res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
@@ -1821,10 +1823,9 @@ def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
             assert res_sf2.known_divisions
 
     if combine:
-        assert not res_sf2.equals(res_batch)  # output should be different
+        assert not res_sf2.equals(res_batch.compute())  # output should be different
     else:
-        res_sf2 = res_sf2.compute()
-        assert res_sf2.equals(res_batch)  # output should be identical
+        assert res_sf2.compute().equals(res_batch.compute())  # output should be identical
 
 
 @pytest.mark.parametrize("sf_method", ["basic", "macleod_2012", "bauer_2009a", "bauer_2009b", "schmidt_2010"])
@@ -1839,7 +1840,7 @@ def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
     arg_container.bin_count_target = 50
     arg_container.sf_method = sf_method
 
-    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
-    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map).compute()
+    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container).compute()
 
     assert res_sf2.equals(res_batch)  # output should be identical
