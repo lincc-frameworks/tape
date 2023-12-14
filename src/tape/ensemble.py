@@ -1174,9 +1174,11 @@ class Ensemble:
                 # interpretted by dask as a single "index" column
                 batch._meta = TapeFrame(columns=on + ["result"])
                 if by_band:
-                    batch = EnsembleFrame.from_dask_dataframe(batch.categorize("band").pivot_table(
-                        index=on[0], columns=self._band_col, aggfunc="sum"
-                    ))
+                    batch = EnsembleFrame.from_dask_dataframe(
+                        batch.categorize("band").pivot_table(
+                            index=on[0], columns=self._band_col, aggfunc="sum"
+                        )
+                    )
 
                     # Need to once again reestablish meta for the pivot
                     band_labels = batch.columns.values
@@ -1203,7 +1205,9 @@ class Ensemble:
                 if by_band:
                     batch = batch.categorize("band")
                     print(isinstance(batch, EnsembleFrame))
-                    batch = EnsembleFrame.from_dask_dataframe(batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum"))
+                    batch = EnsembleFrame.from_dask_dataframe(
+                        batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
+                    )
                     print(isinstance(batch, EnsembleFrame))
 
                     # Need to once again reestablish meta for the pivot
