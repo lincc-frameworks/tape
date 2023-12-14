@@ -433,11 +433,6 @@ class _Frame(dd.core._Frame):
         result.set_dirty(True)
         return result
 
-    def pivot_table(self, **kwargs):
-        """"""
-        result = self._propagate_metadata(super().pivot_table(**kwargs))
-        return result
-
     def persist(self, **kwargs):
         """Persist this dask collection into memory
 

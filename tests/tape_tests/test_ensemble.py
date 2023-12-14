@@ -318,16 +318,16 @@ def test_from_rrl_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(350)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 377927 in res.index  # find a specific object
+    assert 377927 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
-    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
-    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
-    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
-    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+    assert res.loc[377927][0]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res.loc[377927][0]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res.loc[377927][0]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res.loc[377927][0]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res.loc[377927][0]["z"] == pytest.approx(14.03794, rel=0.001)
 
 
 def test_from_qso_dataset(dask_client):
@@ -341,16 +341,16 @@ def test_from_qso_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(650)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 1257836 in res  # find a specific object
+    assert 1257836 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
-    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
-    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
-    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
-    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+    assert res.loc[1257836][0]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836][0]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836][0]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836][0]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836][0]["z"] == pytest.approx(53.013018, rel=0.001)
 
 
 def test_read_rrl_dataset(dask_client):
@@ -363,16 +363,16 @@ def test_read_rrl_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(350)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 377927 in res.index  # find a specific object
+    assert 377927 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
-    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
-    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
-    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
-    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+    assert res.loc[377927][0]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res.loc[377927][0]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res.loc[377927][0]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res.loc[377927][0]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res.loc[377927][0]["z"] == pytest.approx(14.03794, rel=0.001)
 
 
 def test_read_qso_dataset(dask_client):
@@ -385,16 +385,16 @@ def test_read_qso_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(650)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 1257836 in res  # find a specific object
+    assert 1257836 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
-    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
-    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
-    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
-    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+    assert res.loc[1257836][0]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836][0]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836][0]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836][0]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836][0]["z"] == pytest.approx(53.013018, rel=0.001)
 
 
 def test_from_source_dict(dask_client):
@@ -1642,8 +1642,9 @@ def test_batch(data_fixture, request, use_map, on):
     result = result.compute()
 
     if on is None:
-        assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
-        assert pytest.approx(result.values[0]["r"], 0.001) == 0.6075282
+        print(result.values[0])
+        assert pytest.approx(result.values[0][0]["g"], 0.001) == -0.04174282
+        assert pytest.approx(result.values[0][0]["r"], 0.001) == 0.6075282
     elif on is ["ps1_objid", "filterName"]:  # In case where we group on id and band, the structure changes
         assert pytest.approx(result.values[1]["r"], 0.001) == 0.6075282
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
@@ -1702,6 +1703,7 @@ def test_batch_with_custom_func(parquet_ensemble):
     "custom_meta",
     [
         ("flux_mean", float),  # A tuple representing a series
+        ("flux_mean", float),  # A tuple representing a series
         pd.Series(name="flux_mean_pandas", dtype="float64"),
         TapeSeries(name="flux_mean_tape", dtype="float64"),
     ],
@@ -1716,12 +1718,13 @@ def test_batch_with_custom_series_meta(parquet_ensemble, custom_meta):
 
     assert len(parquet_ensemble.frames) == num_frames + 1
     assert len(parquet_ensemble.select_frame("flux_mean")) > 0
-    assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleSeries)
+    assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleFrame)
 
 
 @pytest.mark.parametrize(
     "custom_meta",
     [
+        {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
         {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
         [("lc_id", int), ("band", str), ("dt", float), ("sf2", float), ("1_sigma", float)],
         pd.DataFrame(

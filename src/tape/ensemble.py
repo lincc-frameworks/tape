@@ -1094,6 +1094,8 @@ class Ensemble:
         amplitudes = ens.batch(np.ptp, ens._flux_col)
         ```
         """
+
+        print("In Batch")
         self._lazy_sync_tables(table="all")
 
         # Convert light-curve package feature into analysis function
@@ -1161,7 +1163,10 @@ class Ensemble:
 
         # Output standardization
         if isinstance(batch, EnsembleSeries):
-            batch = batch.rename("result").to_frame()
+            print("EnsembleSeries")
+            if batch.name == self._id_col:
+                batch = batch.rename("result")
+            batch = EnsembleFrame.from_dask_dataframe(batch.to_frame())
             print(type(batch))
             if len(on) > 1:
                 batch = batch.reset_index()
@@ -1169,9 +1174,9 @@ class Ensemble:
                 # interpretted by dask as a single "index" column
                 batch._meta = TapeFrame(columns=on + ["result"])
                 if by_band:
-                    batch = batch.categorize("band").pivot_table(
+                    batch = EnsembleFrame.from_dask_dataframe(batch.categorize("band").pivot_table(
                         index=on[0], columns=self._band_col, aggfunc="sum"
-                    )
+                    ))
 
                     # Need to once again reestablish meta for the pivot
                     band_labels = batch.columns.values
@@ -1198,7 +1203,7 @@ class Ensemble:
                 if by_band:
                     batch = batch.categorize("band")
                     print(isinstance(batch, EnsembleFrame))
-                    batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
+                    batch = EnsembleFrame.from_dask_dataframe(batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum"))
                     print(isinstance(batch, EnsembleFrame))
 
                     # Need to once again reestablish meta for the pivot
