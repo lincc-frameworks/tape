@@ -1703,7 +1703,6 @@ def test_batch_with_custom_func(parquet_ensemble):
     "custom_meta",
     [
         ("flux_mean", float),  # A tuple representing a series
-        ("flux_mean", float),  # A tuple representing a series
         pd.Series(name="flux_mean_pandas", dtype="float64"),
         TapeSeries(name="flux_mean_tape", dtype="float64"),
     ],
@@ -1724,7 +1723,6 @@ def test_batch_with_custom_series_meta(parquet_ensemble, custom_meta):
 @pytest.mark.parametrize(
     "custom_meta",
     [
-        {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
         {"lc_id": int, "band": str, "dt": float, "sf2": float, "1_sigma": float},
         [("lc_id", int), ("band", str), ("dt", float), ("sf2", float), ("1_sigma", float)],
         pd.DataFrame(
