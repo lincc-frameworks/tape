@@ -1722,6 +1722,21 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     assert all([col in res.columns for col in res.compute().columns])
 
 
+def test_batch_by_band_ordering_error(parquet_ensemble):
+    """
+    check that batch appropriately raises an error with `by_band` and incorrect `on` ordering
+    """
+
+    def my_mean(flux):
+        """returns a single value"""
+        return np.mean(flux)
+
+    with pytest.raises(ValueError):
+        parquet_ensemble.batch(
+            my_mean, parquet_ensemble._flux_col, on=["filterName", "ps1_objid"], by_band=True
+        )
+
+
 def test_batch_labels(parquet_ensemble):
     """
     Test that ensemble.batch() generates unique labels for result frames when none are provided.
