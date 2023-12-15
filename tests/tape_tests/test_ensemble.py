@@ -1653,6 +1653,75 @@ def test_batch(data_fixture, request, use_map, on):
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
 
+@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"]])
+@pytest.mark.parametrize("func_label", ["mean", "bounds"])
+def test_batch_by_band(parquet_ensemble, func_label, on):
+    """
+    Test that ensemble.batch(by_band=True) works as intended.
+    """
+
+    if func_label == "mean":
+
+        def my_mean(flux):
+            """returns a single value"""
+            return np.mean(flux)
+
+        res = parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, on=on, by_band=True)
+
+        parquet_ensemble.source.query(f"{parquet_ensemble._band_col}=='g'").update_ensemble()
+        filter_res = parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, on=on, by_band=False)
+
+        # An EnsembleFrame should be returned
+        assert isinstance(res, EnsembleFrame)
+
+        # Make sure we get all the expected columns
+        assert all([col in res.columns for col in ["result_g", "result_r"]])
+
+        # These should be equivalent
+        assert (
+            res.loc[88472935274829959]["result_g"]
+            .compute()
+            .equals(filter_res.loc[88472935274829959]["result"].compute())
+        )
+
+    elif func_label == "bounds":
+
+        def my_bounds(flux):
+            """returns a series"""
+            return pd.Series({"min": np.min(flux), "max": np.max(flux)})
+
+        res = parquet_ensemble.batch(
+            my_bounds, "psFlux", on=on, by_band=True, meta={"min": float, "max": float}
+        )
+
+        parquet_ensemble.source.query(f"{parquet_ensemble._band_col}=='g'").update_ensemble()
+        filter_res = parquet_ensemble.batch(
+            my_bounds, "psFlux", on=on, by_band=False, meta={"min": float, "max": float}
+        )
+
+        # An EnsembleFrame should be returned
+        assert isinstance(res, EnsembleFrame)
+
+        # Make sure we get all the expected columns
+        assert all([col in res.columns for col in ["max_g", "max_r", "min_g", "min_r"]])
+
+        # These should be equivalent
+        assert (
+            res.loc[88472935274829959]["max_g"]
+            .compute()
+            .equals(filter_res.loc[88472935274829959]["max"].compute())
+        )
+        assert (
+            res.loc[88472935274829959]["min_g"]
+            .compute()
+            .equals(filter_res.loc[88472935274829959]["min"].compute())
+        )
+
+    # Meta should reflect the actual columns, this can get out of sync
+    # whenever multi-indexes are involved, which batch tries to handle
+    assert all([col in res.columns for col in res.compute().columns])
+
+
 def test_batch_labels(parquet_ensemble):
     """
     Test that ensemble.batch() generates unique labels for result frames when none are provided.

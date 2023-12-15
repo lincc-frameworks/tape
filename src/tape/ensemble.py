@@ -1095,7 +1095,6 @@ class Ensemble:
         ```
         """
 
-        print("In Batch")
         self._lazy_sync_tables(table="all")
 
         # Convert light-curve package feature into analysis function
@@ -1163,52 +1162,44 @@ class Ensemble:
 
         # Output standardization
         if isinstance(batch, EnsembleSeries):
-            print("EnsembleSeries")
             if batch.name == self._id_col:
                 batch = batch.rename("result")
             batch = EnsembleFrame.from_dask_dataframe(batch.to_frame())
-            print(type(batch))
             if len(on) > 1:
                 batch = batch.reset_index()
                 # Need to overwrite the meta manually as the multiindex will be
                 # interpretted by dask as a single "index" column
                 batch._meta = TapeFrame(columns=on + ["result"])
+
                 if by_band:
-                    batch = EnsembleFrame.from_dask_dataframe(
-                        batch.categorize("band").pivot_table(
-                            index=on[0], columns=self._band_col, aggfunc="sum"
-                        )
+                    batch = batch.categorize(self._band_col).pivot_table(
+                        index=on[0], columns=self._band_col, aggfunc="sum"
                     )
 
                     # Need to once again reestablish meta for the pivot
                     band_labels = batch.columns.values
-
                     out_cols = []
                     for col in ["result"]:
                         for band in band_labels:
                             out_cols += [(str(col), str(band))]
                     batch._meta = TapeFrame(columns=out_cols)
-
                     # Flatten the columns to a new column per band
                     batch.columns = ["_".join(col).strip() for col in batch.columns.values]
+
+                    # The pivot returns a dask dataframe, need to convert back
+                    batch = EnsembleFrame.from_dask_dataframe(batch)
+
                 else:
                     batch = batch.set_index(on[0], sort=False)
 
         elif isinstance(batch, EnsembleFrame):
-            print("EnsembleFrame")
             if len(on) > 1:
                 res_cols = list(batch._meta.columns)
-                print(isinstance(batch, EnsembleFrame))
                 batch = batch.reset_index()
                 batch._meta = TapeFrame(columns=on + res_cols)
-                print(isinstance(batch, EnsembleFrame))
                 if by_band:
-                    batch = batch.categorize("band")
-                    print(isinstance(batch, EnsembleFrame))
-                    batch = EnsembleFrame.from_dask_dataframe(
-                        batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
-                    )
-                    print(isinstance(batch, EnsembleFrame))
+                    batch = batch.categorize(self._band_col)
+                    batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
 
                     # Need to once again reestablish meta for the pivot
                     band_labels = batch.columns.values
@@ -1218,15 +1209,15 @@ class Ensemble:
                         for band in band_labels:
                             out_cols += [(str(col), str(band))]
                     batch._meta = TapeFrame(columns=out_cols)
-                    print(isinstance(batch, EnsembleFrame))
 
                     # Flatten the columns to a new column per band
                     batch.columns = ["_".join(col).strip() for col in batch.columns.values]
-                    print(isinstance(batch, EnsembleFrame))
+
+                    # The pivot returns a dask dataframe, need to convert back
+                    batch = EnsembleFrame.from_dask_dataframe(batch)
 
                 else:
                     batch = batch.set_index(on[0], sort=False)
-                    print(isinstance(batch, EnsembleFrame))
 
         # Inherit divisions if known from source and the resulting index is the id
         # Groupby on index should always return a subset that adheres to the same divisions criteria
@@ -1240,7 +1231,6 @@ class Ensemble:
             # Track the result frame under the provided label
             self.add_frame(batch, label)
 
-        print(isinstance(batch, EnsembleFrame))
         return batch
 
     def from_pandas(
