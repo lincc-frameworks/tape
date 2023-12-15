@@ -84,7 +84,7 @@ def test_otsu_with_ensemble_all_bands(dask_client):
     result = ens.batch(
         licu.OtsuSplit(),
         band_to_calc=None,
-    )
+    ).compute()
 
     assert result.shape == (2, 4)
     assert_array_equal(
