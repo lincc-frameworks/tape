@@ -1653,7 +1653,7 @@ def test_batch(data_fixture, request, use_map, on):
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
 
-@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"]])
+@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["filterName", "ps1_objid"]])
 @pytest.mark.parametrize("func_label", ["mean", "bounds"])
 def test_batch_by_band(parquet_ensemble, func_label, on):
     """
@@ -1720,21 +1720,6 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     # Meta should reflect the actual columns, this can get out of sync
     # whenever multi-indexes are involved, which batch tries to handle
     assert all([col in res.columns for col in res.compute().columns])
-
-
-def test_batch_by_band_ordering_error(parquet_ensemble):
-    """
-    check that batch appropriately raises an error with `by_band` and incorrect `on` ordering
-    """
-
-    def my_mean(flux):
-        """returns a single value"""
-        return np.mean(flux)
-
-    with pytest.raises(ValueError):
-        parquet_ensemble.batch(
-            my_mean, parquet_ensemble._flux_col, on=["filterName", "ps1_objid"], by_band=True
-        )
 
 
 def test_batch_labels(parquet_ensemble):
