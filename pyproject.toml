@@ -16,7 +16,7 @@ classifiers = [
 dynamic=["version"]
 dependencies = [
     'pandas',
-    'numpy<=1.23.5',
+    'numpy',
     'dask>=2023.6.1',
     'dask[distributed]',
     'pyarrow',
