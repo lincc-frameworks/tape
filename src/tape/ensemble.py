@@ -1032,14 +1032,17 @@ class Ensemble:
             the results. Overridden by TAPE for TAPE and `light-curve`
             functions. If none, attempts to coerce the result to a
             pandas.Series.
-        by_band: `boolean`
+        by_band: `boolean`, optional
             If true, the lightcurves are split into separate inputs for each
             band and passed along to the function individually. If the band
             column is already specified in `on` then `batch` will ensure the
-            band column is the final element in `on`. Each band function result
-            will be returned as a column of the result dataframe. If False, the
-            full lightcurve is passed along to the function (assuming the band
-            column in not already part of `on`).
+            band column is the final element in `on`. For all original columns
+            outputted by `func`, by_band will generate a set of new columns per
+            band (for example, a function with output column "result" will
+            instead have "result_g" and "result_r" as columns if the data had g
+            and r band data) If False (default), the full lightcurve is passed
+            along to the function (assuming the band column in not already part
+            of `on`)
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -1177,71 +1180,57 @@ class Ensemble:
     def _standardize_batch(self, batch, on, by_band):
         """standardizes the output of a batch result"""
 
+        # Do some up front type checking
         if isinstance(batch, EnsembleSeries):
+            # make sure the output is separated from the id column
             if batch.name == self._id_col:
                 batch = batch.rename("result")
+            res_cols = [batch.name]  # grab the series name to use as a column label
 
-            col_name = batch.name  # grab the series name to use as a column label
-
+            # convert the series to an EnsembleFrame object
             batch = EnsembleFrame.from_dask_dataframe(batch.to_frame())
-            if len(on) > 1:
-                batch = batch.reset_index()
-                # Need to overwrite the meta manually as the multiindex will be
-                # interpretted by dask as a single "index" column
-                batch._meta = TapeFrame(columns=on + [col_name])
-
-                if by_band:
-                    batch = batch.categorize(self._band_col).pivot_table(
-                        index=on[0], columns=self._band_col, aggfunc="sum"
-                    )
-
-                    # Need to once again reestablish meta for the pivot
-                    band_labels = batch.columns.values
-                    out_cols = []
-                    for band in band_labels:
-                        out_cols += [(str(col_name), str(band))]
-                    batch._meta = TapeFrame(columns=out_cols)
-
-                    # Flatten the columns to a new column per band
-                    batch.columns = ["_".join(col).strip() for col in batch.columns.values]
-
-                    # The pivot returns a dask dataframe, need to convert back
-                    batch = EnsembleFrame.from_dask_dataframe(batch)
-
-                else:
-                    batch = batch.set_index(on[0], sort=False)
 
         elif isinstance(batch, EnsembleFrame):
-            if len(on) > 1:
-                res_cols = list(batch._meta.columns)
-                batch = batch.reset_index()
-                batch._meta = TapeFrame(columns=on + res_cols)
-                if by_band:
-                    batch = batch.categorize(self._band_col)
-                    batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
-
-                    # Need to once again reestablish meta for the pivot
-                    band_labels = batch.columns.values
-                    out_cols = []
-                    for col in res_cols[::-1]:
-                        for band in band_labels:
-                            out_cols += [(str(col), str(band))]
-                    batch._meta = TapeFrame(columns=out_cols)
-
-                    # Flatten the columns to a new column per band
-                    batch.columns = ["_".join(col).strip() for col in batch.columns.values]
-
-                    # The pivot returns a dask dataframe, need to convert back
-                    batch = EnsembleFrame.from_dask_dataframe(batch)
-
-                else:
-                    batch = batch.set_index(on[0], sort=False)
+            # collect output columns
+            res_cols = list(batch._meta.columns)
 
         else:
             # unclear if there's really a pathway to trigger this, but added for completeness
             raise TypeError(
                 f"The output type of batch ({type(batch)}) does not match any of the expected types: (EnsembleFrame, EnsembleSeries)"
             )
+
+        # Handle formatting for multi-index results
+        if len(on) > 1:
+            batch = batch.reset_index()
+
+            # Need to overwrite the meta manually as the multiindex will be
+            # interpretted by dask as a single "index" column
+            batch._meta = TapeFrame(columns=on + res_cols)
+
+            # Further reformatting for per-band results
+            # Pivots on the band column to generate a result column for each
+            # photometric band.
+            if by_band:
+                batch = batch.categorize(self._band_col)
+                batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
+
+                # Need to once again reestablish meta for the pivot
+                band_labels = batch.columns.values
+                out_cols = []
+                # To align with pandas pivot_table results, the columns should be generated in reverse order
+                for col in res_cols[::-1]:
+                    for band in band_labels:
+                        out_cols += [(str(col), str(band))]
+                batch._meta = TapeFrame(columns=out_cols)  # apply new meta
+
+                # Flatten the columns to a new column per band
+                batch.columns = ["_".join(col) for col in batch.columns.values]
+
+                # The pivot returns a dask dataframe, need to convert back
+                batch = EnsembleFrame.from_dask_dataframe(batch)
+            else:
+                batch = batch.set_index(on[0], sort=False)
 
         return batch
 
