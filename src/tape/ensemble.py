@@ -1008,7 +1008,18 @@ class Ensemble:
         self.source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, by_band=False, use_map=True, on=None, sort_by_time=True, label="", **kwargs):
+    def batch(
+        self,
+        func,
+        *args,
+        meta=None,
+        by_band=False,
+        use_map=True,
+        on=None,
+        sort_by_time=True,
+        label="",
+        **kwargs,
+    ):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1175,9 +1186,7 @@ class Ensemble:
             )
         else:  # use groupby
             batch = source_to_batch.groupby(on, group_keys=False).apply(
-                lambda x: func(
-                    *convert_and_sort(x, sort_by_time, id_col, time_col), **kwargs
-                ),
+                lambda x: func(*convert_and_sort(x, sort_by_time, id_col, time_col), **kwargs),
                 meta=meta,
             )
 
