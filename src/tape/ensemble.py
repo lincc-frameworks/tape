@@ -1008,7 +1008,7 @@ class Ensemble:
         self.source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, label="", **kwargs):
+    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, sort_by_time=True, label="", **kwargs):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1122,13 +1122,34 @@ class Ensemble:
             source_to_batch = self.source  # Can directly use the source table
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
+        time_col = self._time_col
+
+        def convert_and_sort(y, sort, id_col, time_col):
+            # Converts coluns to numpy and optionally sorts them by time.
+            time_col_index = -1
+            results = []
+            for i in range(len(args)):
+                arg = args[i]
+                if arg == time_col and sort:
+                    time_col_index = i
+                if arg != id_col:
+                    results.append(y[arg].to_numpy())
+                else:
+                    results.append(y.index.to_numpy())
+            if time_col_index != -1 and sort:
+                # Get the indices if sorted by time.
+                sorted_indices = np.argsort(results[time_col_index])
+                for i in range(len(args)):
+                    results[i] = results[i][sorted_indices]
+
+            return results
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
             batch = source_to_batch.map_partitions(
                 lambda x: x.groupby(on, group_keys=False).apply(
                     lambda y: func(
-                        *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
+                        *convert_and_sort(y, sort_by_time, id_col, time_col),
                         **kwargs,
                     )
                 ),
@@ -1137,7 +1158,7 @@ class Ensemble:
         else:  # use groupby
             batch = source_to_batch.groupby(on, group_keys=False).apply(
                 lambda x: func(
-                    *[x[arg].to_numpy() if arg != id_col else x.index.to_numpy() for arg in args], **kwargs
+                    *convert_and_sort(x, sort_by_time, id_col, time_col), **kwargs
                 ),
                 meta=meta,
             )
