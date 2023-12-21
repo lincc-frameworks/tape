@@ -51,7 +51,7 @@ def test_multiple_features_with_ensemble(dask_client):
     result = ens.batch(
         extractor,
         band_to_calc="g",
-    )
+    ).compute()
 
     assert result.shape == (2, 3)
     assert_array_equal(result.columns, ["anderson_darling_normal", "inter_percentile_range_25", "stetson_K"])
@@ -84,7 +84,7 @@ def test_otsu_with_ensemble_all_bands(dask_client):
     result = ens.batch(
         licu.OtsuSplit(),
         band_to_calc=None,
-    )
+    ).compute()
 
     assert result.shape == (2, 4)
     assert_array_equal(
