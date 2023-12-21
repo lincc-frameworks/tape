@@ -17,6 +17,7 @@ from tape import (
     TapeSeries,
     TapeObjectFrame,
     TapeSourceFrame,
+    TimeSeries,
 )
 from tape.analysis.stetsonj import calc_stetson_J
 from tape.analysis.structure_function.base_argument_container import StructureFunctionArgumentContainer
@@ -1827,6 +1828,26 @@ def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
     assert len(parquet_ensemble.frames) == num_frames + 1
     assert len(parquet_ensemble.select_frame("sf2_result")) > 0
     assert isinstance(parquet_ensemble.select_frame("sf2_result"), EnsembleFrame)
+
+
+@pytest.mark.parametrize("repartition", [False, True])
+@pytest.mark.parametrize("seed", [None, 42])
+def test_select_random_timeseries(parquet_ensemble, repartition, seed):
+    """Test the behavior of ensemble.select_random_timeseries"""
+
+    ens = parquet_ensemble
+
+    if repartition:
+        ens.object = ens.object.repartition(3)
+
+    ts = ens.select_random_timeseries(seed=seed)
+
+    assert isinstance(ts, TimeSeries)
+
+    if seed == 42 and not repartition:
+        assert ts.meta["id"] == 88480000587403327
+    elif seed == 42 and repartition:
+        assert ts.meta["id"] == 88480000310609896
 
 
 def test_to_timeseries(parquet_ensemble):

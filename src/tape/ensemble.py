@@ -1847,6 +1847,36 @@ class Ensemble:
         self.object.set_dirty(False)
         return self
 
+    def select_random_timeseries(self, seed=None):
+        """Selects a random lightcurve from the Ensemble
+
+        Parameters
+        ----------
+        seed: int, or None
+            Sets a seed to return the same object id on successive runs. `None`
+            by default, in which case a seed is not set for the operation.
+
+        Returns
+        -------
+        ts: `TimeSeries`
+            Timeseries for a single object
+
+        """
+
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Avoid a choice from full index space, select a random partition to grab from
+        if self.object.npartitions > 1:
+            partition_num = np.random.randint(0, self.object.npartitions - 1)
+            partition_ids = self.object.get_partition(partition_num).index.values
+            lcid = np.random.choice(partition_ids)
+        else:
+            partition_num = 0
+            lcid = np.random.choice(self.object.index.values)
+        print(f"Selected Object {lcid} from Partition {partition_num}")
+        return self.to_timeseries(lcid)
+
     def to_timeseries(
         self,
         target,
