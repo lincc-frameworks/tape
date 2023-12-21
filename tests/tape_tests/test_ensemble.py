@@ -318,16 +318,16 @@ def test_from_rrl_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(350)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 377927 in res.index  # find a specific object
+    assert 377927 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
-    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
-    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
-    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
-    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+    assert res.loc[377927][0]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res.loc[377927][0]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res.loc[377927][0]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res.loc[377927][0]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res.loc[377927][0]["z"] == pytest.approx(14.03794, rel=0.001)
 
 
 def test_from_qso_dataset(dask_client):
@@ -341,16 +341,16 @@ def test_from_qso_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(650)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 1257836 in res  # find a specific object
+    assert 1257836 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
-    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
-    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
-    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
-    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+    assert res.loc[1257836][0]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836][0]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836][0]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836][0]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836][0]["z"] == pytest.approx(53.013018, rel=0.001)
 
 
 def test_read_rrl_dataset(dask_client):
@@ -363,16 +363,16 @@ def test_read_rrl_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(350)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 377927 in res.index  # find a specific object
+    assert 377927 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res[377927]["g"] == pytest.approx(9.676014, rel=0.001)
-    assert res[377927]["i"] == pytest.approx(14.22723, rel=0.001)
-    assert res[377927]["r"] == pytest.approx(6.958200, rel=0.001)
-    assert res[377927]["u"] == pytest.approx(9.499280, rel=0.001)
-    assert res[377927]["z"] == pytest.approx(14.03794, rel=0.001)
+    assert res.loc[377927][0]["g"] == pytest.approx(9.676014, rel=0.001)
+    assert res.loc[377927][0]["i"] == pytest.approx(14.22723, rel=0.001)
+    assert res.loc[377927][0]["r"] == pytest.approx(6.958200, rel=0.001)
+    assert res.loc[377927][0]["u"] == pytest.approx(9.499280, rel=0.001)
+    assert res.loc[377927][0]["z"] == pytest.approx(14.03794, rel=0.001)
 
 
 def test_read_qso_dataset(dask_client):
@@ -385,16 +385,16 @@ def test_read_qso_dataset(dask_client):
     # larger dataset, let's just use a subset
     ens.prune(650)
 
-    res = ens.batch(calc_stetson_J)
+    res = ens.batch(calc_stetson_J).compute()
 
-    assert 1257836 in res  # find a specific object
+    assert 1257836 in res.index.values  # find a specific object
 
     # Check Stetson J results for a specific object
-    assert res.loc[1257836]["g"] == pytest.approx(411.19885, rel=0.001)
-    assert res.loc[1257836]["i"] == pytest.approx(86.371310, rel=0.001)
-    assert res.loc[1257836]["r"] == pytest.approx(133.56796, rel=0.001)
-    assert res.loc[1257836]["u"] == pytest.approx(231.93229, rel=0.001)
-    assert res.loc[1257836]["z"] == pytest.approx(53.013018, rel=0.001)
+    assert res.loc[1257836][0]["g"] == pytest.approx(411.19885, rel=0.001)
+    assert res.loc[1257836][0]["i"] == pytest.approx(86.371310, rel=0.001)
+    assert res.loc[1257836][0]["r"] == pytest.approx(133.56796, rel=0.001)
+    assert res.loc[1257836][0]["u"] == pytest.approx(231.93229, rel=0.001)
+    assert res.loc[1257836][0]["z"] == pytest.approx(53.013018, rel=0.001)
 
 
 def test_from_source_dict(dask_client):
@@ -1624,13 +1624,15 @@ def test_batch(data_fixture, request, use_map, on):
     result = (
         parquet_ensemble.prune(10)
         .dropna(table="source")
-        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None, compute=False, label="stetson_j")
+        .batch(calc_stetson_J, use_map=use_map, on=on, band_to_calc=None, label="stetson_j")
     )
 
     # Validate that the ensemble is now tracking a new result frame.
     assert len(parquet_ensemble.frames) == frame_cnt + 1
     tracked_result = parquet_ensemble.select_frame("stetson_j")
-    assert isinstance(tracked_result, EnsembleSeries)
+
+    print(tracked_result)
+    assert isinstance(tracked_result, EnsembleFrame)
     assert result is tracked_result
 
     # Make sure that divisions information is propagated if known
@@ -1640,14 +1642,84 @@ def test_batch(data_fixture, request, use_map, on):
     result = result.compute()
 
     if on is None:
-        assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
-        assert pytest.approx(result.values[0]["r"], 0.001) == 0.6075282
+        print(result.values[0])
+        assert pytest.approx(result.values[0][0]["g"], 0.001) == -0.04174282
+        assert pytest.approx(result.values[0][0]["r"], 0.001) == 0.6075282
     elif on is ["ps1_objid", "filterName"]:  # In case where we group on id and band, the structure changes
         assert pytest.approx(result.values[1]["r"], 0.001) == 0.6075282
         assert pytest.approx(result.values[0]["g"], 0.001) == -0.04174282
     elif on is ["nobs_total", "ps1_objid"]:
         assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
+
+
+@pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["filterName", "ps1_objid"]])
+@pytest.mark.parametrize("func_label", ["mean", "bounds"])
+def test_batch_by_band(parquet_ensemble, func_label, on):
+    """
+    Test that ensemble.batch(by_band=True) works as intended.
+    """
+
+    if func_label == "mean":
+
+        def my_mean(flux):
+            """returns a single value"""
+            return np.mean(flux)
+
+        res = parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, on=on, by_band=True)
+
+        parquet_ensemble.source.query(f"{parquet_ensemble._band_col}=='g'").update_ensemble()
+        filter_res = parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, on=on, by_band=False)
+
+        # An EnsembleFrame should be returned
+        assert isinstance(res, EnsembleFrame)
+
+        # Make sure we get all the expected columns
+        assert all([col in res.columns for col in ["result_g", "result_r"]])
+
+        # These should be equivalent
+        assert (
+            res.loc[88472935274829959]["result_g"]
+            .compute()
+            .equals(filter_res.loc[88472935274829959]["result"].compute())
+        )
+
+    elif func_label == "bounds":
+
+        def my_bounds(flux):
+            """returns a series"""
+            return pd.Series({"min": np.min(flux), "max": np.max(flux)})
+
+        res = parquet_ensemble.batch(
+            my_bounds, "psFlux", on=on, by_band=True, meta={"min": float, "max": float}
+        )
+
+        parquet_ensemble.source.query(f"{parquet_ensemble._band_col}=='g'").update_ensemble()
+        filter_res = parquet_ensemble.batch(
+            my_bounds, "psFlux", on=on, by_band=False, meta={"min": float, "max": float}
+        )
+
+        # An EnsembleFrame should be returned
+        assert isinstance(res, EnsembleFrame)
+
+        # Make sure we get all the expected columns
+        assert all([col in res.columns for col in ["max_g", "max_r", "min_g", "min_r"]])
+
+        # These should be equivalent
+        assert (
+            res.loc[88472935274829959]["max_g"]
+            .compute()
+            .equals(filter_res.loc[88472935274829959]["max"].compute())
+        )
+        assert (
+            res.loc[88472935274829959]["min_g"]
+            .compute()
+            .equals(filter_res.loc[88472935274829959]["min"].compute())
+        )
+
+    # Meta should reflect the actual columns, this can get out of sync
+    # whenever multi-indexes are involved, which batch tries to handle
+    assert all([col in res.columns for col in res.compute().columns])
 
 
 def test_batch_labels(parquet_ensemble):
@@ -1714,7 +1786,7 @@ def test_batch_with_custom_series_meta(parquet_ensemble, custom_meta):
 
     assert len(parquet_ensemble.frames) == num_frames + 1
     assert len(parquet_ensemble.select_frame("flux_mean")) > 0
-    assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleSeries)
+    assert isinstance(parquet_ensemble.select_frame("flux_mean"), EnsembleFrame)
 
 
 @pytest.mark.parametrize(
@@ -1811,7 +1883,7 @@ def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
     arg_container.bin_count_target = sthresh
 
     if not combine:
-        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map, compute=False)
+        res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     else:
         res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
     res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
@@ -1821,10 +1893,9 @@ def test_sf2(data_fixture, request, method, combine, sthresh, use_map=False):
             assert res_sf2.known_divisions
 
     if combine:
-        assert not res_sf2.equals(res_batch)  # output should be different
+        assert not res_sf2.equals(res_batch.compute())  # output should be different
     else:
-        res_sf2 = res_sf2.compute()
-        assert res_sf2.equals(res_batch)  # output should be identical
+        assert res_sf2.compute().equals(res_batch.compute())  # output should be identical
 
 
 @pytest.mark.parametrize("sf_method", ["basic", "macleod_2012", "bauer_2009a", "bauer_2009b", "schmidt_2010"])
@@ -1839,7 +1910,7 @@ def test_sf2_methods(parquet_ensemble, sf_method, use_map=False):
     arg_container.bin_count_target = 50
     arg_container.sf_method = sf_method
 
-    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map)
-    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container)
+    res_sf2 = parquet_ensemble.sf2(argument_container=arg_container, use_map=use_map).compute()
+    res_batch = parquet_ensemble.batch(calc_sf2, use_map=use_map, argument_container=arg_container).compute()
 
     assert res_sf2.equals(res_batch)  # output should be identical

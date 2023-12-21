@@ -1008,7 +1008,7 @@ class Ensemble:
         self.source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, use_map=True, compute=True, on=None, label="", **kwargs):
+    def batch(self, func, *args, meta=None, by_band=False, use_map=True, on=None, label="", **kwargs):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1032,6 +1032,17 @@ class Ensemble:
             the results. Overridden by TAPE for TAPE and `light-curve`
             functions. If none, attempts to coerce the result to a
             pandas.Series.
+        by_band: `boolean`, optional
+            If true, the lightcurves are split into separate inputs for each
+            band and passed along to the function individually. If the band
+            column is already specified in `on` then `batch` will ensure the
+            band column is the final element in `on`. For all original columns
+            outputted by `func`, by_band will generate a set of new columns per
+            band (for example, a function with output column "result" will
+            instead have "result_g" and "result_r" as columns if the data had g
+            and r band data) If False (default), the full lightcurve is passed
+            along to the function (assuming the band column in not already part
+            of `on`)
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -1039,13 +1050,11 @@ class Ensemble:
             partition. This can be checked using
             `Ensemble.check_lightcurve_cohesion`. If False, a groupby will be
             performed instead.
-        compute: `boolean`
-            Determines whether to compute the result immediately or hold for a
-            later compute call.
-        on: 'str' or 'list'
+        on: 'str' or 'list', optional
             Designates which column(s) to groupby. Columns may be from the
-            source or object tables. For TAPE and `light-curve` functions
-            this is populated automatically.
+            source or object tables. If not specified, then the id column is
+            used by default. For TAPE and `light-curve` functions this is
+            populated automatically.
         label: 'str', optional
             If provided the ensemble will use this label to track the result
             dataframe. If not provided, a label of the from "result_{x}" where x
@@ -1087,6 +1096,7 @@ class Ensemble:
         amplitudes = ens.batch(np.ptp, ens._flux_col)
         ```
         """
+
         self._lazy_sync_tables(table="all")
 
         # Convert light-curve package feature into analysis function
@@ -1110,6 +1120,14 @@ class Ensemble:
         if isinstance(on, str):
             on = [on]  # Convert to list if only one column is passed
 
+        if by_band:
+            if self._band_col not in on:
+                on += [self._band_col]
+            elif on[-1] != self._band_col:
+                # Ensure band is the final column in the `on` list
+                on[on.index(self._band_col)] = on[-1]
+                on[-1] = self._band_col
+
         # Handle object columns to group on
         source_cols = list(self.source.columns)
         object_cols = list(self.object.columns)
@@ -1126,11 +1144,11 @@ class Ensemble:
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
             batch = source_to_batch.map_partitions(
-                lambda x: x.groupby(on, group_keys=False).apply(
+                lambda x: x.groupby(on, group_keys=True).apply(
                     lambda y: func(
                         *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
                         **kwargs,
-                    )
+                    ),
                 ),
                 meta=meta,
             )
@@ -1141,6 +1159,9 @@ class Ensemble:
                 ),
                 meta=meta,
             )
+
+        # Output standardization
+        batch = self._standardize_batch(batch, on, by_band)
 
         # Inherit divisions if known from source and the resulting index is the id
         # Groupby on index should always return a subset that adheres to the same divisions criteria
@@ -1154,10 +1175,64 @@ class Ensemble:
             # Track the result frame under the provided label
             self.add_frame(batch, label)
 
-        if compute:
-            return batch.compute()
+        return batch
+
+    def _standardize_batch(self, batch, on, by_band):
+        """standardizes the output of a batch result"""
+
+        # Do some up front type checking
+        if isinstance(batch, EnsembleSeries):
+            # make sure the output is separated from the id column
+            if batch.name == self._id_col:
+                batch = batch.rename("result")
+            res_cols = [batch.name]  # grab the series name to use as a column label
+
+            # convert the series to an EnsembleFrame object
+            batch = EnsembleFrame.from_dask_dataframe(batch.to_frame())
+
+        elif isinstance(batch, EnsembleFrame):
+            # collect output columns
+            res_cols = list(batch._meta.columns)
+
         else:
-            return batch
+            # unclear if there's really a pathway to trigger this, but added for completeness
+            raise TypeError(
+                f"The output type of batch ({type(batch)}) does not match any of the expected types: (EnsembleFrame, EnsembleSeries)"
+            )
+
+        # Handle formatting for multi-index results
+        if len(on) > 1:
+            batch = batch.reset_index()
+
+            # Need to overwrite the meta manually as the multiindex will be
+            # interpretted by dask as a single "index" column
+            batch._meta = TapeFrame(columns=on + res_cols)
+
+            # Further reformatting for per-band results
+            # Pivots on the band column to generate a result column for each
+            # photometric band.
+            if by_band:
+                batch = batch.categorize(self._band_col)
+                batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
+
+                # Need to once again reestablish meta for the pivot
+                band_labels = batch.columns.values
+                out_cols = []
+                # To align with pandas pivot_table results, the columns should be generated in reverse order
+                for col in res_cols[::-1]:
+                    for band in band_labels:
+                        out_cols += [(str(col), str(band))]
+                batch._meta = TapeFrame(columns=out_cols)  # apply new meta
+
+                # Flatten the columns to a new column per band
+                batch.columns = ["_".join(col) for col in batch.columns.values]
+
+                # The pivot returns a dask dataframe, need to convert back
+                batch = EnsembleFrame.from_dask_dataframe(batch)
+            else:
+                batch = batch.set_index(on[0], sort=False)
+
+        return batch
 
     def from_pandas(
         self,
@@ -1859,7 +1934,7 @@ class Ensemble:
         index = pd.MultiIndex.from_tuples(tuples, names=["object_id", "band", "index"])
         return index
 
-    def sf2(self, sf_method="basic", argument_container=None, use_map=True, compute=True):
+    def sf2(self, sf_method="basic", argument_container=None, use_map=True):
         """Wrapper interface for calling structurefunction2 on the ensemble
 
         Parameters
@@ -1903,9 +1978,7 @@ class Ensemble:
             )
 
         else:
-            result = self.batch(
-                calc_sf2, use_map=use_map, argument_container=argument_container, compute=compute
-            )
+            result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
 
         # Inherit divisions information if known
         if self.source.known_divisions and self.object.known_divisions:
