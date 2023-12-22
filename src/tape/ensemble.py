@@ -1870,10 +1870,8 @@ class Ensemble:
         in larger partitions.
 
         """
-        if seed is not None:
-            rng = np.random.default_rng(seed)
-        else:
-            rng = np.random
+
+        rng = np.random.default_rng(seed)
 
         # We will select one partition at random to select an object from
         partitions = np.array(range(self.object.npartitions))
