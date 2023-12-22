@@ -1891,9 +1891,8 @@ class Ensemble:
                 print(f"Selected Object {lcid} from Partition {partitions[i]}")
                 object_selected = True
             else:
-                print(f"skipped empty partition: {partitions[i]}")
                 i += 1
-                if i > len(partitions):
+                if i >= len(partitions):
                     raise IndexError("Found no object IDs in the Object Table.")
 
         return self.to_timeseries(lcid)
