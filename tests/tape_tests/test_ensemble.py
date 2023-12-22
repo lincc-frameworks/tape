@@ -1845,9 +1845,46 @@ def test_select_random_timeseries(parquet_ensemble, repartition, seed):
     assert isinstance(ts, TimeSeries)
 
     if seed == 42 and not repartition:
-        assert ts.meta["id"] == 88480000587403327
+        assert ts.meta["id"] == 88472935274829959
     elif seed == 42 and repartition:
-        assert ts.meta["id"] == 88480000310609896
+        assert ts.meta["id"] == 88480001333818899
+
+
+@pytest.mark.parametrize("all_empty", [False, True])
+def test_select_random_timeseries_empty_partitions(dask_client, all_empty):
+    "Test the edge case where object has empty partitions"
+
+    data_dict = {
+        "id": [42],
+        "flux": [1],
+        "time": [1],
+        "err": [1],
+        "band": [1],
+    }
+
+    colmap = ColumnMapper().assign(
+        id_col="id",
+        time_col="time",
+        flux_col="flux",
+        err_col="err",
+        band_col="band",
+    )
+
+    ens = Ensemble(client=dask_client)
+    ens.from_source_dict(data_dict, column_mapper=colmap)
+
+    # The single id will be in the last partition
+    ens.object = ens.object.repartition(5)
+
+    # Remove the last partition, make sure we get the expected error when the
+    # Object table has no IDs in any partition
+    if all_empty:
+        ens.object = ens.object.partitions[0:-1]
+        with pytest.raises(IndexError):
+            ens.select_random_timeseries()
+    else:
+        ts = ens.select_random_timeseries()
+        assert ts.meta["id"] == 42  # Should always find the only object
 
 
 def test_to_timeseries(parquet_ensemble):

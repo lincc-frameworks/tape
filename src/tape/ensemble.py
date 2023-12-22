@@ -1848,7 +1848,7 @@ class Ensemble:
         return self
 
     def select_random_timeseries(self, seed=None):
-        """Selects a random lightcurve from the Ensemble
+        """Selects a random lightcurve from a random partition of the Ensemble.
 
         Parameters
         ----------
@@ -1861,20 +1861,41 @@ class Ensemble:
         ts: `TimeSeries`
             Timeseries for a single object
 
+        Note
+        ----
+        This is not uniformly sampled. As a random partition is chosen first to
+        avoid a search in full index space, and partitions may vary in the
+        number of objects they contain. In other words, objects in smaller
+        partitions will have a higher probability of being chosen than objects
+        in larger partitions.
+
         """
-
         if seed is not None:
-            np.random.seed(seed)
-
-        # Avoid a choice from full index space, select a random partition to grab from
-        if self.object.npartitions > 1:
-            partition_num = np.random.randint(0, self.object.npartitions - 1)
-            partition_ids = self.object.get_partition(partition_num).index.values
-            lcid = np.random.choice(partition_ids)
+            rng = np.random.default_rng(seed)
         else:
-            partition_num = 0
-            lcid = np.random.choice(self.object.index.values)
-        print(f"Selected Object {lcid} from Partition {partition_num}")
+            rng = np.random
+
+        # We will select one partition at random to select an object from
+        partitions = np.array(range(self.object.npartitions))
+        rng.shuffle(partitions)  # shuffle for empty checking
+
+        object_selected = False
+        i = 0
+
+        # Scan through the shuffled partition list until a partition with data is found
+        while not object_selected:
+            partition_index = self.object.partitions[partitions[i]].index
+            # Check for empty partitions
+            if len(partition_index) > 0:
+                lcid = rng.choice(partition_index.values)  # randomly select lightcurve
+                print(f"Selected Object {lcid} from Partition {partitions[i]}")
+                object_selected = True
+            else:
+                print(f"skipped empty partition: {partitions[i]}")
+                i += 1
+                if i > len(partitions):
+                    raise IndexError("Found no object IDs in the Object Table.")
+
         return self.to_timeseries(lcid)
 
     def to_timeseries(
