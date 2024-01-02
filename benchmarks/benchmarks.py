@@ -3,21 +3,9 @@
 For more information on writing benchmarks:
 https://asv.readthedocs.io/en/stable/writing_benchmarks.html."""
 
-#import example_benchmarks
 import numpy as np
 import pandas as pd
 from tape.ensemble import Ensemble
-
-
-#def time_computation():
-#    """Time computations are prefixed with 'time'."""
-#    example_benchmarks.runtime_computation()
-
-
-#def mem_list():
-#    """Memory computations are prefixed with 'mem' or 'peakmem'."""
-#    return example_benchmarks.memory_computation()
-
 
 def time_basic_workflow():
     np.random.seed(1)
