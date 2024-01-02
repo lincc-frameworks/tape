@@ -1,13 +1,11 @@
-"""Two sample benchmarks to compute runtime and memory usage.
+"""A suite of TAPE Benchmarks.
 
 For more information on writing benchmarks:
 https://asv.readthedocs.io/en/stable/writing_benchmarks.html."""
 
 import os
 import numpy as np
-import pandas as pd
 import tape
-from tape.ensemble import Ensemble
 
 
 TESTDATA_PATH = os.path.join(os.path.dirname(__file__), "..", "tests", "tape_tests", "data")

@@ -26,12 +26,11 @@ If it fixes an open issue, please link to the issue here. If this PR closes an i
 
 
 ## Code Quality
-- [ ] I have read the Contribution Guide
-- [ ] My code follows the code style of this project
 - [ ] My code builds (or compiles) cleanly without any errors or warnings
 - [ ] My code contains relevant comments and necessary documentation
 
 ## Project-Specific Pull Request Checklists
+- [ ] I have added a function that requires a sync_tables command, and have added the neccesary sync_tables call
 <!--- Please only use the checklist that apply to your change type(s) -->
 
 ### Bug Fix Checklist
