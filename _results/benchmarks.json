@@ -1,0 +1,33 @@
+{
+    "benchmarks.time_batch": {
+        "code": "def time_batch():\n    \"\"\"Time a simple batch command\"\"\"\n    ens = load_parquet_data()\n\n    res = ens.batch(np.mean, \"psFlux\")\n    res.compute()",
+        "min_run_count": 2,
+        "name": "benchmarks.time_batch",
+        "number": 0,
+        "param_names": [],
+        "params": [],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "358c021237546cbfffd91fa303bce64ef8800e34f74041609c79735cf8c2f9c0",
+        "warmup_time": -1
+    },
+    "benchmarks.time_prune_sync_workflow": {
+        "code": "def time_prune_sync_workflow():\n    \"\"\"Test a filter (using prune) -> sync workflow\"\"\"\n    ens = load_parquet_data()\n\n    ens.prune(50)  # calc nobs -> cut any object with nobs<50\n    ens.source.head(5)  # should call sync implicitly",
+        "min_run_count": 2,
+        "name": "benchmarks.time_prune_sync_workflow",
+        "number": 0,
+        "param_names": [],
+        "params": [],
+        "repeat": 0,
+        "rounds": 2,
+        "sample_time": 0.01,
+        "type": "time",
+        "unit": "seconds",
+        "version": "54f28cf94ce88c81dc0a6e1804023b2a2234997d837185ebfeae053dd9a3c3f3",
+        "warmup_time": -1
+    },
+    "version": 2
+}
