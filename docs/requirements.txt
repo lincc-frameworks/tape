@@ -1,5 +1,5 @@
 sphinx
-sphinx_rtd_theme
+sphinx-rtd-theme
 sphinx-autoapi
 nbsphinx
 ipython
@@ -8,3 +8,4 @@ jupyter
 matplotlib
 eztao
 ray
+numpy
