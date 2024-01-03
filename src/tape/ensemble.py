@@ -759,6 +759,9 @@ class Ensemble:
             The ensemble object with nobs columns added to the object table.
         """
 
+        # Perform sync if either table is dirty
+        self._lazy_sync_tables("all")
+
         if by_band:
             # repartition the result to align with object
             if self.object.known_divisions:
