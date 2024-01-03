@@ -1205,8 +1205,16 @@ def test_calc_nobs(data_fixture, request, by_band, multi_partition):
     # Drop the existing nobs columns
     ens.object = ens.object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)
 
+    # Make sure syncs work, do novel query to remove some sources
+    ens._lazy_sync_tables("all")  # do an initial sync to clear state
+    ens.source.query("index != 88472468910699998").update_ensemble()
+    assert ens.source.is_dirty()
+
     # Calculate nobs
     ens.calc_nobs(by_band)
+
+    # Check to make sure a sync was performed
+    assert not ens.source.is_dirty()
 
     # Check that things turned out as we expect
     lc = ens.object.loc[88472935274829959].compute()
