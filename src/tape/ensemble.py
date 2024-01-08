@@ -8,6 +8,7 @@ import pandas as pd
 
 from dask.distributed import Client
 from collections import Counter
+from collections.abc import Iterable
 
 from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
@@ -1236,6 +1237,92 @@ class Ensemble:
                 batch = batch.set_index(on[0], sort=False)
 
         return batch
+
+    def save_ensemble(self, path=".", dirname='ensemble', additional_frames=True, **kwargs):
+        """Save the current ensemble frames to disk.
+
+        Parameters
+        ----------
+        path: 'str' or path-like, optional
+            A path to the desired location of the top-level save directory, by
+            default this is the current working directory.
+        dirname: 'str', optional
+            The name of the saved ensemble directory, "ensemble" by default.
+        additional_frames: bool, or list, optional
+            Controls whether EnsembleFrames beyond the Object and Source Frames
+            are saved to disk. If True or False, this specifies whether all or
+            none of the additional frames are saved. Alternatively, a list of
+            EnsembleFrame names may be provided to specify which frames should
+            be saved. Object and Source will always be added and do not need to
+            be specified in the list. By default, all frames will be saved.
+        **kwargs:
+            Additional kwargs passed along to EnsembleFrame.to_parquet()
+
+        Returns
+        ----------
+        None
+        """
+
+        # Determine the path
+        ens_path = os.join(path, dirname)
+
+        # Compile frame list
+        if additional_frames is True:
+            frames_to_save = list(self.frames.keys())  # save all frames
+        elif additional_frames is False:
+            frames_to_save = ["object", "source"]  # save just object and source
+        elif isinstance(additional_frames, Iterable):
+            frames_to_save = [frame for frame in additional_frames if
+                              frame in list(self.frames.keys())]
+
+            # Raise an error if any frames were not found in the frame list
+            if len(frames_to_save) != len(additional_frames):
+                raise ValueError("One or more frames specified in `additional_frames` was not found in the frame list.")
+
+            # Make sure object and source are in the frame list
+            if "object" not in frames_to_save:
+                frames_to_save.append("object")
+            if "source" not in frames_to_save:
+                frames_to_save.append("source")
+        else:
+            raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
+
+        # Save the frame list to disk
+        for frame_label in frames_to_save:
+            # grab the dataframe from the frame label
+            frame = self.frames[frame_label]
+
+            # creates a subdirectory for the frame partition files
+            frame.to_parquet(os.path.join(ens_path, frame_label), **kwargs)
+
+        # Save a ColumnMapper file
+        col_map = self.make_column_map()
+        np.save(os.path.join(ens_path, "column_mapper.npy"), col_map.map)
+
+        return
+
+    def from_ensemble(self, dirpath, additional_frames):
+        """Load an ensemble from an on-disk ensemble.
+
+        Parameters
+        ----------
+        dirpath: 'str' or path-like, optional
+            A path to the top-level ensemble directory to load from.
+        additional_frames: bool, or list, optional
+            Controls whether EnsembleFrames beyond the Object and Source Frames
+            are loaded from disk. If True or False, this specifies whether all
+            or none of the additional frames are loaded. Alternatively, a list
+            of EnsembleFrame names may be provided to specify which frames
+            should be loaded. Object and Source will always be added and do not
+            need to be specified in the list. By default, all frames will be
+            loaded.
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object.
+        """
+        pass
 
     def from_pandas(
         self,
