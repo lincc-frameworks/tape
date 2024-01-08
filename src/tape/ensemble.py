@@ -1301,7 +1301,7 @@ class Ensemble:
 
         return
 
-    def from_ensemble(self, dirpath, additional_frames):
+    def from_ensemble(self, dirpath, additional_frames=True, column_mapper=None, **kwargs):
         """Load an ensemble from an on-disk ensemble.
 
         Parameters
@@ -1316,13 +1316,47 @@ class Ensemble:
             should be loaded. Object and Source will always be added and do not
             need to be specified in the list. By default, all frames will be
             loaded.
+        column_mapper: Tape.ColumnMapper object, or None, optional
+            Supplies a ColumnMapper to the Ensemble, if None (default) searches
+            for a column_mapper.npy file in the directory, which should be
+            created when the ensemble is saved.
 
         Returns
         ----------
         ensemble: `tape.ensemble.Ensemble`
             The ensemble object.
         """
-        pass
+
+        # First grab the column_mapper if not specified
+        if column_mapper is None:
+            column_mapper = np.load(os.path.join(dirpath, 'column_mapper.npy'), allow_pickle='TRUE').item()
+
+        # Load Object and Source
+        obj_path = os.path.join(dirpath, "object")
+        src_path = os.path.join(dirpath, "object")
+        self.from_parquet(src_path, obj_path, column_mapper=column_mapper, **kwargs)
+
+        # Load all remaining frames
+        if additional_frames is False:
+            return self  # we are all done
+        else:
+            if additional_frames is True:
+                #  Grab all subdirectory paths in the top-level folder, filter out any files
+                frames_to_load = [f for f in os.listdir(dirpath) if not os.path.isfile(os.join(dirpath, f))]
+            elif isinstance(additional_frames, Iterable):
+                frames_to_load = [os.path.join(dirpath, frame) for frame in additional_frames]
+            else:
+                raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
+
+            # Filter out object and source from additional frames
+            frames_to_load = [frame for frame in frames_to_load if os.path.split(frame)[1] != "object" or os.path.split(frame)[1] != "source"]
+
+            for frame in frames_to_load:
+                label = os.path.split(frame)[1]
+                ddf = EnsembleFrame.from_parquet(frame, label=label)
+                self.add_frame(ddf, label)
+
+            return self
 
     def from_pandas(
         self,
