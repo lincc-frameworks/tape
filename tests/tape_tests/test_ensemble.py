@@ -1,5 +1,6 @@
 """Test ensemble manipulations"""
 import copy
+import os
 
 import dask.dataframe as dd
 import numpy as np
@@ -478,7 +479,12 @@ def test_read_source_dict(dask_client):
     assert 8002 in obj_table.index
 
 
-def test_save_and_load_ensemble(dask_client):
+@pytest.mark.parametrize("add_frames", [True, False, ["max"], "42", ["max", "min"]])
+@pytest.mark.parametrize("obj_nocols", [True, False])
+def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols):
+    # Setup a temporary directory for files
+    save_path = tmp_path / "."
+
     # Set a seed for reproducibility
     np.random.seed(1)
 
@@ -497,7 +503,7 @@ def test_save_and_load_ensemble(dask_client):
     source_dict = {"id": obj_ids, "mjd": mjds, "flux": flux, "err": err, "band": band}
 
     # Create an Ensemble
-    ens = Ensemble()
+    ens = Ensemble(client=dask_client)
     ens.from_source_dict(
         source_dict,
         column_mapper=ColumnMapper(
@@ -505,13 +511,73 @@ def test_save_and_load_ensemble(dask_client):
         ),
     )
 
-    # Make a column for the object table
-    ens.calc_nobs(temporary=False)
+    # object table as defined above has no columns, add a column to test both cases
+    if not obj_nocols:
+        # Make a column for the object table
+        ens.calc_nobs(temporary=False)
+
     # Add a few result frames
     ens.batch(np.mean, "flux", label="mean")
     ens.batch(np.max, "flux", label="max")
 
-    ens.save_ensemble("./ensemble")
+    # Save the Ensemble
+    if add_frames == "42" or add_frames == ["max", "min"]:
+        with pytest.raises(ValueError):
+            ens.save_ensemble(save_path, dirname="ensemble", additional_frames=add_frames)
+        return
+    else:
+        ens.save_ensemble(save_path, dirname="ensemble", additional_frames=add_frames)
+        # Inspect the save directory
+        dircontents = os.listdir(os.path.join(save_path, "ensemble"))
+
+        assert "source" in dircontents  # Source should always be there
+        assert "column_mapper.npy" in dircontents  # should make a column_mapper file
+        if obj_nocols:  # object shouldn't if it was empty
+            assert "object" not in dircontents
+        else:  # otherwise it should be present
+            assert "object" in dircontents
+        if add_frames is True:  # if additional_frames is true, mean and max should be there
+            assert "max" in dircontents
+            assert "mean" in dircontents
+        elif add_frames is False:  # but they shouldn't be there if additional_frames is false
+            assert "max" not in dircontents
+            assert "mean" not in dircontents
+        elif type(add_frames) == list:  # only max should be there if ["max"] is the input
+            assert "max" in dircontents
+            assert "mean" not in dircontents
+
+    # Load a new Ensemble
+    loaded_ens = Ensemble(dask_client)
+    loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=add_frames)
+
+    # compare object and source dataframes
+    assert loaded_ens.source.compute().equals(ens.source.compute())
+    assert loaded_ens.object.compute().equals(ens.object.compute())
+
+    # Check the contents of the loaded ensemble
+    if add_frames is True:  # if additional_frames is true, mean and max should be there
+        assert "max" in loaded_ens.frames.keys()
+        assert "mean" in loaded_ens.frames.keys()
+
+        # Make sure the dataframes are identical
+        assert loaded_ens.select_frame("max").compute().equals(ens.select_frame("max").compute())
+        assert loaded_ens.select_frame("mean").compute().equals(ens.select_frame("mean").compute())
+
+    elif add_frames is False:  # but they shouldn't be there if additional_frames is false
+        assert "max" not in loaded_ens.frames.keys()
+        assert "mean" not in loaded_ens.frames.keys()
+
+    elif type(add_frames) == list:  # only max should be there if ["max"] is the input
+        assert "max" in loaded_ens.frames.keys()
+        assert "mean" not in loaded_ens.frames.keys()
+
+        # Make sure the dataframes are identical
+        assert loaded_ens.select_frame("max").compute().equals(ens.select_frame("max").compute())
+
+    # Test a bad additional_frames call for the loader
+    with pytest.raises(ValueError):
+        bad_ens = Ensemble(dask_client)
+        loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=3)
 
 
 def test_insert(parquet_ensemble):
