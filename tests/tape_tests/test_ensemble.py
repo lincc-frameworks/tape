@@ -479,7 +479,7 @@ def test_read_source_dict(dask_client):
     assert 8002 in obj_table.index
 
 
-@pytest.mark.parametrize("add_frames", [True, False, ["max"], "42", ["max", "min"]])
+@pytest.mark.parametrize("add_frames", [True, False, ["max"], 42, ["max", "min"]])
 @pytest.mark.parametrize("obj_nocols", [True, False])
 def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols):
     # Setup a temporary directory for files
@@ -521,7 +521,7 @@ def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols):
     ens.batch(np.max, "flux", label="max")
 
     # Save the Ensemble
-    if add_frames == "42" or add_frames == ["max", "min"]:
+    if add_frames == 42 or add_frames == ["max", "min"]:
         with pytest.raises(ValueError):
             ens.save_ensemble(save_path, dirname="ensemble", additional_frames=add_frames)
         return

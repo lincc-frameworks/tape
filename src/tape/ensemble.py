@@ -1263,6 +1263,13 @@ class Ensemble:
         Returns
         ----------
         None
+
+        Note
+        ----
+        If the object frame is empty, which is often the case when an Ensemble
+        is constructed using only source files/dictionaries, then an object
+        subdirectory will not be created. `Ensemble.from_ensemble` will know
+        how to work with the directory in both cases.
         """
 
         self._lazy_sync_tables("all")
