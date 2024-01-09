@@ -802,7 +802,9 @@ class Ensemble:
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
 
             bands = band_counts.columns.values
-            self.object = self.object.assign(**{label + "_" + str(band): band_counts[band] for band in bands})
+            self.object.assign(
+                **{label + "_" + str(band): band_counts[band] for band in bands}
+            ).update_ensemble()
 
             if temporary:
                 self._object_temp.extend(label + "_" + str(band) for band in bands)
@@ -825,7 +827,7 @@ class Ensemble:
                     .repartition(npartitions=self.object.npartitions)
                 )
 
-            self.object = self.object.assign(**{label + "_total": counts[self._band_col]})
+            self.object.assign(**{label + "_total": counts[self._band_col]}).update_ensemble()
 
             if temporary:
                 self._object_temp.extend([label + "_total"])
@@ -1238,7 +1240,7 @@ class Ensemble:
 
         return batch
 
-    def save_ensemble(self, path=".", dirname='ensemble', additional_frames=True, **kwargs):
+    def save_ensemble(self, path=".", dirname="ensemble", additional_frames=True, **kwargs):
         """Save the current ensemble frames to disk.
 
         Parameters
@@ -1263,8 +1265,10 @@ class Ensemble:
         None
         """
 
+        self._lazy_sync_tables("all")
+
         # Determine the path
-        ens_path = os.join(path, dirname)
+        ens_path = os.path.join(path, dirname)
 
         # Compile frame list
         if additional_frames is True:
@@ -1272,12 +1276,13 @@ class Ensemble:
         elif additional_frames is False:
             frames_to_save = ["object", "source"]  # save just object and source
         elif isinstance(additional_frames, Iterable):
-            frames_to_save = [frame for frame in additional_frames if
-                              frame in list(self.frames.keys())]
+            frames_to_save = [frame for frame in additional_frames if frame in list(self.frames.keys())]
 
             # Raise an error if any frames were not found in the frame list
             if len(frames_to_save) != len(additional_frames):
-                raise ValueError("One or more frames specified in `additional_frames` was not found in the frame list.")
+                raise ValueError(
+                    "One or more frames specified in `additional_frames` was not found in the frame list."
+                )
 
             # Make sure object and source are in the frame list
             if "object" not in frames_to_save:
@@ -1298,6 +1303,8 @@ class Ensemble:
         # Save a ColumnMapper file
         col_map = self.make_column_map()
         np.save(os.path.join(ens_path, "column_mapper.npy"), col_map.map)
+
+        print(f"Saved to {os.path.join(path, dirname)}")
 
         return
 
@@ -1329,7 +1336,9 @@ class Ensemble:
 
         # First grab the column_mapper if not specified
         if column_mapper is None:
-            column_mapper = np.load(os.path.join(dirpath, 'column_mapper.npy'), allow_pickle='TRUE').item()
+            map_dict = np.load(os.path.join(dirpath, "column_mapper.npy"), allow_pickle="TRUE").item()
+            column_mapper = ColumnMapper()
+            column_mapper.map = map_dict
 
         # Load Object and Source
         obj_path = os.path.join(dirpath, "object")
@@ -1342,19 +1351,25 @@ class Ensemble:
         else:
             if additional_frames is True:
                 #  Grab all subdirectory paths in the top-level folder, filter out any files
-                frames_to_load = [f for f in os.listdir(dirpath) if not os.path.isfile(os.join(dirpath, f))]
+                frames_to_load = [
+                    os.path.join(dirpath, f)
+                    for f in os.listdir(dirpath)
+                    if not os.path.isfile(os.path.join(dirpath, f))
+                ]
             elif isinstance(additional_frames, Iterable):
                 frames_to_load = [os.path.join(dirpath, frame) for frame in additional_frames]
             else:
                 raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
 
             # Filter out object and source from additional frames
-            frames_to_load = [frame for frame in frames_to_load if os.path.split(frame)[1] != "object" or os.path.split(frame)[1] != "source"]
-
-            for frame in frames_to_load:
-                label = os.path.split(frame)[1]
-                ddf = EnsembleFrame.from_parquet(frame, label=label)
-                self.add_frame(ddf, label)
+            frames_to_load = [
+                frame for frame in frames_to_load if os.path.split(frame)[1] not in ["object", "source"]
+            ]
+            if len(frames_to_load) > 0:
+                for frame in frames_to_load:
+                    label = os.path.split(frame)[1]
+                    ddf = EnsembleFrame.from_parquet(frame, label=label)
+                    self.add_frame(ddf, label)
 
             return self
 
