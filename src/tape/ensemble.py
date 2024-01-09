@@ -1297,6 +1297,13 @@ class Ensemble:
             # grab the dataframe from the frame label
             frame = self.frames[frame_label]
 
+            # Object can have no columns, which parquet doesn't handle
+            # In this case, we'll avoid saving to parquet
+            if frame_label == "object":
+                if len(frame.columns) == 0:
+                    print("The Object Frame was not saved as no columns were present.")
+                    continue
+
             # creates a subdirectory for the frame partition files
             frame.to_parquet(os.path.join(ens_path, frame_label), **kwargs)
 
@@ -1342,8 +1349,13 @@ class Ensemble:
 
         # Load Object and Source
         obj_path = os.path.join(dirpath, "object")
-        src_path = os.path.join(dirpath, "object")
-        self.from_parquet(src_path, obj_path, column_mapper=column_mapper, **kwargs)
+        src_path = os.path.join(dirpath, "source")
+
+        # Check for whether or not object is present, it's not saved when no columns are present
+        if "object" in os.listdir(dirpath):
+            self.from_parquet(src_path, obj_path, column_mapper=column_mapper, **kwargs)
+        else:
+            self.from_parquet(src_path, column_mapper=column_mapper, **kwargs)
 
         # Load all remaining frames
         if additional_frames is False:

@@ -478,6 +478,42 @@ def test_read_source_dict(dask_client):
     assert 8002 in obj_table.index
 
 
+def test_save_and_load_ensemble(dask_client):
+    # Set a seed for reproducibility
+    np.random.seed(1)
+
+    # Create some toy data
+    obj_ids = np.array([])
+    mjds = np.array([])
+    for i in range(10, 110):
+        obj_ids = np.append(obj_ids, np.array([i] * 1250))
+        mjds = np.append(mjds, np.arange(0.0, 1250.0, 1.0))
+    obj_ids = np.array(obj_ids)
+    flux = 10 * np.random.random(125000)
+    err = flux / 10
+    band = np.random.choice(["g", "r"], 125000)
+
+    # Store it in a dictionary
+    source_dict = {"id": obj_ids, "mjd": mjds, "flux": flux, "err": err, "band": band}
+
+    # Create an Ensemble
+    ens = Ensemble()
+    ens.from_source_dict(
+        source_dict,
+        column_mapper=ColumnMapper(
+            id_col="id", time_col="mjd", flux_col="flux", err_col="err", band_col="band"
+        ),
+    )
+
+    # Make a column for the object table
+    ens.calc_nobs(temporary=False)
+    # Add a few result frames
+    ens.batch(np.mean, "flux", label="mean")
+    ens.batch(np.max, "flux", label="max")
+
+    ens.save_ensemble("./ensemble")
+
+
 def test_insert(parquet_ensemble):
     num_partitions = parquet_ensemble.source.npartitions
     (old_object, old_source) = parquet_ensemble.compute()
