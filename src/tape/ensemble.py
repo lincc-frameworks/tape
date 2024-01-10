@@ -1329,7 +1329,15 @@ class Ensemble:
 
         return
 
-    def from_ensemble(self, dirpath, additional_frames=True, column_mapper=None, **kwargs):
+    def from_ensemble(self,
+                      dirpath,
+                      additional_frames=True,
+                      column_mapper=None,
+                      additional_cols=True,
+                      partition_size=None,
+                      sorted=False,
+                      sort=False,
+                      **kwargs):
         """Load an ensemble from an on-disk ensemble.
 
         Parameters
@@ -1348,6 +1356,19 @@ class Ensemble:
             Supplies a ColumnMapper to the Ensemble, if None (default) searches
             for a column_mapper.npy file in the directory, which should be
             created when the ensemble is saved.
+        additional_cols: 'bool', optional
+            Boolean to indicate whether to carry in columns beyond the
+            critical columns, true will, while false will only load the columns
+            containing the critical quantities (id,time,flux,err,band)
+        partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to False
+        sort: `bool`, optional
+            If True, sorts the DataFrame by the id column. Otherwise set the
+            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1367,9 +1388,25 @@ class Ensemble:
 
         # Check for whether or not object is present, it's not saved when no columns are present
         if "object" in os.listdir(dirpath):
-            self.from_parquet(src_path, obj_path, column_mapper=column_mapper, **kwargs)
+            self.from_parquet(src_path,
+                              obj_path,
+                              column_mapper=column_mapper,
+                              additional_cols=additional_cols,
+                              sorted=sorted, sort=sort,
+                              sync_tables=False,  # a sync should always be performed just before saving
+                              npartitions=None,  # disabled, as this would be applied to all frames
+                              partition_size=partition_size,
+                              **kwargs)
         else:
-            self.from_parquet(src_path, column_mapper=column_mapper, **kwargs)
+            self.from_parquet(src_path,
+                              column_mapper=column_mapper,
+                              additional_cols=additional_cols,
+                              sorted=sorted,
+                              sort=sort,
+                              sync_tables=False,  # a sync should always be performed just before saving
+                              npartitions=None,  # disabled, as this would be applied to all frames
+                              partition_size=partition_size,
+                              **kwargs)
 
         # Load all remaining frames
         if additional_frames is False:
@@ -1499,6 +1536,12 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
         source_frame = SourceFrame.from_dask_dataframe(source_frame, self)
 
+        # Repartition before any sorting
+        if npartitions and npartitions > 1:
+            source_frame = source_frame.repartition(npartitions=npartitions)
+        elif partition_size:
+            source_frame = source_frame.repartition(partition_size=partition_size)
+
         # Set the index of the source frame and save the resulting table
         self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
 
@@ -1514,11 +1557,6 @@ class Ensemble:
                 self.source.set_dirty(True)
                 self.object.set_dirty(True)
                 self._sync_tables()
-
-        if npartitions and npartitions > 1:
-            self.source = self.source.repartition(npartitions=npartitions)
-        elif partition_size:
-            self.source = self.source.repartition(partition_size=partition_size)
 
         # Check that Divisions are established, warn if not.
         for name, table in [("object", self.object), ("source", self.source)]:

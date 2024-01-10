@@ -10,7 +10,15 @@ from tape import Ensemble
 from tape.utils import ColumnMapper
 
 
-def read_ensemble(dirpath, additional_frames=True, column_mapper=None, dask_client=True, **kwargs):
+def read_ensemble(dirpath,
+                  additional_frames=True,
+                  column_mapper=None,
+                  dask_client=True,
+                  additional_cols=True,
+                  partition_size=None,
+                  sorted=False,
+                  sort=False,
+                  **kwargs):
     """Load an ensemble from an on-disk ensemble.
 
     Parameters
@@ -29,6 +37,19 @@ def read_ensemble(dirpath, additional_frames=True, column_mapper=None, dask_clie
         Supplies a ColumnMapper to the Ensemble, if None (default) searches
         for a column_mapper.npy file in the directory, which should be
         created when the ensemble is saved.
+    additional_cols: 'bool', optional
+        Boolean to indicate whether to carry in columns beyond the
+        critical columns, true will, while false will only load the columns
+        containing the critical quantities (id,time,flux,err,band)
+    partition_size: `int`, optional
+            If specified, attempts to repartition the ensemble to partitions
+            of size `partition_size`.
+    sorted: bool, optional
+        If the index column is already sorted in increasing order.
+        Defaults to False
+    sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the
+        index on the individual existing partitions. Defaults to False.
     dask_client: `dask.distributed.client` or `bool`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `client=True`, passing any additional kwargs to a
@@ -41,9 +62,16 @@ def read_ensemble(dirpath, additional_frames=True, column_mapper=None, dask_clie
         An ensemble object.
     """
 
-    new_ens = Ensemble(dask_client, **kwargs)
+    new_ens = Ensemble(dask_client)
 
-    new_ens.from_ensemble(dirpath, additional_frames=additional_frames, column_mapper=column_mapper, **kwargs)
+    new_ens.from_ensemble(dirpath,
+                          additional_frames=additional_frames,
+                          column_mapper=column_mapper,
+                          additional_cols=additional_cols,
+                          partition_size=partition_size,
+                          sorted=sorted,
+                          sort=sort,
+                          **kwargs)
 
     return new_ens
 
