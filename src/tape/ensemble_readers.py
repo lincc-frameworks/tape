@@ -10,15 +10,17 @@ from tape import Ensemble
 from tape.utils import ColumnMapper
 
 
-def read_ensemble(dirpath,
-                  additional_frames=True,
-                  column_mapper=None,
-                  dask_client=True,
-                  additional_cols=True,
-                  partition_size=None,
-                  sorted=False,
-                  sort=False,
-                  **kwargs):
+def read_ensemble(
+    dirpath,
+    additional_frames=True,
+    column_mapper=None,
+    dask_client=True,
+    additional_cols=True,
+    partition_size=None,
+    sorted=False,
+    sort=False,
+    **kwargs,
+):
     """Load an ensemble from an on-disk ensemble.
 
     Parameters
@@ -64,14 +66,16 @@ def read_ensemble(dirpath,
 
     new_ens = Ensemble(dask_client)
 
-    new_ens.from_ensemble(dirpath,
-                          additional_frames=additional_frames,
-                          column_mapper=column_mapper,
-                          additional_cols=additional_cols,
-                          partition_size=partition_size,
-                          sorted=sorted,
-                          sort=sort,
-                          **kwargs)
+    new_ens.from_ensemble(
+        dirpath,
+        additional_frames=additional_frames,
+        column_mapper=column_mapper,
+        additional_cols=additional_cols,
+        partition_size=partition_size,
+        sorted=sorted,
+        sort=sort,
+        **kwargs,
+    )
 
     return new_ens
 

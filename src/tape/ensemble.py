@@ -1329,15 +1329,17 @@ class Ensemble:
 
         return
 
-    def from_ensemble(self,
-                      dirpath,
-                      additional_frames=True,
-                      column_mapper=None,
-                      additional_cols=True,
-                      partition_size=None,
-                      sorted=False,
-                      sort=False,
-                      **kwargs):
+    def from_ensemble(
+        self,
+        dirpath,
+        additional_frames=True,
+        column_mapper=None,
+        additional_cols=True,
+        partition_size=None,
+        sorted=False,
+        sort=False,
+        **kwargs,
+    ):
         """Load an ensemble from an on-disk ensemble.
 
         Parameters
@@ -1388,25 +1390,30 @@ class Ensemble:
 
         # Check for whether or not object is present, it's not saved when no columns are present
         if "object" in os.listdir(dirpath):
-            self.from_parquet(src_path,
-                              obj_path,
-                              column_mapper=column_mapper,
-                              additional_cols=additional_cols,
-                              sorted=sorted, sort=sort,
-                              sync_tables=False,  # a sync should always be performed just before saving
-                              npartitions=None,  # disabled, as this would be applied to all frames
-                              partition_size=partition_size,
-                              **kwargs)
+            self.from_parquet(
+                src_path,
+                obj_path,
+                column_mapper=column_mapper,
+                additional_cols=additional_cols,
+                sorted=sorted,
+                sort=sort,
+                sync_tables=False,  # a sync should always be performed just before saving
+                npartitions=None,  # disabled, as this would be applied to all frames
+                partition_size=partition_size,
+                **kwargs,
+            )
         else:
-            self.from_parquet(src_path,
-                              column_mapper=column_mapper,
-                              additional_cols=additional_cols,
-                              sorted=sorted,
-                              sort=sort,
-                              sync_tables=False,  # a sync should always be performed just before saving
-                              npartitions=None,  # disabled, as this would be applied to all frames
-                              partition_size=partition_size,
-                              **kwargs)
+            self.from_parquet(
+                src_path,
+                column_mapper=column_mapper,
+                additional_cols=additional_cols,
+                sorted=sorted,
+                sort=sort,
+                sync_tables=False,  # a sync should always be performed just before saving
+                npartitions=None,  # disabled, as this would be applied to all frames
+                partition_size=partition_size,
+                **kwargs,
+            )
 
         # Load all remaining frames
         if additional_frames is False:
