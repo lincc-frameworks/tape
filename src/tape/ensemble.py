@@ -1271,6 +1271,12 @@ class Ensemble:
         object subdirectory will not be created. `Ensemble.from_ensemble` will
         know how to work with the directory whether or not the object
         subdirectory is present.
+
+        Be careful about repeated saves to the same directory name. This will
+        not be a perfect overwrite, as any products produced by a previous save
+        may not be deleted by successive saves if they are removed from the
+        ensemble. For best results, delete the directory between saves or
+        verify that the contents are what you would expect.
         """
 
         self._lazy_sync_tables("all")
