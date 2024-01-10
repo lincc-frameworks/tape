@@ -481,7 +481,8 @@ def test_read_source_dict(dask_client):
 
 @pytest.mark.parametrize("add_frames", [True, False, ["max"], 42, ["max", "min"]])
 @pytest.mark.parametrize("obj_nocols", [True, False])
-def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols):
+@pytest.mark.parametrize("use_reader", [False, True])
+def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols, use_reader):
     # Setup a temporary directory for files
     save_path = tmp_path / "."
 
@@ -547,8 +548,13 @@ def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols):
             assert "mean" not in dircontents
 
     # Load a new Ensemble
-    loaded_ens = Ensemble(dask_client)
-    loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=add_frames)
+    if not use_reader:
+        loaded_ens = Ensemble(dask_client)
+        loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=add_frames)
+    else:
+        loaded_ens = tape.ensemble_readers.read_ensemble(
+            os.path.join(save_path, "ensemble"), additional_frames=add_frames, dask_client=dask_client
+        )
 
     # compare object and source dataframes
     assert loaded_ens.source.compute().equals(ens.source.compute())

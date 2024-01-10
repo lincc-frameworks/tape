@@ -1266,10 +1266,11 @@ class Ensemble:
 
         Note
         ----
-        If the object frame is empty, which is often the case when an Ensemble
-        is constructed using only source files/dictionaries, then an object
-        subdirectory will not be created. `Ensemble.from_ensemble` will know
-        how to work with the directory in both cases.
+        If the object frame has no columns, which is often the case when an
+        Ensemble is constructed using only source files/dictionaries, then an
+        object subdirectory will not be created. `Ensemble.from_ensemble` will
+        know how to work with the directory whether or not the object
+        subdirectory is present.
         """
 
         self._lazy_sync_tables("all")
@@ -1387,7 +1388,7 @@ class Ensemble:
             if len(frames_to_load) > 0:
                 for frame in frames_to_load:
                     label = os.path.split(frame)[1]
-                    ddf = EnsembleFrame.from_parquet(frame, label=label)
+                    ddf = EnsembleFrame.from_parquet(frame, label=label, **kwargs)
                     self.add_frame(ddf, label)
 
             return self

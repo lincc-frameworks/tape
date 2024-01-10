@@ -10,6 +10,44 @@ from tape import Ensemble
 from tape.utils import ColumnMapper
 
 
+def read_ensemble(dirpath, additional_frames=True, column_mapper=None, dask_client=True, **kwargs):
+    """Load an ensemble from an on-disk ensemble.
+
+    Parameters
+    ----------
+    dirpath: 'str' or path-like, optional
+        A path to the top-level ensemble directory to load from.
+    additional_frames: bool, or list, optional
+        Controls whether EnsembleFrames beyond the Object and Source Frames
+        are loaded from disk. If True or False, this specifies whether all
+        or none of the additional frames are loaded. Alternatively, a list
+        of EnsembleFrame names may be provided to specify which frames
+        should be loaded. Object and Source will always be added and do not
+        need to be specified in the list. By default, all frames will be
+        loaded.
+    column_mapper: Tape.ColumnMapper object, or None, optional
+        Supplies a ColumnMapper to the Ensemble, if None (default) searches
+        for a column_mapper.npy file in the directory, which should be
+        created when the ensemble is saved.
+    dask_client: `dask.distributed.client` or `bool`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `client=True`, passing any additional kwargs to a
+        dask.distributed.Client constructor call. If `client=False`, the
+        Ensemble is created without a distributed client.
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        An ensemble object.
+    """
+
+    new_ens = Ensemble(dask_client, **kwargs)
+
+    new_ens.from_ensemble(dirpath, additional_frames=additional_frames, column_mapper=column_mapper, **kwargs)
+
+    return new_ens
+
+
 def read_pandas_dataframe(
     source_frame,
     object_frame=None,
