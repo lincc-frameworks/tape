@@ -844,14 +844,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         return result
 
     @classmethod
-    def from_parquet(
-        cl,
-        path,
-        index=None,
-        columns=None,
-        label=None,
-        ensemble=None,
-    ):
+    def from_parquet(cl, path, index=None, columns=None, label=None, ensemble=None, **kwargs):
         """Returns an EnsembleFrame constructed from loading a parquet file.
         Parameters
         ----------
@@ -879,11 +872,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         # Read the parquet file with an engine that will assume the meta is a TapeFrame which Dask will
         # instantiate as EnsembleFrame via its dispatcher.
         result = dd.read_parquet(
-            path,
-            index=index,
-            columns=columns,
-            split_row_groups=True,
-            engine=TapeArrowEngine,
+            path, index=index, columns=columns, split_row_groups=True, engine=TapeArrowEngine, **kwargs
         )
         result.label = label
         result.ensemble = ensemble

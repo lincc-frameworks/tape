@@ -1,5 +1,7 @@
 import glob
 import os
+import json
+import shutil
 import warnings
 import requests
 import dask.dataframe as dd
@@ -8,6 +10,7 @@ import pandas as pd
 
 from dask.distributed import Client
 from collections import Counter
+from collections.abc import Iterable
 
 from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
@@ -30,6 +33,8 @@ SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
 
 DEFAULT_FRAME_LABEL = "result"  # A base default label for an Ensemble's result frames.
+
+METADATA_FILENAME = "ensemble_metadata.json"
 
 
 class Ensemble:
@@ -801,7 +806,9 @@ class Ensemble:
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
 
             bands = band_counts.columns.values
-            self.object = self.object.assign(**{label + "_" + str(band): band_counts[band] for band in bands})
+            self.object.assign(
+                **{label + "_" + str(band): band_counts[band] for band in bands}
+            ).update_ensemble()
 
             if temporary:
                 self._object_temp.extend(label + "_" + str(band) for band in bands)
@@ -824,7 +831,7 @@ class Ensemble:
                     .repartition(npartitions=self.object.npartitions)
                 )
 
-            self.object = self.object.assign(**{label + "_total": counts[self._band_col]})
+            self.object.assign(**{label + "_total": counts[self._band_col]}).update_ensemble()
 
             if temporary:
                 self._object_temp.extend([label + "_total"])
@@ -1237,6 +1244,226 @@ class Ensemble:
 
         return batch
 
+    def save_ensemble(self, path=".", dirname="ensemble", additional_frames=True, **kwargs):
+        """Save the current ensemble frames to disk.
+
+        Parameters
+        ----------
+        path: 'str' or path-like, optional
+            A path to the desired location of the top-level save directory, by
+            default this is the current working directory.
+        dirname: 'str', optional
+            The name of the saved ensemble directory, "ensemble" by default.
+        additional_frames: bool, or list, optional
+            Controls whether EnsembleFrames beyond the Object and Source Frames
+            are saved to disk. If True or False, this specifies whether all or
+            none of the additional frames are saved. Alternatively, a list of
+            EnsembleFrame names may be provided to specify which frames should
+            be saved. Object and Source will always be added and do not need to
+            be specified in the list. By default, all frames will be saved.
+        **kwargs:
+            Additional kwargs passed along to EnsembleFrame.to_parquet()
+
+        Returns
+        ----------
+        None
+
+        Note
+        ----
+        If the object frame has no columns, which is often the case when an
+        Ensemble is constructed using only source files/dictionaries, then an
+        object subdirectory will not be created. `Ensemble.from_ensemble` will
+        know how to work with the directory whether or not the object
+        subdirectory is present.
+
+        Be careful about repeated saves to the same directory name. This will
+        not be a perfect overwrite, as any products produced by a previous save
+        may not be deleted by successive saves if they are removed from the
+        ensemble. For best results, delete the directory between saves or
+        verify that the contents are what you would expect.
+        """
+
+        self._lazy_sync_tables("all")
+
+        # Determine the path
+        ens_path = os.path.join(path, dirname)
+
+        # First look for an existing metadata file in the path
+        try:
+            with open(os.path.join(ens_path, METADATA_FILENAME), "r") as oldfile:
+                # Reading from json file
+                old_metadata = json.load(oldfile)
+                old_subdirs = old_metadata["subdirs"]
+                # Delete any old subdirectories
+                for subdir in old_subdirs:
+                    shutil.rmtree(os.path.join(ens_path, subdir))
+        except FileNotFoundError:
+            pass
+
+        # Compile frame list
+        if additional_frames is True:
+            frames_to_save = list(self.frames.keys())  # save all frames
+        elif additional_frames is False:
+            frames_to_save = [OBJECT_FRAME_LABEL, SOURCE_FRAME_LABEL]  # save just object and source
+        elif isinstance(additional_frames, Iterable):
+            frames_to_save = set(additional_frames)
+            invalid_frames = frames_to_save.difference(set(self.frames.keys()))
+            # Raise an error if any frames were not found in the frame list
+            if len(invalid_frames) != 0:
+                raise ValueError(
+                    f"The frame(s): {invalid_frames} specified in `additional_frames` were not found in the frame list."
+                )
+            frames_to_save = list(frames_to_save)
+
+            # Make sure object and source are in the frame list
+            if OBJECT_FRAME_LABEL not in frames_to_save:
+                frames_to_save.append(OBJECT_FRAME_LABEL)
+            if SOURCE_FRAME_LABEL not in frames_to_save:
+                frames_to_save.append(SOURCE_FRAME_LABEL)
+        else:
+            raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
+
+        # Generate the metadata first
+        created_subdirs = []  # track the list of created subdirectories
+        divisions_known = []  # log whether divisions were known for each frame
+        for frame_label in frames_to_save:
+            # grab the dataframe from the frame label
+            frame = self.frames[frame_label]
+
+            # When the frame has no columns, avoid the save as parquet doesn't handle it
+            # Most commonly this applies to the object table when it's built from source
+            if len(frame.columns) == 0:
+                print(f"Frame: {frame_label} will not be saved as no columns are present.")
+                continue
+
+            created_subdirs.append(frame_label)
+            divisions_known.append(frame.known_divisions)
+
+        # Save a metadata file
+        col_map = self.make_column_map()  # grab the current column_mapper
+        metadata = {
+            "subdirs": created_subdirs,
+            "known_divisions": divisions_known,
+            "column_mapper": col_map.map,
+        }
+        json_metadata = json.dumps(metadata, indent=4)
+
+        # Make the directory if it doesn't already exist
+        os.makedirs(ens_path, exist_ok=True)
+        with open(os.path.join(ens_path, METADATA_FILENAME), "w") as outfile:
+            outfile.write(json_metadata)
+
+        # Now write out the frames to subdirectories
+        for subdir in created_subdirs:
+            self.frames[subdir].to_parquet(os.path.join(ens_path, subdir), write_metadata_file=True, **kwargs)
+
+        print(f"Saved to {os.path.join(path, dirname)}")
+
+        return
+
+    def from_ensemble(
+        self,
+        dirpath,
+        additional_frames=True,
+        column_mapper=None,
+        **kwargs,
+    ):
+        """Load an ensemble from an on-disk ensemble.
+
+        Parameters
+        ----------
+        dirpath: 'str' or path-like, optional
+            A path to the top-level ensemble directory to load from.
+        additional_frames: bool, or list, optional
+            Controls whether EnsembleFrames beyond the Object and Source Frames
+            are loaded from disk. If True or False, this specifies whether all
+            or none of the additional frames are loaded. Alternatively, a list
+            of EnsembleFrame names may be provided to specify which frames
+            should be loaded. Object and Source will always be added and do not
+            need to be specified in the list. By default, all frames will be
+            loaded.
+        column_mapper: Tape.ColumnMapper object, or None, optional
+            Supplies a ColumnMapper to the Ensemble, if None (default) searches
+            for a column_mapper.npy file in the directory, which should be
+            created when the ensemble is saved.
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object.
+        """
+
+        # Read in the metadata file
+        with open(os.path.join(dirpath, METADATA_FILENAME), "r") as metadatafile:
+            # Reading from json file
+            metadata = json.load(metadatafile)
+
+            # Load in the metadata
+            subdirs = metadata["subdirs"]
+            frame_known_divisions = metadata["known_divisions"]
+            if column_mapper is None:
+                column_mapper = ColumnMapper()
+                column_mapper.map = metadata["column_mapper"]
+
+        # Load Object and Source
+
+        # Check for whether or not object is present, it's not saved when no columns are present
+        if OBJECT_FRAME_LABEL in subdirs:
+            # divisions should be known for both tables to use the sorted kwarg
+            use_sorted = (
+                frame_known_divisions[subdirs.index(OBJECT_FRAME_LABEL)]
+                and frame_known_divisions[subdirs.index(SOURCE_FRAME_LABEL)]
+            )
+
+            self.from_parquet(
+                os.path.join(dirpath, SOURCE_FRAME_LABEL),
+                os.path.join(dirpath, OBJECT_FRAME_LABEL),
+                column_mapper=column_mapper,
+                sorted=use_sorted,
+                sort=False,
+                sync_tables=False,  # a sync should always be performed just before saving
+                **kwargs,
+            )
+        else:
+            use_sorted = frame_known_divisions[subdirs.index(SOURCE_FRAME_LABEL)]
+            self.from_parquet(
+                os.path.join(dirpath, SOURCE_FRAME_LABEL),
+                column_mapper=column_mapper,
+                sorted=use_sorted,
+                sort=False,
+                sync_tables=False,  # a sync should always be performed just before saving
+                **kwargs,
+            )
+
+        # Load all remaining frames
+        if additional_frames is False:
+            return self  # we are all done
+        else:
+            if additional_frames is True:
+                #  Grab all subdirectory paths in the top-level folder, filter out any files
+                frames_to_load = [os.path.join(dirpath, f) for f in subdirs]
+            elif isinstance(additional_frames, Iterable):
+                frames_to_load = [os.path.join(dirpath, frame) for frame in additional_frames]
+            else:
+                raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
+
+            # Filter out object and source from additional frames
+            frames_to_load = [
+                frame
+                for frame in frames_to_load
+                if os.path.split(frame)[1] not in [OBJECT_FRAME_LABEL, SOURCE_FRAME_LABEL]
+            ]
+            if len(frames_to_load) > 0:
+                for frame in frames_to_load:
+                    label = os.path.split(frame)[1]
+                    use_divisions = frame_known_divisions[subdirs.index(label)]
+                    ddf = EnsembleFrame.from_parquet(
+                        frame, label=label, calculate_divisions=use_divisions, **kwargs
+                    )
+                    self.add_frame(ddf, label)
+
+            return self
+
     def from_pandas(
         self,
         source_frame,
@@ -1337,6 +1564,12 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
         source_frame = SourceFrame.from_dask_dataframe(source_frame, self)
 
+        # Repartition before any sorting
+        if npartitions and npartitions > 1:
+            source_frame = source_frame.repartition(npartitions=npartitions)
+        elif partition_size:
+            source_frame = source_frame.repartition(partition_size=partition_size)
+
         # Set the index of the source frame and save the resulting table
         self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
 
@@ -1352,11 +1585,6 @@ class Ensemble:
                 self.source.set_dirty(True)
                 self.object.set_dirty(True)
                 self._sync_tables()
-
-        if npartitions and npartitions > 1:
-            self.source = self.source.repartition(npartitions=npartitions)
-        elif partition_size:
-            self.source = self.source.repartition(partition_size=partition_size)
 
         # Check that Divisions are established, warn if not.
         for name, table in [("object", self.object), ("source", self.source)]:
