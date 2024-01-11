@@ -1304,13 +1304,14 @@ class Ensemble:
         elif additional_frames is False:
             frames_to_save = ["object", "source"]  # save just object and source
         elif isinstance(additional_frames, Iterable):
-            frames_to_save = [frame for frame in additional_frames if frame in list(self.frames.keys())]
-
+            frames_to_save = set(additional_frames)
+            invalid_frames = frames_to_save.difference(set(self.frames.keys()))
             # Raise an error if any frames were not found in the frame list
-            if len(frames_to_save) != len(additional_frames):
+            if len(invalid_frames) != 0:
                 raise ValueError(
-                    "One or more frames specified in `additional_frames` was not found in the frame list."
+                    f"The frame(s): {invalid_frames} specified in `additional_frames` were not found in the frame list."
                 )
+            frames_to_save = list(frames_to_save)
 
             # Make sure object and source are in the frame list
             if "object" not in frames_to_save:
