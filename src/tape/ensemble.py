@@ -1,5 +1,7 @@
 import glob
 import os
+import json
+import shutil
 import warnings
 import requests
 import dask.dataframe as dd
@@ -1284,6 +1286,18 @@ class Ensemble:
         # Determine the path
         ens_path = os.path.join(path, dirname)
 
+        # First look for an existing metadata.json file in the path
+        try:
+            with open(os.path.join(ens_path, "metadata.json"), "r") as oldfile:
+                # Reading from json file
+                old_metadata = json.load(oldfile)
+                old_subdirs = old_metadata["subdirs"]
+                # Delete any old subdirectories
+                for subdir in old_subdirs:
+                    shutil.rmtree(os.path.join(ens_path, subdir))
+        except FileNotFoundError:
+            pass
+
         # Compile frame list
         if additional_frames is True:
             frames_to_save = list(self.frames.keys())  # save all frames
@@ -1307,23 +1321,37 @@ class Ensemble:
             raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
 
         # Save the frame list to disk
+        created_subdirs = []  # track the list of created subdirectories
+        divisions_known = []  # log whether divisions were known for each frame
         for frame_label in frames_to_save:
             # grab the dataframe from the frame label
             frame = self.frames[frame_label]
 
-            # Object can have no columns, which parquet doesn't handle
-            # In this case, we'll avoid saving to parquet
-            if frame_label == "object":
-                if len(frame.columns) == 0:
-                    print("The Object Frame was not saved as no columns were present.")
-                    continue
+            # When the frame has no columns, avoid the save as parquet doesn't handle it
+            # Most commonly this applies to the object table when it's built from source
+            if len(frame.columns) == 0:
+                print(f"Frame: {frame_label} was not saved as no columns were present.")
+                continue
 
             # creates a subdirectory for the frame partition files
-            frame.to_parquet(os.path.join(ens_path, frame_label), **kwargs)
+            frame.to_parquet(os.path.join(ens_path, frame_label), write_metadata_file=True, **kwargs)
+            created_subdirs.append(frame_label)
+            divisions_known.append(frame.known_divisions)
 
-        # Save a ColumnMapper file
-        col_map = self.make_column_map()
-        np.save(os.path.join(ens_path, "column_mapper.npy"), col_map.map)
+        # Save a metadata file
+        col_map = self.make_column_map()  # grab the current column_mapper
+
+        metadata = {
+            "subdirs": created_subdirs,
+            "known_divisions": divisions_known,
+            "column_mapper": col_map.map,
+        }
+        json_metadata = json.dumps(metadata, indent=4)
+
+        with open(os.path.join(ens_path, "metadata.json"), "w") as outfile:
+            outfile.write(json_metadata)
+
+        # np.save(os.path.join(ens_path, "column_mapper.npy"), col_map.map)
 
         print(f"Saved to {os.path.join(path, dirname)}")
 
@@ -1334,10 +1362,6 @@ class Ensemble:
         dirpath,
         additional_frames=True,
         column_mapper=None,
-        additional_cols=True,
-        partition_size=None,
-        sorted=False,
-        sort=False,
         **kwargs,
     ):
         """Load an ensemble from an on-disk ensemble.
@@ -1358,19 +1382,6 @@ class Ensemble:
             Supplies a ColumnMapper to the Ensemble, if None (default) searches
             for a column_mapper.npy file in the directory, which should be
             created when the ensemble is saved.
-        additional_cols: 'bool', optional
-            Boolean to indicate whether to carry in columns beyond the
-            critical columns, true will, while false will only load the columns
-            containing the critical quantities (id,time,flux,err,band)
-        partition_size: `int`, optional
-            If specified, attempts to repartition the ensemble to partitions
-            of size `partition_size`.
-        sorted: bool, optional
-            If the index column is already sorted in increasing order.
-            Defaults to False
-        sort: `bool`, optional
-            If True, sorts the DataFrame by the id column. Otherwise set the
-            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1378,40 +1389,45 @@ class Ensemble:
             The ensemble object.
         """
 
-        # First grab the column_mapper if not specified
-        if column_mapper is None:
-            map_dict = np.load(os.path.join(dirpath, "column_mapper.npy"), allow_pickle="TRUE").item()
-            column_mapper = ColumnMapper()
-            column_mapper.map = map_dict
+        # Read in the metadata.json file
+        with open(os.path.join(dirpath, "metadata.json"), "r") as metadatafile:
+            # Reading from json file
+            metadata = json.load(metadatafile)
+
+            # Load in the metadata
+            subdirs = metadata["subdirs"]
+            frame_known_divisions = metadata["known_divisions"]
+            if column_mapper is None:
+                column_mapper = ColumnMapper()
+                column_mapper.map = metadata["column_mapper"]
 
         # Load Object and Source
-        obj_path = os.path.join(dirpath, "object")
-        src_path = os.path.join(dirpath, "source")
 
         # Check for whether or not object is present, it's not saved when no columns are present
-        if "object" in os.listdir(dirpath):
+        if "object" in subdirs:
+            # divisions should be known for both tables to use the sorted kwarg
+            use_sorted = (
+                frame_known_divisions[subdirs.index("object")]
+                and frame_known_divisions[subdirs.index("source")]
+            )
+
             self.from_parquet(
-                src_path,
-                obj_path,
+                os.path.join(dirpath, "source"),
+                os.path.join(dirpath, "object"),
                 column_mapper=column_mapper,
-                additional_cols=additional_cols,
-                sorted=sorted,
-                sort=sort,
+                sorted=use_sorted,
+                sort=False,
                 sync_tables=False,  # a sync should always be performed just before saving
-                npartitions=None,  # disabled, as this would be applied to all frames
-                partition_size=partition_size,
                 **kwargs,
             )
         else:
+            use_sorted = frame_known_divisions[subdirs.index("source")]
             self.from_parquet(
-                src_path,
+                os.path.join(dirpath, "source"),
                 column_mapper=column_mapper,
-                additional_cols=additional_cols,
-                sorted=sorted,
-                sort=sort,
+                sorted=use_sorted,
+                sort=False,
                 sync_tables=False,  # a sync should always be performed just before saving
-                npartitions=None,  # disabled, as this would be applied to all frames
-                partition_size=partition_size,
                 **kwargs,
             )
 
@@ -1421,11 +1437,7 @@ class Ensemble:
         else:
             if additional_frames is True:
                 #  Grab all subdirectory paths in the top-level folder, filter out any files
-                frames_to_load = [
-                    os.path.join(dirpath, f)
-                    for f in os.listdir(dirpath)
-                    if not os.path.isfile(os.path.join(dirpath, f))
-                ]
+                frames_to_load = [os.path.join(dirpath, f) for f in subdirs]
             elif isinstance(additional_frames, Iterable):
                 frames_to_load = [os.path.join(dirpath, frame) for frame in additional_frames]
             else:
@@ -1438,7 +1450,10 @@ class Ensemble:
             if len(frames_to_load) > 0:
                 for frame in frames_to_load:
                     label = os.path.split(frame)[1]
-                    ddf = EnsembleFrame.from_parquet(frame, label=label, **kwargs)
+                    use_divisions = frame_known_divisions[subdirs.index(label)]
+                    ddf = EnsembleFrame.from_parquet(
+                        frame, label=label, calculate_divisions=use_divisions, **kwargs
+                    )
                     self.add_frame(ddf, label)
 
             return self

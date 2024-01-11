@@ -483,6 +483,7 @@ def test_read_source_dict(dask_client):
 @pytest.mark.parametrize("obj_nocols", [True, False])
 @pytest.mark.parametrize("use_reader", [False, True])
 def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols, use_reader):
+    """Test the save and load ensemble loop"""
     # Setup a temporary directory for files
     save_path = tmp_path / "."
 
@@ -532,7 +533,7 @@ def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols, u
         dircontents = os.listdir(os.path.join(save_path, "ensemble"))
 
         assert "source" in dircontents  # Source should always be there
-        assert "column_mapper.npy" in dircontents  # should make a column_mapper file
+        assert "metadata.json" in dircontents  # should make a metadata file
         if obj_nocols:  # object shouldn't if it was empty
             assert "object" not in dircontents
         else:  # otherwise it should be present
@@ -584,6 +585,32 @@ def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols, u
     with pytest.raises(ValueError):
         bad_ens = Ensemble(dask_client)
         loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=3)
+
+
+def test_save_overwrite(parquet_ensemble, tmp_path):
+    """Test that successive saves produce the correct behavior"""
+    # Setup a temporary directory for files
+    save_path = tmp_path / "."
+
+    ens = parquet_ensemble
+
+    # Add a few result frames
+    ens.batch(np.mean, "psFlux", label="mean")
+    ens.batch(np.max, "psFlux", label="max")
+
+    # Write first with all frames
+    ens.save_ensemble(save_path, dirname="ensemble", additional_frames=True)
+
+    # Inspect the save directory
+    dircontents = os.listdir(os.path.join(save_path, "ensemble"))
+    assert "max" in dircontents  # "max" should have been added
+
+    # Then write again with "max" not included
+    ens.save_ensemble(save_path, dirname="ensemble", additional_frames=["mean"])
+
+    # Inspect the save directory
+    dircontents = os.listdir(os.path.join(save_path, "ensemble"))
+    assert "max" not in dircontents  # "max" should have been removed
 
 
 def test_insert(parquet_ensemble):

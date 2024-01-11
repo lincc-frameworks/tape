@@ -17,8 +17,6 @@ def read_ensemble(
     dask_client=True,
     additional_cols=True,
     partition_size=None,
-    sorted=False,
-    sort=False,
     **kwargs,
 ):
     """Load an ensemble from an on-disk ensemble.
@@ -72,8 +70,6 @@ def read_ensemble(
         column_mapper=column_mapper,
         additional_cols=additional_cols,
         partition_size=partition_size,
-        sorted=sorted,
-        sort=sort,
         **kwargs,
     )
 
