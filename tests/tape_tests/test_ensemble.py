@@ -50,6 +50,7 @@ def test_with_client():
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
+        "parquet_ensemble_partition_size",
         "read_parquet_ensemble",
         "read_parquet_ensemble_without_client",
         "read_parquet_ensemble_from_source",
@@ -102,6 +103,7 @@ def test_parquet_construction(data_fixture, request):
     "data_fixture",
     [
         "dask_dataframe_ensemble",
+        "dask_dataframe_ensemble_partition_size",
         "dask_dataframe_with_object_ensemble",
         "pandas_ensemble",
         "pandas_with_object_ensemble",
@@ -533,7 +535,7 @@ def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols, u
         dircontents = os.listdir(os.path.join(save_path, "ensemble"))
 
         assert "source" in dircontents  # Source should always be there
-        assert "metadata.json" in dircontents  # should make a metadata file
+        assert "ensemble_metadata.json" in dircontents  # should make a metadata file
         if obj_nocols:  # object shouldn't if it was empty
             assert "object" not in dircontents
         else:  # otherwise it should be present

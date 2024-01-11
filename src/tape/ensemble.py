@@ -34,6 +34,8 @@ OBJECT_FRAME_LABEL = "object"
 
 DEFAULT_FRAME_LABEL = "result"  # A base default label for an Ensemble's result frames.
 
+METADATA_FILENAME = "ensemble_metadata.json"
+
 
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
@@ -1286,9 +1288,9 @@ class Ensemble:
         # Determine the path
         ens_path = os.path.join(path, dirname)
 
-        # First look for an existing metadata.json file in the path
+        # First look for an existing metadata file in the path
         try:
-            with open(os.path.join(ens_path, "metadata.json"), "r") as oldfile:
+            with open(os.path.join(ens_path, METADATA_FILENAME), "r") as oldfile:
                 # Reading from json file
                 old_metadata = json.load(oldfile)
                 old_subdirs = old_metadata["subdirs"]
@@ -1302,7 +1304,7 @@ class Ensemble:
         if additional_frames is True:
             frames_to_save = list(self.frames.keys())  # save all frames
         elif additional_frames is False:
-            frames_to_save = ["object", "source"]  # save just object and source
+            frames_to_save = [OBJECT_FRAME_LABEL, SOURCE_FRAME_LABEL]  # save just object and source
         elif isinstance(additional_frames, Iterable):
             frames_to_save = set(additional_frames)
             invalid_frames = frames_to_save.difference(set(self.frames.keys()))
@@ -1314,14 +1316,14 @@ class Ensemble:
             frames_to_save = list(frames_to_save)
 
             # Make sure object and source are in the frame list
-            if "object" not in frames_to_save:
-                frames_to_save.append("object")
-            if "source" not in frames_to_save:
-                frames_to_save.append("source")
+            if OBJECT_FRAME_LABEL not in frames_to_save:
+                frames_to_save.append(OBJECT_FRAME_LABEL)
+            if SOURCE_FRAME_LABEL not in frames_to_save:
+                frames_to_save.append(SOURCE_FRAME_LABEL)
         else:
             raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
 
-        # Save the frame list to disk
+        # Generate the metadata first
         created_subdirs = []  # track the list of created subdirectories
         divisions_known = []  # log whether divisions were known for each frame
         for frame_label in frames_to_save:
@@ -1331,17 +1333,14 @@ class Ensemble:
             # When the frame has no columns, avoid the save as parquet doesn't handle it
             # Most commonly this applies to the object table when it's built from source
             if len(frame.columns) == 0:
-                print(f"Frame: {frame_label} was not saved as no columns were present.")
+                print(f"Frame: {frame_label} will not be saved as no columns are present.")
                 continue
 
-            # creates a subdirectory for the frame partition files
-            frame.to_parquet(os.path.join(ens_path, frame_label), write_metadata_file=True, **kwargs)
             created_subdirs.append(frame_label)
             divisions_known.append(frame.known_divisions)
 
         # Save a metadata file
         col_map = self.make_column_map()  # grab the current column_mapper
-
         metadata = {
             "subdirs": created_subdirs,
             "known_divisions": divisions_known,
@@ -1349,10 +1348,14 @@ class Ensemble:
         }
         json_metadata = json.dumps(metadata, indent=4)
 
-        with open(os.path.join(ens_path, "metadata.json"), "w") as outfile:
+        # Make the directory if it doesn't already exist
+        os.makedirs(ens_path, exist_ok=True)
+        with open(os.path.join(ens_path, METADATA_FILENAME), "w") as outfile:
             outfile.write(json_metadata)
 
-        # np.save(os.path.join(ens_path, "column_mapper.npy"), col_map.map)
+        # Now write out the frames to subdirectories
+        for subdir in created_subdirs:
+            self.frames[subdir].to_parquet(os.path.join(ens_path, subdir), write_metadata_file=True, **kwargs)
 
         print(f"Saved to {os.path.join(path, dirname)}")
 
@@ -1390,8 +1393,8 @@ class Ensemble:
             The ensemble object.
         """
 
-        # Read in the metadata.json file
-        with open(os.path.join(dirpath, "metadata.json"), "r") as metadatafile:
+        # Read in the metadata file
+        with open(os.path.join(dirpath, METADATA_FILENAME), "r") as metadatafile:
             # Reading from json file
             metadata = json.load(metadatafile)
 
@@ -1405,16 +1408,16 @@ class Ensemble:
         # Load Object and Source
 
         # Check for whether or not object is present, it's not saved when no columns are present
-        if "object" in subdirs:
+        if OBJECT_FRAME_LABEL in subdirs:
             # divisions should be known for both tables to use the sorted kwarg
             use_sorted = (
-                frame_known_divisions[subdirs.index("object")]
-                and frame_known_divisions[subdirs.index("source")]
+                frame_known_divisions[subdirs.index(OBJECT_FRAME_LABEL)]
+                and frame_known_divisions[subdirs.index(SOURCE_FRAME_LABEL)]
             )
 
             self.from_parquet(
-                os.path.join(dirpath, "source"),
-                os.path.join(dirpath, "object"),
+                os.path.join(dirpath, SOURCE_FRAME_LABEL),
+                os.path.join(dirpath, OBJECT_FRAME_LABEL),
                 column_mapper=column_mapper,
                 sorted=use_sorted,
                 sort=False,
@@ -1422,9 +1425,9 @@ class Ensemble:
                 **kwargs,
             )
         else:
-            use_sorted = frame_known_divisions[subdirs.index("source")]
+            use_sorted = frame_known_divisions[subdirs.index(SOURCE_FRAME_LABEL)]
             self.from_parquet(
-                os.path.join(dirpath, "source"),
+                os.path.join(dirpath, SOURCE_FRAME_LABEL),
                 column_mapper=column_mapper,
                 sorted=use_sorted,
                 sort=False,
@@ -1446,7 +1449,9 @@ class Ensemble:
 
             # Filter out object and source from additional frames
             frames_to_load = [
-                frame for frame in frames_to_load if os.path.split(frame)[1] not in ["object", "source"]
+                frame
+                for frame in frames_to_load
+                if os.path.split(frame)[1] not in [OBJECT_FRAME_LABEL, SOURCE_FRAME_LABEL]
             ]
             if len(frames_to_load) > 0:
                 for frame in frames_to_load:
