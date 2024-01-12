@@ -1,5 +1,7 @@
 from collections.abc import Sequence
 
+import warnings
+
 import dask.dataframe as dd
 
 import dask
@@ -842,6 +844,81 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             )
 
         return result
+
+    def coalesce(self, input_cols, output_col, drop_inputs=False):
+        """Combines multiple input columns into a single output column, with
+        values equal to the first non-nan value encountered in the input cols.
+
+        Parameters
+        ----------
+        input_cols: `list`
+            The list of column names to coalesce into a single column.
+        output_col: `str`, optional
+            The name of the coalesced output column.
+        drop_inputs: `bool`, optional
+            Determines whether the input columns are dropped or preserved. If
+            a mapped column is an input and dropped, the output column is
+            automatically assigned to replace that column mapping internally.
+
+        Returns
+        -------
+        ensemble: `tape.ensemble.Ensemble`
+            An ensemble object.
+
+        """
+
+        def coalesce_partition(df, input_cols, output_col):
+            """Coalescing function for a single partition (pandas dataframe)"""
+
+            # Create a subset dataframe per input column
+            # Rename column to output to allow combination
+            input_dfs = []
+            for col in input_cols:
+                col_df = df[[col]]
+                input_dfs.append(col_df.rename(columns={col: output_col}))
+
+            # Combine each dataframe
+            coal_df = input_dfs.pop()
+            while input_dfs:
+                coal_df = coal_df.combine_first(input_dfs.pop())
+
+            # Assign the output column to the partition dataframe
+            out_df = df.assign(**{output_col: coal_df[output_col]})
+
+            return out_df
+
+        table_ddf = self.map_partitions(lambda x: coalesce_partition(x, input_cols, output_col))
+
+        # Drop the input columns if wanted
+        if drop_inputs:
+            if self.ensemble is not None:
+                # First check to see if any dropped columns were critical columns
+                current_map = self.ensemble.make_column_map().map
+                cols_to_update = [key for key in current_map if current_map[key] in input_cols]
+
+                # Theoretically a user could assign multiple critical columns in the input cols, this is very
+                # likely to be a mistake, so we throw a warning here to alert them.
+                if len(cols_to_update) > 1:
+                    warnings.warn(
+                        """Warning: Coalesce (with column dropping) is needing to update more than one
+                    critical column mapping, please check that the resulting mapping is set as intended"""
+                    )
+
+                # Update critical columns to the new output column as needed
+                if len(cols_to_update):  # if not zero
+                    new_map = current_map
+                    for col in cols_to_update:
+                        new_map[col] = output_col
+
+                    new_colmap = self.ensemble.make_column_map()
+                    new_colmap.map = new_map
+
+                    # Update the mapping
+                    self.ensemble.update_column_mapping(new_colmap)
+
+            table_ddf = table_ddf.drop(columns=input_cols)
+
+        return table_ddf
 
     @classmethod
     def from_parquet(cl, path, index=None, columns=None, label=None, ensemble=None, **kwargs):
