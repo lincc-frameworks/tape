@@ -104,18 +104,19 @@ class Ensemble:
 
         Parameters
         ----------
-        frame: `tape.ensemble.EnsembleFrame`
+        frame: `tape.ensemble_frame.EnsembleFrame`
             The frame object for the Ensemble to track.
         label: `str`
-        |   The label for the Ensemble to use to track the frame.
+            The label for the Ensemble to use to track the frame.
 
         Returns
         -------
-        self: `Ensemble`
+        Ensemble
 
         Raises
         ------
-        ValueError if the label is "source", "object", or already tracked by the Ensemble.
+        ValueError
+            if the label is "source", "object", or already tracked by the Ensemble.
         """
         if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
             raise ValueError(f"Unable to add frame with reserved label " f"'{label}'")
@@ -138,12 +139,13 @@ class Ensemble:
 
         Returns
         -------
-        self: `Ensemble`
+        Ensemble
 
         Raises
         ------
-        ValueError if the `frame.label` is unpopulated, or if the frame is not a SourceFrame or ObjectFrame
-        but uses the reserved labels.
+        ValueError
+            if the `frame.label` is unpopulated, or if the frame is not a SourceFrame or ObjectFrame
+            but uses the reserved labels.
         """
         if frame.label is None:
             raise ValueError(f"Unable to update frame with no populated `EnsembleFrame.label`.")
@@ -167,16 +169,18 @@ class Ensemble:
         Parameters
         ----------
         label: `str`
-        |   The label of the frame to be dropped by the Ensemble.
+            The label of the frame to be dropped by the Ensemble.
 
         Returns
         -------
-        self: `Ensemble`
+        Ensemble
 
         Raises
         ------
-        ValueError if the label is "source", or "object".
-        KeyError if the label is not tracked by the Ensemble.
+        ValueError
+            if the label is "source", or "object".
+        KeyError
+            if the label is not tracked by the Ensemble.
         """
         if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
             raise ValueError(f"Unable to drop frame with reserved label " f"'{label}'")
@@ -191,15 +195,16 @@ class Ensemble:
         Parameters
         ----------
         label: `str`
-        |   The label of a frame tracked by the Ensemble to be selected.
+            The label of a frame tracked by the Ensemble to be selected.
 
         Returns
         -------
-        result: `tape.ensemble.EnsembleFrame`
+        tape.ensemble.EnsembleFrame
 
         Raises
         ------
-        KeyError if the label is not tracked by the Ensemble.
+        KeyError
+            if the label is not tracked by the Ensemble.
         """
         if label not in self.frames:
             raise KeyError(
@@ -229,7 +234,8 @@ class Ensemble:
 
         Raises
         ------
-        KeyError if a label in labels is not tracked by the Ensemble.
+        KeyError
+            if a label in labels is not tracked by the Ensemble.
         """
         if labels is None:
             labels = self.frames.keys()
@@ -265,7 +271,7 @@ class Ensemble:
     ):
         """Manually insert sources into the ensemble.
 
-        Requires, at a minimum, the object’s ID and the band, timestamp,
+        Requires, at a minimum, the object's ID and the band, timestamp,
         and flux of the observation.
 
         Note
@@ -364,6 +370,7 @@ class Ensemble:
         memory_usage: `bool`, optional
             Specifies whether total memory usage of the DataFrame elements
             (including the index) should be displayed.
+
         Returns
         ----------
         None
@@ -377,8 +384,7 @@ class Ensemble:
         self.source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
 
     def check_sorted(self, table="object"):
-        """Checks to see if an Ensemble Dataframe is sorted (increasing) on
-        the index.
+        """Checks to see if an Ensemble Dataframe is sorted (increasing) on the index.
 
         Parameters
         ----------
@@ -387,8 +393,8 @@ class Ensemble:
 
         Returns
         -------
-        A boolean value indicating whether the index is sorted (True)
-        or not (False)
+        boolean
+            indicating whether the index is sorted (True) or not (False)
         """
         if table == "object":
             idx = self.object.index
@@ -412,10 +418,10 @@ class Ensemble:
 
         Returns
         -------
-        A boolean value indicating whether the sources tied to a given object
-        are only found in a single partition (True), or if they are split
-        across multiple partitions (False)
-
+        boolean
+            indicates whether the sources tied to a given object are only found
+            in a single partition (True), or if they are split across multiple 
+            partitions (False)
         """
         idx = self.source.index
         counts = idx.map_partitions(lambda a: Counter(a.unique())).compute()
@@ -440,8 +446,9 @@ class Ensemble:
 
         Returns
         -------
-        A single pandas data frame for the specified table or a tuple of (object, source)
-        data frames.
+        `pd.Dataframe`
+            A single pandas data frame for the specified table or a tuple of 
+            (object, source) data frames.
         """
         if table:
             self._lazy_sync_tables(table)
@@ -559,14 +566,17 @@ class Ensemble:
 
         Examples
         --------
-        # Keep sources with flux above 100.0:
-        ens.query("flux > 100", table="source")
+        Keep sources with flux above 100.0::
 
-        # Keep sources in the green band:
-        ens.query("band_col_name == 'g'", table="source")
+            ens.query("flux > 100", table="source")
 
-        # Filtering on the flux column without knowing its name:
-        ens.query(f"{ens._flux_col} > 100", table="source")
+        Keep sources in the green band::
+
+            ens.query("band_col_name == 'g'", table="source")
+
+        Filtering on the flux column without knowing its name::
+
+            ens.query(f"{ens._flux_col} > 100", table="source")
         """
         self._lazy_sync_tables(table)
         if table == "object":
@@ -622,11 +632,13 @@ class Ensemble:
 
         Examples
         --------
-        # Direct assignment of my_series to a column named "new_column".
-        ens.assign(table="object", new_column=my_series)
+        Direct assignment of my_series to a column named "new_column"::
 
-        # Subtract the value in "err" from the value in "flux".
-        ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
+            ens.assign(table="object", new_column=my_series)
+
+        Subtract the value in "err" from the value in "flux"::
+
+            ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
         """
         self._lazy_sync_tables(table)
 
@@ -869,12 +881,12 @@ class Ensemble:
         Notes
         -----
         * This should only be used for slowly varying sources where we can
-        treat the source as constant within `time_window`.
+          treat the source as constant within `time_window`.
 
         * As a default the function only aggregates and keeps the id, band,
-        time, flux, and flux error columns. Additional columns can be preserved
-        by providing the mapping of column name to aggregation function with the
-        `additional_cols` parameter.
+          time, flux, and flux error columns. Additional columns can be preserved
+          by providing the mapping of column name to aggregation function with the
+          `additional_cols` parameter.
         """
         self._lazy_sync_tables(table="source")
 
@@ -991,31 +1003,28 @@ class Ensemble:
 
         Examples
         --------
-        Run a TAPE function on the ensemble:
-        ```
-        from tape.analysis.stetsonj import calc_stetson_J
-        ens = Ensemble().from_dataset('rrlyr82')
-        ensemble.batch(calc_stetson_J, band_to_calc='i')
-        ```
+        Run a TAPE function on the ensemble::
 
-        Run a light-curve function on the ensemble:
-        ```
-        from light_curve import EtaE
-        ens.batch(EtaE(), band_to_calc='g')
-        ```
+            from tape.analysis.stetsonj import calc_stetson_J
+            ens = Ensemble().from_dataset('rrlyr82')
+            ensemble.batch(calc_stetson_J, band_to_calc='i')
 
-        Run a custom function on the ensemble:
-        ```
-        def s2n_inter_quartile_range(flux, err):
-             first, third = np.quantile(flux / err, [0.25, 0.75])
-             return third - first
+        Run a light-curve function on the ensemble::
 
-        ens.batch(s2n_inter_quartile_range, ens._flux_col, ens._err_col)
-        ```
-        Or even a numpy built-in function:
-        ```
-        amplitudes = ens.batch(np.ptp, ens._flux_col)
-        ```
+            from light_curve import EtaE
+            ens.batch(EtaE(), band_to_calc='g')
+
+        Run a custom function on the ensemble::
+
+            def s2n_inter_quartile_range(flux, err):
+            first, third = np.quantile(flux / err, [0.25, 0.75])
+            return third - first
+
+            ens.batch(s2n_inter_quartile_range, ens._flux_col, ens._err_col)
+
+        Or even a numpy built-in function::
+
+            amplitudes = ens.batch(np.ptp, ens._flux_col)
         """
 
         self._lazy_sync_tables(table="all")
@@ -1507,6 +1516,7 @@ class Ensemble:
 
     def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
         """Read in parquet files from a hipscat-formatted directory structure
+
         Parameters
         ----------
         dir: 'str'
@@ -1900,7 +1910,7 @@ class Ensemble:
 
         Parameters
         ----------
-        frame: `tape.EnsembleFrame`
+        frame: `tape.ensemble_frame.EnsembleFrame`
             The frame being modified. Only an `ObjectFrame` or
             `SourceFrame tracked by this `Ensemble` may trigger
             a sync.
@@ -2144,7 +2154,7 @@ class Ensemble:
         result : `pandas.DataFrame`
             Structure function squared for each of input bands.
 
-        Notes
+        Note
         ----------
         In case that no value for `band_to_calc` is passed, the function is
         executed on all available bands in `band`.
@@ -2186,7 +2196,7 @@ class Ensemble:
         Returns
         ----------
         result : `ensemble.TapeFrame` or `ensemble.TapeSeries`
-            The appropriate meta for Dask producing an `Ensemble.EnsembleFrame` or
+            The appropriate meta for Dask producing an `tape.ensemble_frame.EnsembleFrame` or
             `Ensemble.EnsembleSeries` respectively
         """
         if isinstance(meta, TapeFrame) or isinstance(meta, TapeSeries):

@@ -68,15 +68,14 @@ class AnalysisFunction(ABC, Callable):
 
     @abstractmethod
     def on(self, ens: "Ensemble") -> List[str]:
-        """
-        Return the columns to group source table by.
+        """Return the columns to group source table by.
 
         Parameters
         ----------
         ens : Ensemble
             The ensemble object.
 
-        Returns:
+        Returns
         --------
         List[str]
             The column names to group by. Typically, `[ens._id_col]`.
