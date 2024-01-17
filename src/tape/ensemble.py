@@ -420,7 +420,7 @@ class Ensemble:
         -------
         boolean
             indicates whether the sources tied to a given object are only found
-            in a single partition (True), or if they are split across multiple 
+            in a single partition (True), or if they are split across multiple
             partitions (False)
         """
         idx = self.source.index
@@ -447,7 +447,7 @@ class Ensemble:
         Returns
         -------
         `pd.Dataframe`
-            A single pandas data frame for the specified table or a tuple of 
+            A single pandas data frame for the specified table or a tuple of
             (object, source) data frames.
         """
         if table:

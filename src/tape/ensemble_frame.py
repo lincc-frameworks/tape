@@ -829,7 +829,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             The name of the output magnitude column, if None then the output
             is just the flux column name + "_mag". The error column is also
             generated as the out_col_name + "_err".
-        
+
         Returns
         ----------
         result: `tape.EnsembleFrame`
@@ -1154,7 +1154,7 @@ class ObjectFrame(EnsembleFrame):
             a Dask dataframe to convert to an ObjectFrame
         ensemble: `tape.ensemble.Ensemble`, optional
             A link to the Ensemble object that owns this frame.
-            
+
         Returns
         ----------
         result: `tape.ObjectFrame`
