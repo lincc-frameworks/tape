@@ -666,6 +666,68 @@ class _Frame(dd.core._Frame):
             self.ensemble._lazy_sync_tables_from_frame(self)
         return super().compute(**kwargs)
 
+    def repartition(self, **kwargs):
+        """Repartition dataframe along new divisions
+        
+        Doc string below derived from dask.dataframe.DataFrame
+
+        Parameters
+        ----------
+        divisions : list, optional
+            The "dividing lines" used to split the dataframe into partitions.
+            For ``divisions=[0, 10, 50, 100]``, there would be three output partitions,
+            where the new index contained [0, 10), [10, 50), and [50, 100), respectively.
+            See https://docs.dask.org/en/latest/dataframe-design.html#partitions.
+            Only used if npartitions and partition_size isn't specified.
+            For convenience if given an integer this will defer to npartitions
+            and if given a string it will defer to partition_size (see below)
+        npartitions : int, optional
+            Approximate number of partitions of output. Only used if partition_size
+            isn't specified. The number of partitions used may be slightly
+            lower than npartitions depending on data distribution, but will never be
+            higher.
+        partition_size: int or string, optional
+            Max number of bytes of memory for each partition. Use numbers or
+            strings like 5MB. If specified npartitions and divisions will be
+            ignored. Note that the size reflects the number of bytes used as
+            computed by ``pandas.DataFrame.memory_usage``, which will not
+            necessarily match the size when storing to disk.
+
+            .. warning::
+
+               This keyword argument triggers computation to determine
+               the memory size of each partition, which may be expensive.
+
+        freq : str, pd.Timedelta
+            A period on which to partition timeseries data like ``'7D'`` or
+            ``'12h'`` or ``pd.Timedelta(hours=12)``.  Assumes a datetime index.
+        force : bool, default False
+            Allows the expansion of the existing divisions.
+            If False then the new divisions' lower and upper bounds must be
+            the same as the old divisions'.
+
+        Notes
+        -----
+        Exactly one of `divisions`, `npartitions`, `partition_size`, or `freq`
+        should be specified. A ``ValueError`` will be raised when that is
+        not the case.
+
+        Also note that ``len(divisons)`` is equal to ``npartitions + 1``. This is because ``divisions``
+        represents the upper and lower bounds of each partition. The first item is the
+        lower bound of the first partition, the second item is the lower bound of the
+        second partition and the upper bound of the first partition, and so on.
+        The second-to-last item is the lower bound of the last partition, and the last
+        (extra) item is the upper bound of the last partition.
+
+        Examples
+        --------
+        >>> df = df.repartition(npartitions=10)  # doctest: +SKIP
+        >>> df = df.repartition(divisions=[0, 5, 10, 20])  # doctest: +SKIP
+        >>> df = df.repartition(freq='7d')  # doctest: +SKIP
+        """
+        result = super().repartition(**kwargs)
+        return self._propagate_metadata(result)
+
 
 class TapeSeries(pd.Series):
     """A barebones extension of a Pandas series to be used for underlying Ensemble data.

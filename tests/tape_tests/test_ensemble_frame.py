@@ -143,6 +143,13 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert merged_frame.ensemble == ens
     assert merged_frame.is_dirty()
 
+    # Test that frame metadata is preserved after repartitioning
+    repartitioned_frame = ens_frame.copy().repartition(npartitions=10)
+    assert isinstance(repartitioned_frame, EnsembleFrame)
+    assert repartitioned_frame.label == TEST_LABEL
+    assert repartitioned_frame.ensemble == ens
+    assert repartitioned_frame.is_dirty()
+
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)
     assert isinstance(h, TapeFrame)
