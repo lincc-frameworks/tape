@@ -675,7 +675,7 @@ class _Frame(dd.core._Frame):
         force=False,
     ):
         """Repartition dataframe along new divisions
-        
+
         Doc string below derived from dask.dataframe.DataFrame
 
         Parameters
@@ -733,10 +733,10 @@ class _Frame(dd.core._Frame):
         >>> df = df.repartition(freq='7d')  # doctest: +SKIP
         """
         result = super().repartition(
-            divisions=divisions, 
-            npartitions=npartitions, 
+            divisions=divisions,
+            npartitions=npartitions,
             partition_size=partition_size,
-            freq=freq, 
+            freq=freq,
             force=force,
         )
         return self._propagate_metadata(result)
