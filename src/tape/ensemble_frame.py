@@ -666,7 +666,14 @@ class _Frame(dd.core._Frame):
             self.ensemble._lazy_sync_tables_from_frame(self)
         return super().compute(**kwargs)
 
-    def repartition(self, **kwargs):
+    def repartition(
+        self,
+        divisions=None,
+        npartitions=None,
+        partition_size=None,
+        freq=None,
+        force=False,
+    ):
         """Repartition dataframe along new divisions
         
         Doc string below derived from dask.dataframe.DataFrame
@@ -725,7 +732,13 @@ class _Frame(dd.core._Frame):
         >>> df = df.repartition(divisions=[0, 5, 10, 20])  # doctest: +SKIP
         >>> df = df.repartition(freq='7d')  # doctest: +SKIP
         """
-        result = super().repartition(**kwargs)
+        result = super().repartition(
+            divisions=divisions, 
+            npartitions=npartitions, 
+            partition_size=partition_size,
+            freq=freq, 
+            force=force,
+        )
         return self._propagate_metadata(result)
 
 

@@ -336,7 +336,7 @@ class Ensemble:
             if all(prev_div):
                 self.update_frame(self.source.repartition(divisions=prev_div))
             elif self.source.npartitions != prev_num:
-                self.source = self.source.repartition(npartitions=prev_num)
+                self.update_frame(self.source.repartition(npartitions=prev_num))
 
         return self
 
