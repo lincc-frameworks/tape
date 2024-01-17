@@ -51,7 +51,7 @@ class StetsonJ(AnalysisFunction):
         stetsonJ : `dict`
             StetsonJ statistic for each of input bands.
 
-        Notes
+        Note
         ----------
         In case that no value for `band_to_calc` is passed, the function is
         executed on all available bands in `band`.
@@ -113,7 +113,7 @@ def _stetson_J_single(fluxes, errors):
     .. [1] Stetson, P. B., "On the Automatic Determination of Light-Curve
     Parameters for Cepheid Variables", PASP, 108, 851S, 1996
 
-    Notes
+    Note
     ----------
     Taken from
     https://github.com/lsst/meas_base/blob/main/python/lsst/meas/base/diaCalculationPlugins.py
@@ -168,7 +168,7 @@ def _stetson_J_mean(values, errors, mean=None, alpha=2.0, beta=2.0, n_iter=20, t
     .. [1] Stetson, P. B., "On the Automatic Determination of Light-Curve
     Parameters for Cepheid Variables", PASP, 108, 851S, 1996
 
-    Notes
+    Note
     ----------
     Taken from
     https://github.com/lsst/meas_base/blob/main/python/lsst/meas/base/diaCalculationPlugins.py

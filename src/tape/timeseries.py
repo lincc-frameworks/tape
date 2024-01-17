@@ -5,7 +5,7 @@ from tape.analysis.structurefunction2 import calc_sf2
 
 
 class TimeSeries:
-    """represent and analyze Rubin TimeSeries data"""
+    """Represent and analyze Rubin TimeSeries data"""
 
     def __init__(self, data=None):
         self.data = data
@@ -152,7 +152,7 @@ class TimeSeries:
         stetsonJ : `dict`
             StetsonJ statistic for each of input bands.
 
-        Notes
+        Note
         ----------
         In case that no value for band is passed, the function is executed
         on all available bands.
@@ -165,8 +165,8 @@ class TimeSeries:
         Parameters
         ----------
         bins : `numpy.array` or `list`
-        Manually provided bins, if not provided then bins are computed using
-        the `method` kwarg
+            Manually provided bins, if not provided then bins are computed using
+            the `method` kwarg
         band_to_calc : `str` or `list` of `str`
             Single band descriptor, or list of such descriptors.
         method : 'str'
@@ -182,7 +182,7 @@ class TimeSeries:
         stetsonJ : `dict`
             Structure function squared statistic for each of input bands.
 
-        Notes
+        Note
         ----------
         In case that no value for band_to_calc is passed, the function is executed
         on all available bands.

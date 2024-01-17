@@ -120,12 +120,12 @@ class _Frame(dd.core._Frame):
         return super()._args + (self.label, self.ensemble)
 
     def _propagate_metadata(self, new_frame):
-        """Propagatees any relevant metadata to a new frame.
+        """Propagates any relevant metadata to a new frame.
 
         Parameters
         ----------
         new_frame: `_Frame`
-        |   A frame to propage metadata to
+            A frame to propage metadata to
 
         Returns
         ----------
@@ -156,7 +156,7 @@ class _Frame(dd.core._Frame):
         **kwargs: `dict`
             The column names are keywords. If the values are callable, they are computed on the
             DataFrame and assigned to the new columns. The callable must not change input DataFrame
-            (though pandas doesn’t check it). If the values are not callable, (e.g. a Series,
+            (though pandas doesn't check it). If the values are not callable, (e.g. a Series,
             scalar, or array), they are simply assigned.
 
         Returns
@@ -256,7 +256,7 @@ class _Frame(dd.core._Frame):
             Categorical-type and takes on a value of "left_only" for observations
             whose merge key only appears in `left` DataFrame, "right_only" for
             observations whose merge key only appears in `right` DataFrame,
-            and "both" if the observation’s merge key is found in both.
+            and "both" if the observation's merge key is found in both.
         npartitions: int or None, optional
             The ideal number of output partitions. This is only utilised when
             performing a hash_join (merging on columns only). If ``None`` then
@@ -384,7 +384,7 @@ class _Frame(dd.core._Frame):
         axis : {0 or 'index', 1 or 'columns'}, default 0
             Whether to drop labels from the index (0 or 'index') or
             columns (1 or 'columns').
-            is equivalent to ``index=labels``).
+            is equivalent to ``index=labels``.
         columns : single label or list-like
             Alternative to specifying axis (``labels, axis=1``
             is equivalent to ``columns=labels``).
@@ -708,12 +708,14 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
 
     The underlying non-parallel dataframes are TapeFrames and TapeSeries which extend Pandas frames.
 
-    Example
+    Examples
     ----------
-    import tape
-    ens = tape.Ensemble()
-    data = {...} # Some data you want tracked by the Ensemble
-    ensemble_frame = tape.EnsembleFrame.from_dict(data, label="my_frame", ensemble=ens)
+    Instatiation::
+
+        import tape
+        ens = tape.Ensemble()
+        data = {...} # Some data you want tracked by the Ensemble
+        ensemble_frame = tape.EnsembleFrame.from_dict(data, label="my_frame", ensemble=ens)
     """
 
     _partition_type = TapeFrame  # Tracks the underlying data type
@@ -728,6 +730,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     @classmethod
     def from_tapeframe(cls, data, npartitions=None, chunksize=None, sort=True, label=None, ensemble=None):
         """Returns an EnsembleFrame constructed from a TapeFrame.
+
         Parameters
         ----------
         data: `TapeFrame`
@@ -741,10 +744,12 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         sort: `bool`, optional
             Whether to sort the frame by a default index.
         label: `str`, optional
-        |   The label used to by the Ensemble to identify the frame.
+            The label used to by the Ensemble to identify the frame.
         ensemble: `tape.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
+
         Returns
+        ----------
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
         """
@@ -756,15 +761,18 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     @classmethod
     def from_dask_dataframe(cl, df, ensemble=None, label=None):
         """Returns an EnsembleFrame constructed from a Dask dataframe.
+
         Parameters
         ----------
         df: `dask.dataframe.DataFrame` or `list`
             a Dask dataframe to convert to an EnsembleFrame
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
         label: `str`, optional
-        |   The label used to by the Ensemble to identify the frame.
+            The label used to by the Ensemble to identify the frame.
+
         Returns
+        ----------
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
         """
@@ -779,6 +787,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         """Updates the Ensemble linked by the `EnsembelFrame.ensemble` property to track this frame.
 
         Returns
+        ----------
         result: `tape.Ensemble`
             The Ensemble object which tracks this frame, `None` if no such Ensemble.
         """
@@ -820,6 +829,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             The name of the output magnitude column, if None then the output
             is just the flux column name + "_mag". The error column is also
             generated as the out_col_name + "_err".
+
         Returns
         ----------
         result: `tape.EnsembleFrame`
@@ -864,7 +874,6 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
         -------
         ensemble: `tape.ensemble.Ensemble`
             An ensemble object.
-
         """
 
         def coalesce_partition(df, input_cols, output_col):
@@ -923,6 +932,7 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
     @classmethod
     def from_parquet(cl, path, index=None, columns=None, label=None, ensemble=None, **kwargs):
         """Returns an EnsembleFrame constructed from loading a parquet file.
+
         Parameters
         ----------
         path: `str` or `list`
@@ -939,10 +949,12 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             be read (as determined by the pandas parquet metadata, if present). Provide a single
             field name instead of a list to read in the data as a Series.
         label: `str`, optional
-        |   The label used to by the Ensemble to identify the frame.
+            The label used to by the Ensemble to identify the frame.
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
+
         Returns
+        ----------
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
         """
@@ -1013,6 +1025,7 @@ class SourceFrame(EnsembleFrame):
         ensemble=None,
     ):
         """Returns a SourceFrame constructed from loading a parquet file.
+
         Parameters
         ----------
         path: `str` or `list`
@@ -1029,8 +1042,10 @@ class SourceFrame(EnsembleFrame):
             inferred from the pandas parquet file metadata, if present. Use False to read all
             fields as columns.
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
+
         Returns
+        ----------
         result: `tape.EnsembleFrame`
             The constructed EnsembleFrame object.
         """
@@ -1051,14 +1066,17 @@ class SourceFrame(EnsembleFrame):
 
     @classmethod
     def from_dask_dataframe(cl, df, ensemble=None):
-        """Returns a SourceFrame constructed from a Dask dataframe..
+        """Returns a SourceFrame constructed from a Dask dataframe.
+
         Parameters
         ----------
         df: `dask.dataframe.DataFrame` or `list`
             a Dask dataframe to convert to a SourceFrame
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
+
         Returns
+        ----------
         result: `tape.SourceFrame`
             The constructed SourceFrame object.
         """
@@ -1089,6 +1107,7 @@ class ObjectFrame(EnsembleFrame):
         ensemble=None,
     ):
         """Returns an ObjectFrame constructed from loading a parquet file.
+
         Parameters
         ----------
         path: `str` or `list`
@@ -1105,8 +1124,10 @@ class ObjectFrame(EnsembleFrame):
             inferred from the pandas parquet file metadata, if present. Use False to read all
             fields as columns.
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
+
         Returns
+        ----------
         result: `tape.ObjectFrame`
             The constructed ObjectFrame object.
         """
@@ -1125,14 +1146,17 @@ class ObjectFrame(EnsembleFrame):
 
     @classmethod
     def from_dask_dataframe(cl, df, ensemble=None):
-        """Returns an ObjectFrame constructed from a Dask dataframe..
+        """Returns an ObjectFrame constructed from a Dask dataframe.
+
         Parameters
         ----------
         df: `dask.dataframe.DataFrame` or `list`
             a Dask dataframe to convert to an ObjectFrame
         ensemble: `tape.ensemble.Ensemble`, optional
-        |   A link to the Ensemble object that owns this frame.
+            A link to the Ensemble object that owns this frame.
+
         Returns
+        ----------
         result: `tape.ObjectFrame`
             The constructed ObjectFrame object.
         """
