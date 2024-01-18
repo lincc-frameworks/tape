@@ -1755,6 +1755,7 @@ def test_batch(data_fixture, request, use_map, on):
         assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
@@ -1774,7 +1775,9 @@ def test_batch_sorting(data_fixture, request, sort_by_time):
     parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
 
     # To check that multiple columns are being sorted by time, we'll duplicate the time column
-    parquet_ensemble.source.assign(dup_time=parquet_ensemble.source[parquet_ensemble._time_col]).update_ensemble()
+    parquet_ensemble.source.assign(
+        dup_time=parquet_ensemble.source[parquet_ensemble._time_col]
+    ).update_ensemble()
 
     # A trivial function that raises an Exception if the data is not temporally sorted
     def my_mean(flux, time, dup_time):
@@ -1787,12 +1790,26 @@ def test_batch_sorting(data_fixture, request, sort_by_time):
         return np.mean(flux)
 
     if not sort_by_time:
-        # Validate that our custom function throws an Exception on the unsorted data to 
+        # Validate that our custom function throws an Exception on the unsorted data to
         # ensure that we actually sort when requested.
         with pytest.raises(ValueError):
-            parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, parquet_ensemble._time_col, "dup_time", by_band=False, sort_by_time=False).compute()
+            parquet_ensemble.batch(
+                my_mean,
+                parquet_ensemble._flux_col,
+                parquet_ensemble._time_col,
+                "dup_time",
+                by_band=False,
+                sort_by_time=False,
+            ).compute()
     else:
-        result = parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, parquet_ensemble._time_col, "dup_time", by_band=False, sort_by_time=True)
+        result = parquet_ensemble.batch(
+            my_mean,
+            parquet_ensemble._flux_col,
+            parquet_ensemble._time_col,
+            "dup_time",
+            by_band=False,
+            sort_by_time=True,
+        )
 
         # Validate that the result is non-empty
         assert len(result.compute()) > 0
