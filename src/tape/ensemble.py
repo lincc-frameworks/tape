@@ -759,9 +759,6 @@ class Ensemble:
             The ensemble object with nobs columns added to the object table.
         """
 
-        # Perform sync if either table is dirty
-        self._lazy_sync_tables("all")
-
         if by_band:
             # repartition the result to align with object
             if self.object.known_divisions:
@@ -1011,18 +1008,7 @@ class Ensemble:
         self.source.set_dirty(True)
         return self
 
-    def batch(
-        self,
-        func,
-        *args,
-        meta=None,
-        by_band=False,
-        use_map=True,
-        on=None,
-        sort_by_time=True,
-        label="",
-        **kwargs,
-    ):
+    def batch(self, func, *args, meta=None, by_band=False, sort_by_time=False, use_map=True, on=None, label="", **kwargs):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
@@ -1057,6 +1043,10 @@ class Ensemble:
             and r band data) If False (default), the full lightcurve is passed
             along to the function (assuming the band column in not already part
             of `on`)
+        sort_by_time: `boolean`, optional
+            If True, will ensure that each individual lightcurve given to `func`
+            will be sorted by the time column in ascending order. If False, the
+            ordering is not guaranteed. Default is False. 
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -1134,6 +1124,10 @@ class Ensemble:
         if isinstance(on, str):
             on = [on]  # Convert to list if only one column is passed
 
+        if sort_by_time and self._time_col is not None:
+            time_col = self._time_col  # saved for scoping for the lambda
+            self.source.map_partitions(lambda x: x.sort_values(time_col)).update_ensemble()
+
         if by_band:
             if self._band_col not in on:
                 on += [self._band_col]
@@ -1154,34 +1148,13 @@ class Ensemble:
             source_to_batch = self.source  # Can directly use the source table
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
-        time_col = self._time_col
-
-        def convert_and_sort(y, sort, id_col, time_col):
-            # Converts coluns to numpy and optionally sorts them by time.
-            time_col_index = -1
-            results = []
-            for i in range(len(args)):
-                arg = args[i]
-                if arg == time_col and sort:
-                    time_col_index = i
-                if arg != id_col:
-                    results.append(y[arg].to_numpy())
-                else:
-                    results.append(y.index.to_numpy())
-            if time_col_index != -1 and sort:
-                # Get the indices if sorted by time.
-                sorted_indices = np.argsort(results[time_col_index])
-                for i in range(len(args)):
-                    results[i] = results[i][sorted_indices]
-
-            return results
 
         if use_map:  # use map_partitions
             id_col = self._id_col  # need to grab this before mapping
             batch = source_to_batch.map_partitions(
                 lambda x: x.groupby(on, group_keys=True).apply(
                     lambda y: func(
-                        *convert_and_sort(y, sort_by_time, id_col, time_col),
+                        *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
                         **kwargs,
                     ),
                 ),
@@ -1189,7 +1162,9 @@ class Ensemble:
             )
         else:  # use groupby
             batch = source_to_batch.groupby(on, group_keys=False).apply(
-                lambda x: func(*convert_and_sort(x, sort_by_time, id_col, time_col), **kwargs),
+                lambda x: func(
+                    *[x[arg].to_numpy() if arg != id_col else x.index.to_numpy() for arg in args], **kwargs
+                ),
                 meta=meta,
             )
 
@@ -1879,54 +1854,6 @@ class Ensemble:
         self.source.set_dirty(False)
         self.object.set_dirty(False)
         return self
-
-    def select_random_timeseries(self, seed=None):
-        """Selects a random lightcurve from a random partition of the Ensemble.
-
-        Parameters
-        ----------
-        seed: int, or None
-            Sets a seed to return the same object id on successive runs. `None`
-            by default, in which case a seed is not set for the operation.
-
-        Returns
-        -------
-        ts: `TimeSeries`
-            Timeseries for a single object
-
-        Note
-        ----
-        This is not uniformly sampled. As a random partition is chosen first to
-        avoid a search in full index space, and partitions may vary in the
-        number of objects they contain. In other words, objects in smaller
-        partitions will have a higher probability of being chosen than objects
-        in larger partitions.
-
-        """
-
-        rng = np.random.default_rng(seed)
-
-        # We will select one partition at random to select an object from
-        partitions = np.array(range(self.object.npartitions))
-        rng.shuffle(partitions)  # shuffle for empty checking
-
-        object_selected = False
-        i = 0
-
-        # Scan through the shuffled partition list until a partition with data is found
-        while not object_selected:
-            partition_index = self.object.partitions[partitions[i]].index
-            # Check for empty partitions
-            if len(partition_index) > 0:
-                lcid = rng.choice(partition_index.values)  # randomly select lightcurve
-                print(f"Selected Object {lcid} from Partition {partitions[i]}")
-                object_selected = True
-            else:
-                i += 1
-                if i >= len(partitions):
-                    raise IndexError("Found no object IDs in the Object Table.")
-
-        return self.to_timeseries(lcid)
 
     def to_timeseries(
         self,

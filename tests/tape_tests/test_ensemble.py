@@ -1661,6 +1661,52 @@ def test_batch(data_fixture, request, use_map, on):
         assert pytest.approx(result.values[1]["g"], 0.001) == 1.2208577
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+        "parquet_ensemble_without_client",
+    ],
+)
+@pytest.mark.parametrize("sort_by_time", [True, False])
+def test_batch_sorting(data_fixture, request, sort_by_time):
+    """
+    Test that ensemble.batch() sorts the data if requested
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # filter NaNs from the source table
+    parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
+
+    # To check that multiple columns are being sorted by time, we'll duplicate the time column
+    parquet_ensemble.source.assign(dup_time=parquet_ensemble.source[parquet_ensemble._time_col]).update_ensemble()
+
+    # A trivial function that raises an Exception if the data is not temporally sorted
+    def my_mean(flux, time, dup_time):
+        # Check that the time column is sorted
+        if not np.all(time[:-1] <= time[1:]):
+            raise ValueError("The time column was not sorted in ascending order")
+        # Check that the other columns were sorted to preserve the dataframe's rows
+        if not np.array_equal(time, dup_time):
+            raise ValueError("The dataframe's time column was sorted but othe columns are not aligned")
+        return np.mean(flux)
+
+    if not sort_by_time:
+        # Validate that our custom function throws an Exception on the unsorted data to 
+        # ensure that we actually sort when requested.
+        with pytest.raises(ValueError):
+            parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, parquet_ensemble._time_col, "dup_time", by_band=False, sort_by_time=False).compute()
+    else:
+        result = parquet_ensemble.batch(my_mean, parquet_ensemble._flux_col, parquet_ensemble._time_col, "dup_time", by_band=False, sort_by_time=True)
+
+        # Validate that the result is non-empty
+        assert len(result.compute()) > 0
+
+        # Make sure that divisions information is propagated if known
+        if parquet_ensemble.source.known_divisions and parquet_ensemble.object.known_divisions:
+            assert result.known_divisions
+
 
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["filterName", "ps1_objid"]])
 @pytest.mark.parametrize("func_label", ["mean", "bounds"])
