@@ -1,5 +1,6 @@
 """Test ensemble manipulations"""
 import copy
+import os
 
 import dask.dataframe as dd
 import numpy as np
@@ -49,6 +50,7 @@ def test_with_client():
         "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
+        "parquet_ensemble_partition_size",
         "read_parquet_ensemble",
         "read_parquet_ensemble_without_client",
         "read_parquet_ensemble_from_source",
@@ -101,6 +103,7 @@ def test_parquet_construction(data_fixture, request):
     "data_fixture",
     [
         "dask_dataframe_ensemble",
+        "dask_dataframe_ensemble_partition_size",
         "dask_dataframe_with_object_ensemble",
         "pandas_ensemble",
         "pandas_with_object_ensemble",
@@ -476,6 +479,140 @@ def test_read_source_dict(dask_client):
     # Check that the derived object table is correct.
     assert 8001 in obj_table.index
     assert 8002 in obj_table.index
+
+
+@pytest.mark.parametrize("add_frames", [True, False, ["max"], 42, ["max", "min"]])
+@pytest.mark.parametrize("obj_nocols", [True, False])
+@pytest.mark.parametrize("use_reader", [False, True])
+def test_save_and_load_ensemble(dask_client, tmp_path, add_frames, obj_nocols, use_reader):
+    """Test the save and load ensemble loop"""
+    # Setup a temporary directory for files
+    save_path = tmp_path / "."
+
+    # Set a seed for reproducibility
+    np.random.seed(1)
+
+    # Create some toy data
+    obj_ids = np.array([])
+    mjds = np.array([])
+    for i in range(10, 110):
+        obj_ids = np.append(obj_ids, np.array([i] * 1250))
+        mjds = np.append(mjds, np.arange(0.0, 1250.0, 1.0))
+    obj_ids = np.array(obj_ids)
+    flux = 10 * np.random.random(125000)
+    err = flux / 10
+    band = np.random.choice(["g", "r"], 125000)
+
+    # Store it in a dictionary
+    source_dict = {"id": obj_ids, "mjd": mjds, "flux": flux, "err": err, "band": band}
+
+    # Create an Ensemble
+    ens = Ensemble(client=dask_client)
+    ens.from_source_dict(
+        source_dict,
+        column_mapper=ColumnMapper(
+            id_col="id", time_col="mjd", flux_col="flux", err_col="err", band_col="band"
+        ),
+    )
+
+    # object table as defined above has no columns, add a column to test both cases
+    if not obj_nocols:
+        # Make a column for the object table
+        ens.calc_nobs(temporary=False)
+
+    # Add a few result frames
+    ens.batch(np.mean, "flux", label="mean")
+    ens.batch(np.max, "flux", label="max")
+
+    # Save the Ensemble
+    if add_frames == 42 or add_frames == ["max", "min"]:
+        with pytest.raises(ValueError):
+            ens.save_ensemble(save_path, dirname="ensemble", additional_frames=add_frames)
+        return
+    else:
+        ens.save_ensemble(save_path, dirname="ensemble", additional_frames=add_frames)
+        # Inspect the save directory
+        dircontents = os.listdir(os.path.join(save_path, "ensemble"))
+
+        assert "source" in dircontents  # Source should always be there
+        assert "ensemble_metadata.json" in dircontents  # should make a metadata file
+        if obj_nocols:  # object shouldn't if it was empty
+            assert "object" not in dircontents
+        else:  # otherwise it should be present
+            assert "object" in dircontents
+        if add_frames is True:  # if additional_frames is true, mean and max should be there
+            assert "max" in dircontents
+            assert "mean" in dircontents
+        elif add_frames is False:  # but they shouldn't be there if additional_frames is false
+            assert "max" not in dircontents
+            assert "mean" not in dircontents
+        elif type(add_frames) == list:  # only max should be there if ["max"] is the input
+            assert "max" in dircontents
+            assert "mean" not in dircontents
+
+    # Load a new Ensemble
+    if not use_reader:
+        loaded_ens = Ensemble(dask_client)
+        loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=add_frames)
+    else:
+        loaded_ens = tape.ensemble_readers.read_ensemble(
+            os.path.join(save_path, "ensemble"), additional_frames=add_frames, dask_client=dask_client
+        )
+
+    # compare object and source dataframes
+    assert loaded_ens.source.compute().equals(ens.source.compute())
+    assert loaded_ens.object.compute().equals(ens.object.compute())
+
+    # Check the contents of the loaded ensemble
+    if add_frames is True:  # if additional_frames is true, mean and max should be there
+        assert "max" in loaded_ens.frames.keys()
+        assert "mean" in loaded_ens.frames.keys()
+
+        # Make sure the dataframes are identical
+        assert loaded_ens.select_frame("max").compute().equals(ens.select_frame("max").compute())
+        assert loaded_ens.select_frame("mean").compute().equals(ens.select_frame("mean").compute())
+
+    elif add_frames is False:  # but they shouldn't be there if additional_frames is false
+        assert "max" not in loaded_ens.frames.keys()
+        assert "mean" not in loaded_ens.frames.keys()
+
+    elif type(add_frames) == list:  # only max should be there if ["max"] is the input
+        assert "max" in loaded_ens.frames.keys()
+        assert "mean" not in loaded_ens.frames.keys()
+
+        # Make sure the dataframes are identical
+        assert loaded_ens.select_frame("max").compute().equals(ens.select_frame("max").compute())
+
+    # Test a bad additional_frames call for the loader
+    with pytest.raises(ValueError):
+        bad_ens = Ensemble(dask_client)
+        loaded_ens.from_ensemble(os.path.join(save_path, "ensemble"), additional_frames=3)
+
+
+def test_save_overwrite(parquet_ensemble, tmp_path):
+    """Test that successive saves produce the correct behavior"""
+    # Setup a temporary directory for files
+    save_path = tmp_path / "."
+
+    ens = parquet_ensemble
+
+    # Add a few result frames
+    ens.batch(np.mean, "psFlux", label="mean")
+    ens.batch(np.max, "psFlux", label="max")
+
+    # Write first with all frames
+    ens.save_ensemble(save_path, dirname="ensemble", additional_frames=True)
+
+    # Inspect the save directory
+    dircontents = os.listdir(os.path.join(save_path, "ensemble"))
+    assert "max" in dircontents  # "max" should have been added
+
+    # Then write again with "max" not included
+    ens.save_ensemble(save_path, dirname="ensemble", additional_frames=["mean"])
+
+    # Inspect the save directory
+    dircontents = os.listdir(os.path.join(save_path, "ensemble"))
+    assert "max" not in dircontents  # "max" should have been removed
 
 
 def test_insert(parquet_ensemble):
@@ -1398,49 +1535,6 @@ def test_assign(dask_client, legacy):
     new_source = ens.source.compute() if not legacy else ens.compute(table="source")
     for i in range(1000):
         assert new_source.iloc[i]["band2"] == new_source.iloc[i]["band"] + "2"
-
-
-@pytest.mark.parametrize("drop_inputs", [True, False])
-def test_coalesce(dask_client, drop_inputs):
-    ens = Ensemble(client=dask_client)
-
-    # Generate some data that needs to be coalesced
-
-    source_dict = {
-        "id": [0, 0, 0, 0, 0],
-        "time": [1, 2, 3, 4, 5],
-        "flux1": [5, np.nan, np.nan, 10, np.nan],
-        "flux2": [np.nan, 3, np.nan, np.nan, 7],
-        "flux3": [np.nan, np.nan, 4, np.nan, np.nan],
-        "error": [1, 1, 1, 1, 1],
-        "band": ["g", "g", "g", "g", "g"],
-    }
-
-    # map flux_col to one of the flux columns at the start
-    col_map = ColumnMapper(id_col="id", time_col="time", flux_col="flux1", err_col="error", band_col="band")
-    ens.from_source_dict(source_dict, column_mapper=col_map)
-
-    ens.coalesce(["flux1", "flux2", "flux3"], "flux", table="source", drop_inputs=drop_inputs)
-
-    # Coalesce should return this exact flux array
-    assert list(ens.source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
-
-    if drop_inputs:
-        # The column mapping should be updated
-        assert ens.make_column_map().map["flux_col"] == "flux"
-
-        # The columns to drop should be dropped
-        for col in ["flux1", "flux2", "flux3"]:
-            assert col not in ens.source.columns
-
-        # Test for the drop warning
-        with pytest.warns(UserWarning):
-            ens.coalesce(["time", "flux"], "bad_col", table="source", drop_inputs=drop_inputs)
-
-    else:
-        # The input columns should still be present
-        for col in ["flux1", "flux2", "flux3"]:
-            assert col in ens.source.columns
 
 
 @pytest.mark.parametrize("zero_point", [("zp_mag", "zp_flux"), (25.0, 10**10)])

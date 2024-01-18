@@ -1,5 +1,7 @@
 import glob
 import os
+import json
+import shutil
 import warnings
 import requests
 import dask.dataframe as dd
@@ -8,6 +10,7 @@ import pandas as pd
 
 from dask.distributed import Client
 from collections import Counter
+from collections.abc import Iterable
 
 from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
@@ -30,6 +33,8 @@ SOURCE_FRAME_LABEL = "source"
 OBJECT_FRAME_LABEL = "object"
 
 DEFAULT_FRAME_LABEL = "result"  # A base default label for an Ensemble's result frames.
+
+METADATA_FILENAME = "ensemble_metadata.json"
 
 
 class Ensemble:
@@ -99,18 +104,19 @@ class Ensemble:
 
         Parameters
         ----------
-        frame: `tape.ensemble.EnsembleFrame`
+        frame: `tape.ensemble_frame.EnsembleFrame`
             The frame object for the Ensemble to track.
         label: `str`
-        |   The label for the Ensemble to use to track the frame.
+            The label for the Ensemble to use to track the frame.
 
         Returns
         -------
-        self: `Ensemble`
+        Ensemble
 
         Raises
         ------
-        ValueError if the label is "source", "object", or already tracked by the Ensemble.
+        ValueError
+            if the label is "source", "object", or already tracked by the Ensemble.
         """
         if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
             raise ValueError(f"Unable to add frame with reserved label " f"'{label}'")
@@ -133,12 +139,13 @@ class Ensemble:
 
         Returns
         -------
-        self: `Ensemble`
+        Ensemble
 
         Raises
         ------
-        ValueError if the `frame.label` is unpopulated, or if the frame is not a SourceFrame or ObjectFrame
-        but uses the reserved labels.
+        ValueError
+            if the `frame.label` is unpopulated, or if the frame is not a SourceFrame or ObjectFrame
+            but uses the reserved labels.
         """
         if frame.label is None:
             raise ValueError(f"Unable to update frame with no populated `EnsembleFrame.label`.")
@@ -162,16 +169,18 @@ class Ensemble:
         Parameters
         ----------
         label: `str`
-        |   The label of the frame to be dropped by the Ensemble.
+            The label of the frame to be dropped by the Ensemble.
 
         Returns
         -------
-        self: `Ensemble`
+        Ensemble
 
         Raises
         ------
-        ValueError if the label is "source", or "object".
-        KeyError if the label is not tracked by the Ensemble.
+        ValueError
+            if the label is "source", or "object".
+        KeyError
+            if the label is not tracked by the Ensemble.
         """
         if label == SOURCE_FRAME_LABEL or label == OBJECT_FRAME_LABEL:
             raise ValueError(f"Unable to drop frame with reserved label " f"'{label}'")
@@ -186,15 +195,16 @@ class Ensemble:
         Parameters
         ----------
         label: `str`
-        |   The label of a frame tracked by the Ensemble to be selected.
+            The label of a frame tracked by the Ensemble to be selected.
 
         Returns
         -------
-        result: `tape.ensemble.EnsembleFrame`
+        tape.ensemble.EnsembleFrame
 
         Raises
         ------
-        KeyError if the label is not tracked by the Ensemble.
+        KeyError
+            if the label is not tracked by the Ensemble.
         """
         if label not in self.frames:
             raise KeyError(
@@ -224,7 +234,8 @@ class Ensemble:
 
         Raises
         ------
-        KeyError if a label in labels is not tracked by the Ensemble.
+        KeyError
+            if a label in labels is not tracked by the Ensemble.
         """
         if labels is None:
             labels = self.frames.keys()
@@ -260,7 +271,7 @@ class Ensemble:
     ):
         """Manually insert sources into the ensemble.
 
-        Requires, at a minimum, the object’s ID and the band, timestamp,
+        Requires, at a minimum, the object's ID and the band, timestamp,
         and flux of the observation.
 
         Note
@@ -331,7 +342,7 @@ class Ensemble:
             if all(prev_div):
                 self.update_frame(self.source.repartition(divisions=prev_div))
             elif self.source.npartitions != prev_num:
-                self.source = self.source.repartition(npartitions=prev_num)
+                self.update_frame(self.source.repartition(npartitions=prev_num))
 
         return self
 
@@ -359,6 +370,7 @@ class Ensemble:
         memory_usage: `bool`, optional
             Specifies whether total memory usage of the DataFrame elements
             (including the index) should be displayed.
+
         Returns
         ----------
         None
@@ -372,8 +384,7 @@ class Ensemble:
         self.source.info(verbose=verbose, memory_usage=memory_usage, **kwargs)
 
     def check_sorted(self, table="object"):
-        """Checks to see if an Ensemble Dataframe is sorted (increasing) on
-        the index.
+        """Checks to see if an Ensemble Dataframe is sorted (increasing) on the index.
 
         Parameters
         ----------
@@ -382,8 +393,8 @@ class Ensemble:
 
         Returns
         -------
-        A boolean value indicating whether the index is sorted (True)
-        or not (False)
+        boolean
+            indicating whether the index is sorted (True) or not (False)
         """
         if table == "object":
             idx = self.object.index
@@ -407,10 +418,10 @@ class Ensemble:
 
         Returns
         -------
-        A boolean value indicating whether the sources tied to a given object
-        are only found in a single partition (True), or if they are split
-        across multiple partitions (False)
-
+        boolean
+            indicates whether the sources tied to a given object are only found
+            in a single partition (True), or if they are split across multiple
+            partitions (False)
         """
         idx = self.source.index
         counts = idx.map_partitions(lambda a: Counter(a.unique())).compute()
@@ -435,8 +446,9 @@ class Ensemble:
 
         Returns
         -------
-        A single pandas data frame for the specified table or a tuple of (object, source)
-        data frames.
+        `pd.Dataframe`
+            A single pandas data frame for the specified table or a tuple of
+            (object, source) data frames.
         """
         if table:
             self._lazy_sync_tables(table)
@@ -554,14 +566,17 @@ class Ensemble:
 
         Examples
         --------
-        # Keep sources with flux above 100.0:
-        ens.query("flux > 100", table="source")
+        Keep sources with flux above 100.0::
 
-        # Keep sources in the green band:
-        ens.query("band_col_name == 'g'", table="source")
+            ens.query("flux > 100", table="source")
 
-        # Filtering on the flux column without knowing its name:
-        ens.query(f"{ens._flux_col} > 100", table="source")
+        Keep sources in the green band::
+
+            ens.query("band_col_name == 'g'", table="source")
+
+        Filtering on the flux column without knowing its name::
+
+            ens.query(f"{ens._flux_col} > 100", table="source")
         """
         self._lazy_sync_tables(table)
         if table == "object":
@@ -617,11 +632,13 @@ class Ensemble:
 
         Examples
         --------
-        # Direct assignment of my_series to a column named "new_column".
-        ens.assign(table="object", new_column=my_series)
+        Direct assignment of my_series to a column named "new_column"::
 
-        # Subtract the value in "err" from the value in "flux".
-        ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
+            ens.assign(table="object", new_column=my_series)
+
+        Subtract the value in "err" from the value in "flux"::
+
+            ens.assign(table="source", lower_bnd=lambda x: x["flux"] - 2.0 * x["err"])
         """
         self._lazy_sync_tables(table)
 
@@ -643,95 +660,6 @@ class Ensemble:
 
         else:
             raise ValueError(f"{table} is not one of 'object' or 'source'")
-        return self
-
-    def coalesce(self, input_cols, output_col, table="object", drop_inputs=False):
-        """Combines multiple input columns into a single output column, with
-        values equal to the first non-nan value encountered in the input cols.
-
-        Parameters
-        ----------
-        input_cols: `list`
-            The list of column names to coalesce into a single column.
-        output_col: `str`, optional
-            The name of the coalesced output column.
-        table: `str`, optional
-            "source" or "object", the table in which the input columns are
-            located.
-        drop_inputs: `bool`, optional
-            Determines whether the input columns are dropped or preserved. If
-            a mapped column is an input and dropped, the output column is
-            automatically assigned to replace that column mapping internally.
-
-        Returns
-        -------
-        ensemble: `tape.ensemble.Ensemble`
-            An ensemble object.
-
-        """
-        # we shouldn't need to sync for this
-        if table == "object":
-            table_ddf = self.object
-        elif table == "source":
-            table_ddf = self.source
-        else:
-            raise ValueError(f"{table} is not one of 'object' or 'source'")
-
-        def coalesce_partition(df, input_cols, output_col):
-            """Coalescing function for a single partition (pandas dataframe)"""
-
-            # Create a subset dataframe per input column
-            # Rename column to output to allow combination
-            input_dfs = []
-            for col in input_cols:
-                col_df = df[[col]]
-                input_dfs.append(col_df.rename(columns={col: output_col}))
-
-            # Combine each dataframe
-            coal_df = input_dfs.pop()
-            while input_dfs:
-                coal_df = coal_df.combine_first(input_dfs.pop())
-
-            # Assign the output column to the partition dataframe
-            out_df = df.assign(**{output_col: coal_df[output_col]})
-
-            return out_df
-
-        table_ddf = table_ddf.map_partitions(lambda x: coalesce_partition(x, input_cols, output_col))
-
-        # Drop the input columns if wanted
-        if drop_inputs:
-            # First check to see if any dropped columns were critical columns
-            current_map = self.make_column_map().map
-            cols_to_update = [key for key in current_map if current_map[key] in input_cols]
-
-            # Theoretically a user could assign multiple critical columns in the input cols, this is very
-            # likely to be a mistake, so we throw a warning here to alert them.
-            if len(cols_to_update) > 1:
-                warnings.warn(
-                    """Warning: Coalesce (with column dropping) is needing to update more than one
-                critical column mapping, please check that the resulting mapping is set as intended"""
-                )
-
-            # Update critical columns to the new output column as needed
-            if len(cols_to_update):  # if not zero
-                new_map = current_map
-                for col in cols_to_update:
-                    new_map[col] = output_col
-
-                new_colmap = self.make_column_map()
-                new_colmap.map = new_map
-
-                # Update the mapping
-                self.update_column_mapping(new_colmap)
-
-            table_ddf = table_ddf.drop(columns=input_cols)
-
-        if table == "object":
-            self.update_frame(table_ddf)
-        elif table == "source":
-            self.update_frame(table_ddf)
-
         return self
 
     def calc_nobs(self, by_band=False, label="nobs", temporary=True):
@@ -798,7 +726,9 @@ class Ensemble:
             band_counts["total"] = band_counts[list(band_counts.columns)].sum(axis=1)
 
             bands = band_counts.columns.values
-            self.object = self.object.assign(**{label + "_" + str(band): band_counts[band] for band in bands})
+            self.object.assign(
+                **{label + "_" + str(band): band_counts[band] for band in bands}
+            ).update_ensemble()
 
             if temporary:
                 self._object_temp.extend(label + "_" + str(band) for band in bands)
@@ -821,7 +751,7 @@ class Ensemble:
                     .repartition(npartitions=self.object.npartitions)
                 )
 
-            self.object = self.object.assign(**{label + "_total": counts[self._band_col]})
+            self.object.assign(**{label + "_total": counts[self._band_col]}).update_ensemble()
 
             if temporary:
                 self._object_temp.extend([label + "_total"])
@@ -948,12 +878,12 @@ class Ensemble:
         Notes
         -----
         * This should only be used for slowly varying sources where we can
-        treat the source as constant within `time_window`.
+          treat the source as constant within `time_window`.
 
         * As a default the function only aggregates and keeps the id, band,
-        time, flux, and flux error columns. Additional columns can be preserved
-        by providing the mapping of column name to aggregation function with the
-        `additional_cols` parameter.
+          time, flux, and flux error columns. Additional columns can be preserved
+          by providing the mapping of column name to aggregation function with the
+          `additional_cols` parameter.
         """
         self._lazy_sync_tables(table="source")
 
@@ -1074,31 +1004,28 @@ class Ensemble:
 
         Examples
         --------
-        Run a TAPE function on the ensemble:
-        ```
-        from tape.analysis.stetsonj import calc_stetson_J
-        ens = Ensemble().from_dataset('rrlyr82')
-        ensemble.batch(calc_stetson_J, band_to_calc='i')
-        ```
+        Run a TAPE function on the ensemble::
 
-        Run a light-curve function on the ensemble:
-        ```
-        from light_curve import EtaE
-        ens.batch(EtaE(), band_to_calc='g')
-        ```
+            from tape.analysis.stetsonj import calc_stetson_J
+            ens = Ensemble().from_dataset('rrlyr82')
+            ensemble.batch(calc_stetson_J, band_to_calc='i')
 
-        Run a custom function on the ensemble:
-        ```
-        def s2n_inter_quartile_range(flux, err):
-             first, third = np.quantile(flux / err, [0.25, 0.75])
-             return third - first
+        Run a light-curve function on the ensemble::
 
-        ens.batch(s2n_inter_quartile_range, ens._flux_col, ens._err_col)
-        ```
-        Or even a numpy built-in function:
-        ```
-        amplitudes = ens.batch(np.ptp, ens._flux_col)
-        ```
+            from light_curve import EtaE
+            ens.batch(EtaE(), band_to_calc='g')
+
+        Run a custom function on the ensemble::
+
+            def s2n_inter_quartile_range(flux, err):
+            first, third = np.quantile(flux / err, [0.25, 0.75])
+            return third - first
+
+            ens.batch(s2n_inter_quartile_range, ens._flux_col, ens._err_col)
+
+        Or even a numpy built-in function::
+
+            amplitudes = ens.batch(np.ptp, ens._flux_col)
         """
 
         self._lazy_sync_tables(table="all")
@@ -1242,6 +1169,226 @@ class Ensemble:
 
         return batch
 
+    def save_ensemble(self, path=".", dirname="ensemble", additional_frames=True, **kwargs):
+        """Save the current ensemble frames to disk.
+
+        Parameters
+        ----------
+        path: 'str' or path-like, optional
+            A path to the desired location of the top-level save directory, by
+            default this is the current working directory.
+        dirname: 'str', optional
+            The name of the saved ensemble directory, "ensemble" by default.
+        additional_frames: bool, or list, optional
+            Controls whether EnsembleFrames beyond the Object and Source Frames
+            are saved to disk. If True or False, this specifies whether all or
+            none of the additional frames are saved. Alternatively, a list of
+            EnsembleFrame names may be provided to specify which frames should
+            be saved. Object and Source will always be added and do not need to
+            be specified in the list. By default, all frames will be saved.
+        **kwargs:
+            Additional kwargs passed along to EnsembleFrame.to_parquet()
+
+        Returns
+        ----------
+        None
+
+        Note
+        ----
+        If the object frame has no columns, which is often the case when an
+        Ensemble is constructed using only source files/dictionaries, then an
+        object subdirectory will not be created. `Ensemble.from_ensemble` will
+        know how to work with the directory whether or not the object
+        subdirectory is present.
+
+        Be careful about repeated saves to the same directory name. This will
+        not be a perfect overwrite, as any products produced by a previous save
+        may not be deleted by successive saves if they are removed from the
+        ensemble. For best results, delete the directory between saves or
+        verify that the contents are what you would expect.
+        """
+
+        self._lazy_sync_tables("all")
+
+        # Determine the path
+        ens_path = os.path.join(path, dirname)
+
+        # First look for an existing metadata file in the path
+        try:
+            with open(os.path.join(ens_path, METADATA_FILENAME), "r") as oldfile:
+                # Reading from json file
+                old_metadata = json.load(oldfile)
+                old_subdirs = old_metadata["subdirs"]
+                # Delete any old subdirectories
+                for subdir in old_subdirs:
+                    shutil.rmtree(os.path.join(ens_path, subdir))
+        except FileNotFoundError:
+            pass
+
+        # Compile frame list
+        if additional_frames is True:
+            frames_to_save = list(self.frames.keys())  # save all frames
+        elif additional_frames is False:
+            frames_to_save = [OBJECT_FRAME_LABEL, SOURCE_FRAME_LABEL]  # save just object and source
+        elif isinstance(additional_frames, Iterable):
+            frames_to_save = set(additional_frames)
+            invalid_frames = frames_to_save.difference(set(self.frames.keys()))
+            # Raise an error if any frames were not found in the frame list
+            if len(invalid_frames) != 0:
+                raise ValueError(
+                    f"The frame(s): {invalid_frames} specified in `additional_frames` were not found in the frame list."
+                )
+            frames_to_save = list(frames_to_save)
+
+            # Make sure object and source are in the frame list
+            if OBJECT_FRAME_LABEL not in frames_to_save:
+                frames_to_save.append(OBJECT_FRAME_LABEL)
+            if SOURCE_FRAME_LABEL not in frames_to_save:
+                frames_to_save.append(SOURCE_FRAME_LABEL)
+        else:
+            raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
+
+        # Generate the metadata first
+        created_subdirs = []  # track the list of created subdirectories
+        divisions_known = []  # log whether divisions were known for each frame
+        for frame_label in frames_to_save:
+            # grab the dataframe from the frame label
+            frame = self.frames[frame_label]
+
+            # When the frame has no columns, avoid the save as parquet doesn't handle it
+            # Most commonly this applies to the object table when it's built from source
+            if len(frame.columns) == 0:
+                print(f"Frame: {frame_label} will not be saved as no columns are present.")
+                continue
+
+            created_subdirs.append(frame_label)
+            divisions_known.append(frame.known_divisions)
+
+        # Save a metadata file
+        col_map = self.make_column_map()  # grab the current column_mapper
+        metadata = {
+            "subdirs": created_subdirs,
+            "known_divisions": divisions_known,
+            "column_mapper": col_map.map,
+        }
+        json_metadata = json.dumps(metadata, indent=4)
+
+        # Make the directory if it doesn't already exist
+        os.makedirs(ens_path, exist_ok=True)
+        with open(os.path.join(ens_path, METADATA_FILENAME), "w") as outfile:
+            outfile.write(json_metadata)
+
+        # Now write out the frames to subdirectories
+        for subdir in created_subdirs:
+            self.frames[subdir].to_parquet(os.path.join(ens_path, subdir), write_metadata_file=True, **kwargs)
+
+        print(f"Saved to {os.path.join(path, dirname)}")
+
+        return
+
+    def from_ensemble(
+        self,
+        dirpath,
+        additional_frames=True,
+        column_mapper=None,
+        **kwargs,
+    ):
+        """Load an ensemble from an on-disk ensemble.
+
+        Parameters
+        ----------
+        dirpath: 'str' or path-like, optional
+            A path to the top-level ensemble directory to load from.
+        additional_frames: bool, or list, optional
+            Controls whether EnsembleFrames beyond the Object and Source Frames
+            are loaded from disk. If True or False, this specifies whether all
+            or none of the additional frames are loaded. Alternatively, a list
+            of EnsembleFrame names may be provided to specify which frames
+            should be loaded. Object and Source will always be added and do not
+            need to be specified in the list. By default, all frames will be
+            loaded.
+        column_mapper: Tape.ColumnMapper object, or None, optional
+            Supplies a ColumnMapper to the Ensemble, if None (default) searches
+            for a column_mapper.npy file in the directory, which should be
+            created when the ensemble is saved.
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object.
+        """
+
+        # Read in the metadata file
+        with open(os.path.join(dirpath, METADATA_FILENAME), "r") as metadatafile:
+            # Reading from json file
+            metadata = json.load(metadatafile)
+
+            # Load in the metadata
+            subdirs = metadata["subdirs"]
+            frame_known_divisions = metadata["known_divisions"]
+            if column_mapper is None:
+                column_mapper = ColumnMapper()
+                column_mapper.map = metadata["column_mapper"]
+
+        # Load Object and Source
+
+        # Check for whether or not object is present, it's not saved when no columns are present
+        if OBJECT_FRAME_LABEL in subdirs:
+            # divisions should be known for both tables to use the sorted kwarg
+            use_sorted = (
+                frame_known_divisions[subdirs.index(OBJECT_FRAME_LABEL)]
+                and frame_known_divisions[subdirs.index(SOURCE_FRAME_LABEL)]
+            )
+
+            self.from_parquet(
+                os.path.join(dirpath, SOURCE_FRAME_LABEL),
+                os.path.join(dirpath, OBJECT_FRAME_LABEL),
+                column_mapper=column_mapper,
+                sorted=use_sorted,
+                sort=False,
+                sync_tables=False,  # a sync should always be performed just before saving
+                **kwargs,
+            )
+        else:
+            use_sorted = frame_known_divisions[subdirs.index(SOURCE_FRAME_LABEL)]
+            self.from_parquet(
+                os.path.join(dirpath, SOURCE_FRAME_LABEL),
+                column_mapper=column_mapper,
+                sorted=use_sorted,
+                sort=False,
+                sync_tables=False,  # a sync should always be performed just before saving
+                **kwargs,
+            )
+
+        # Load all remaining frames
+        if additional_frames is False:
+            return self  # we are all done
+        else:
+            if additional_frames is True:
+                #  Grab all subdirectory paths in the top-level folder, filter out any files
+                frames_to_load = [os.path.join(dirpath, f) for f in subdirs]
+            elif isinstance(additional_frames, Iterable):
+                frames_to_load = [os.path.join(dirpath, frame) for frame in additional_frames]
+            else:
+                raise ValueError("Invalid input to `additional_frames`, must be boolean or list-like")
+
+            # Filter out object and source from additional frames
+            frames_to_load = [
+                frame
+                for frame in frames_to_load
+                if os.path.split(frame)[1] not in [OBJECT_FRAME_LABEL, SOURCE_FRAME_LABEL]
+            ]
+            if len(frames_to_load) > 0:
+                for frame in frames_to_load:
+                    label = os.path.split(frame)[1]
+                    use_divisions = frame_known_divisions[subdirs.index(label)]
+                    ddf = EnsembleFrame.from_parquet(
+                        frame, label=label, calculate_divisions=use_divisions, **kwargs
+                    )
+                    self.add_frame(ddf, label)
+
+            return self
+
     def from_pandas(
         self,
         source_frame,
@@ -1342,6 +1489,12 @@ class Ensemble:
         self._load_column_mapper(column_mapper, **kwargs)
         source_frame = SourceFrame.from_dask_dataframe(source_frame, self)
 
+        # Repartition before any sorting
+        if npartitions and npartitions > 1:
+            source_frame = source_frame.repartition(npartitions=npartitions)
+        elif partition_size:
+            source_frame = source_frame.repartition(partition_size=partition_size)
+
         # Set the index of the source frame and save the resulting table
         self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
 
@@ -1358,11 +1511,6 @@ class Ensemble:
                 self.object.set_dirty(True)
                 self._sync_tables()
 
-        if npartitions and npartitions > 1:
-            self.source = self.source.repartition(npartitions=npartitions)
-        elif partition_size:
-            self.source = self.source.repartition(partition_size=partition_size)
-
         # Check that Divisions are established, warn if not.
         for name, table in [("object", self.object), ("source", self.source)]:
             if not table.known_divisions:
@@ -1373,6 +1521,7 @@ class Ensemble:
 
     def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
         """Read in parquet files from a hipscat-formatted directory structure
+
         Parameters
         ----------
         dir: 'str'
@@ -1766,7 +1915,7 @@ class Ensemble:
 
         Parameters
         ----------
-        frame: `tape.EnsembleFrame`
+        frame: `tape.ensemble_frame.EnsembleFrame`
             The frame being modified. Only an `ObjectFrame` or
             `SourceFrame tracked by this `Ensemble` may trigger
             a sync.
@@ -1962,7 +2111,7 @@ class Ensemble:
         result : `pandas.DataFrame`
             Structure function squared for each of input bands.
 
-        Notes
+        Note
         ----------
         In case that no value for `band_to_calc` is passed, the function is
         executed on all available bands in `band`.
@@ -2004,7 +2153,7 @@ class Ensemble:
         Returns
         ----------
         result : `ensemble.TapeFrame` or `ensemble.TapeSeries`
-            The appropriate meta for Dask producing an `Ensemble.EnsembleFrame` or
+            The appropriate meta for Dask producing an `tape.ensemble_frame.EnsembleFrame` or
             `Ensemble.EnsembleSeries` respectively
         """
         if isinstance(meta, TapeFrame) or isinstance(meta, TapeSeries):

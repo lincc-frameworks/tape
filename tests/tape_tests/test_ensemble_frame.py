@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from tape import (
+    Ensemble,
     ColumnMapper,
     EnsembleFrame,
     ObjectFrame,
@@ -141,6 +142,13 @@ def test_ensemble_frame_propagation(data_fixture, request):
     assert merged_frame.label == TEST_LABEL
     assert merged_frame.ensemble == ens
     assert merged_frame.is_dirty()
+
+    # Test that frame metadata is preserved after repartitioning
+    repartitioned_frame = ens_frame.copy().repartition(npartitions=10)
+    assert isinstance(repartitioned_frame, EnsembleFrame)
+    assert repartitioned_frame.label == TEST_LABEL
+    assert repartitioned_frame.ensemble == ens
+    assert repartitioned_frame.is_dirty()
 
     # Test that head returns a subset of the underlying TapeFrame.
     h = ens_frame.head(5)
@@ -358,3 +366,46 @@ def test_object_and_source_joins(parquet_ensemble):
     # Now the same form of join (in terms of left/right) but produce a SourceFrame. This is
     # because frame1.join(frame2) will yield frame1's type regardless of left vs right.
     assert type(source_frame.join(object_frame, how="right")) is SourceFrame
+
+
+@pytest.mark.parametrize("drop_inputs", [True, False])
+def test_coalesce(dask_client, drop_inputs):
+    ens = Ensemble(client=dask_client)
+
+    # Generate some data that needs to be coalesced
+
+    source_dict = {
+        "id": [0, 0, 0, 0, 0],
+        "time": [1, 2, 3, 4, 5],
+        "flux1": [5, np.nan, np.nan, 10, np.nan],
+        "flux2": [np.nan, 3, np.nan, np.nan, 7],
+        "flux3": [np.nan, np.nan, 4, np.nan, np.nan],
+        "error": [1, 1, 1, 1, 1],
+        "band": ["g", "g", "g", "g", "g"],
+    }
+
+    # map flux_col to one of the flux columns at the start
+    col_map = ColumnMapper(id_col="id", time_col="time", flux_col="flux1", err_col="error", band_col="band")
+    ens.from_source_dict(source_dict, column_mapper=col_map)
+
+    ens.source.coalesce(["flux1", "flux2", "flux3"], "flux", drop_inputs=drop_inputs).update_ensemble()
+
+    # Coalesce should return this exact flux array
+    assert list(ens.source["flux"].values.compute()) == [5.0, 3.0, 4.0, 10.0, 7.0]
+
+    if drop_inputs:
+        # The column mapping should be updated
+        assert ens.make_column_map().map["flux_col"] == "flux"
+
+        # The columns to drop should be dropped
+        for col in ["flux1", "flux2", "flux3"]:
+            assert col not in ens.source.columns
+
+        # Test for the drop warning
+        with pytest.warns(UserWarning):
+            ens.source.coalesce(["time", "flux"], "bad_col", drop_inputs=drop_inputs)
+
+    else:
+        # The input columns should still be present
+        for col in ["flux1", "flux2", "flux3"]:
+            assert col in ens.source.columns

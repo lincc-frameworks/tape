@@ -233,6 +233,7 @@ def parquet_ensemble_without_client():
 
     return ens
 
+
 @pytest.fixture
 def parquet_files_and_ensemble_without_client():
     """Create an Ensemble from parquet data without a dask client."""
@@ -246,11 +247,9 @@ def parquet_files_and_ensemble_without_client():
         err_col="psFluxErr",
         band_col="filterName",
     )
-    ens = ens.from_parquet(
-        source_file,
-        object_file,
-        column_mapper=colmap)
+    ens = ens.from_parquet(source_file, object_file, column_mapper=colmap)
     return ens, source_file, object_file, colmap
+
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
@@ -265,6 +264,25 @@ def parquet_ensemble(dask_client):
         band_col="filterName",
         flux_col="psFlux",
         err_col="psFluxErr",
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def parquet_ensemble_partition_size(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+    ens.from_parquet(
+        "tests/tape_tests/data/source/test_source.parquet",
+        "tests/tape_tests/data/object/test_object.parquet",
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        band_col="filterName",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+        partition_size="1MB",
     )
 
     return ens
@@ -388,6 +406,34 @@ def dask_dataframe_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
+def dask_dataframe_ensemble_partition_size(dask_client):
+    """Create an Ensemble from parquet data."""
+    ens = Ensemble(client=dask_client)
+
+    num_points = 1000
+    all_bands = np.array(["r", "g", "b", "i"])
+    rows = {
+        "id": 8000 + (np.arange(num_points) % 5),
+        "time": np.arange(num_points),
+        "flux": np.arange(num_points) % len(all_bands),
+        "band": np.repeat(all_bands, num_points / len(all_bands)),
+        "err": 0.1 * (np.arange(num_points) % 10),
+        "count": np.arange(num_points),
+        "something_else": np.full(num_points, None),
+    }
+    cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
+
+    ens.from_dask_dataframe(
+        source_frame=dd.from_dict(rows, npartitions=1),
+        column_mapper=cmap,
+        partition_size="1MB",
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
 def dask_dataframe_with_object_ensemble(dask_client):
     """Create an Ensemble from parquet data."""
     ens = Ensemble(client=dask_client)
@@ -489,6 +535,7 @@ def pandas_with_object_ensemble(dask_client):
     )
 
     return ens
+
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
