@@ -1766,14 +1766,15 @@ def test_batch(data_fixture, request, use_map, on):
 )
 def test_sort_lightcurves(data_fixture, request):
     """
-    Test that ensemble.batch() sorts the data if requested
+    Test that we can have the ensemble sort its lightcurves by timestamp.
     """
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
     # filter NaNs from the source table
     parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
 
-    # To check that multiple columns are being sorted by time, we'll duplicate the time column
+    # To check that all columns are rearranged when sorting the time column,
+    # we create a duplicate time column which should be sorted as well.
     parquet_ensemble.source.assign(
         dup_time=parquet_ensemble.source[parquet_ensemble._time_col]
     ).update_ensemble()
@@ -1786,7 +1787,8 @@ def test_sort_lightcurves(data_fixture, request):
         # Check that the time column is sorted
         if not np.all(time[:-1] <= time[1:]):
             raise ValueError("The time column was not sorted in ascending order")
-        # Check that the other columns were sorted to preserve the dataframe's rows
+        # Check that the other columns were rearranged to preserve the dataframe's rows
+        # We can use the duplicate time column as an easy check.
         if not np.array_equal(time, dup_time):
             raise ValueError("The dataframe's time column was sorted but isn't aligned with other columns")
         return np.mean(flux)
