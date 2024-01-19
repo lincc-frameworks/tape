@@ -1764,8 +1764,7 @@ def test_batch(data_fixture, request, use_map, on):
         "parquet_ensemble_without_client",
     ],
 )
-@pytest.mark.parametrize("sort_by_time", [True, False])
-def test_batch_sorting(data_fixture, request, sort_by_time):
+def test_sort_lightcurves(data_fixture, request):
     """
     Test that ensemble.batch() sorts the data if requested
     """
@@ -1779,6 +1778,9 @@ def test_batch_sorting(data_fixture, request, sort_by_time):
         dup_time=parquet_ensemble.source[parquet_ensemble._time_col]
     ).update_ensemble()
 
+    # Validate the Ensemble is sorted by ID
+    assert parquet_ensemble.check_sorted("source")
+
     # A trivial function that raises an Exception if the data is not temporally sorted
     def my_mean(flux, time, dup_time):
         # Check that the time column is sorted
@@ -1786,37 +1788,42 @@ def test_batch_sorting(data_fixture, request, sort_by_time):
             raise ValueError("The time column was not sorted in ascending order")
         # Check that the other columns were sorted to preserve the dataframe's rows
         if not np.array_equal(time, dup_time):
-            raise ValueError("The dataframe's time column was sorted but othe columns are not aligned")
+            raise ValueError("The dataframe's time column was sorted but isn't aligned with other columns")
         return np.mean(flux)
 
-    if not sort_by_time:
-        # Validate that our custom function throws an Exception on the unsorted data to
-        # ensure that we actually sort when requested.
-        with pytest.raises(ValueError):
-            parquet_ensemble.batch(
-                my_mean,
-                parquet_ensemble._flux_col,
-                parquet_ensemble._time_col,
-                "dup_time",
-                by_band=False,
-                sort_by_time=False,
-            ).compute()
-    else:
-        result = parquet_ensemble.batch(
+    # Validate that our custom function throws an Exception on the unsorted data to
+    # ensure that we actually sort when requested.
+    with pytest.raises(ValueError):
+        parquet_ensemble.batch(
             my_mean,
             parquet_ensemble._flux_col,
             parquet_ensemble._time_col,
             "dup_time",
             by_band=False,
-            sort_by_time=True,
-        )
+        ).compute()
 
-        # Validate that the result is non-empty
-        assert len(result.compute()) > 0
+    parquet_ensemble.sort_lightcurves()
 
-        # Make sure that divisions information is propagated if known
-        if parquet_ensemble.source.known_divisions and parquet_ensemble.object.known_divisions:
-            assert result.known_divisions
+    result = parquet_ensemble.batch(
+        my_mean,
+        parquet_ensemble._flux_col,
+        parquet_ensemble._time_col,
+        "dup_time",
+        by_band=False,
+    )
+
+    # Validate that the result is non-empty
+    assert len(result.compute()) > 0
+
+    # Make sure that divisions information was propagated if known
+    if parquet_ensemble.source.known_divisions and parquet_ensemble.object.known_divisions:
+        assert result.known_divisions
+
+    # Check that the dataframe is still sorted by the ID column
+    assert parquet_ensemble.check_sorted("source")
+
+    # Verify that we preserved lightcurve cohesion
+    assert parquet_ensemble.check_lightcurve_cohesion()
 
 
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["filterName", "ps1_objid"]])

@@ -433,6 +433,28 @@ class Ensemble:
                 return False
         return True
 
+    def sort_lightcurves(self):
+        """Sorts each Source partition first by the indexed ID column and then by
+        the time column, each in ascending order.
+
+        This allows for efficient access of lightcurves by their indexed object ID
+        while still giving easy access to the sorted time series.
+
+        Returns
+        -------
+        Ensemble
+        """
+        self._lazy_sync_tables(table="source")
+
+        # Dask lacks support for multi-column sorting and indices, but if we have
+        # lightcurve cohesion, we can sort each partition individually since
+        # each lightcurve should only be in a single partition. We sort the Source
+        # table first by its indexed ID column and then by the timestamp.
+        id_col, time_col = self._id_col, self._time_col  # save column names for scoping for the lambda
+        self.source.map_partitions(lambda x: x.sort_values([id_col, time_col])).update_ensemble()
+
+        return self
+
     def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()
 
@@ -947,7 +969,6 @@ class Ensemble:
         *args,
         meta=None,
         by_band=False,
-        sort_by_time=False,
         use_map=True,
         on=None,
         label="",
@@ -987,10 +1008,6 @@ class Ensemble:
             and r band data) If False (default), the full lightcurve is passed
             along to the function (assuming the band column in not already part
             of `on`)
-        sort_by_time: `boolean`, optional
-            If True, will ensure that each individual lightcurve given to `func`
-            will be sorted by the time column in ascending order. Defaults to False
-            where the ordering is not guaranteed.
         use_map : `boolean`
             Determines whether `dask.dataframe.DataFrame.map_partitions` is
             used (True). Using map_partitions is generally more efficient, but
@@ -1064,10 +1081,6 @@ class Ensemble:
             on = self._id_col  # Default grouping is by id_col
         if isinstance(on, str):
             on = [on]  # Convert to list if only one column is passed
-
-        if sort_by_time and self._time_col is not None:
-            time_col = self._time_col  # saved for scoping for the lambda
-            self.source.map_partitions(lambda x: x.sort_values(time_col)).update_ensemble()
 
         if by_band:
             if self._band_col not in on:
