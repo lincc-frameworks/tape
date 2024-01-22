@@ -14,7 +14,7 @@ Given the duration and cadence of [Vera C. Rubin LSST](https://www.lsst.org/abou
 
 In short term we are working on two main goals of the project:
   - Enable ease of access to TimeSeries objects in LSST
-  - Enable efficient and scalable evaluation of algorithm on time-domain data
+  - Enable efficient and scalable evaluation of algorithms on time-domain data
 
 This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks).
 
