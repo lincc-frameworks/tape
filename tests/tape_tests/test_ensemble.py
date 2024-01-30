@@ -832,6 +832,34 @@ def test_persist(dask_client):
     assert new_graph_size < old_graph_size
 
 
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_sample(parquet_ensemble_with_divisions, overwrite):
+    """
+    Test Ensemble.sample
+    """
+
+    ens = parquet_ensemble_with_divisions
+    ens.source.repartition(npartitions=10).update_ensemble()
+    ens.object.repartition(npartitions=5).update_ensemble()
+
+    prior_obj_len = len(ens.object)
+    prior_src_len = len(ens.source)
+
+    new_ens = ens.sample(frac=0.3, overwrite=overwrite)
+
+    assert len(new_ens.object) < prior_obj_len  # frac is not exact
+    assert len(new_ens.source) < prior_src_len  # should affect source
+
+    if overwrite:
+        # should have also affected ens in-place
+        assert len(ens.object) < prior_obj_len
+        assert len(ens.source) < prior_src_len
+    else:
+        # ens should not have been affected
+        assert len(ens.object) == prior_obj_len
+        assert len(ens.source) == prior_src_len
+
+
 def test_update_column_map(dask_client):
     """
     Test that we can update the column maps in an Ensemble.

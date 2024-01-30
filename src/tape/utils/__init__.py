@@ -1,1 +1,2 @@
-from .column_mapper import ColumnMapper  # noqa
+from .column_mapper import ColumnMapper
+from .utils import IndexCallable  # noqa
