@@ -1196,7 +1196,6 @@ class ObjectFrame(EnsembleFrame):
         self.label = OBJECT_FRAME_LABEL  # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble  # The Ensemble object containing this frame.
 
-
     @classmethod
     def from_parquet(
         cl,
