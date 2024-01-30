@@ -475,10 +475,13 @@ class Ensemble:
     def sample(self, overwrite=False, **kwargs):
         """Selects a sample of objects.
 
+        This sampling will be lazily applied to the SourceFrame as well, but
+        will not affect any additional result frames.
+
         Parameters
         ----------
         overwrite: boolean, optional
-            Indicates whether to overwrite the current ensemble (set True), or 
+            Indicates whether to overwrite the current ensemble (set True), or
             create a new ensemble for the subset of objects (set False).
         **kwargs:
             keyword arguments passed along to
@@ -488,7 +491,7 @@ class Ensemble:
         ----------
         ensemble: `tape.ensemble.Ensemble`
             A new ensemble with the subset of data selected
-        
+
         """
 
         # first do an object sync, ensure object table is up to date
@@ -504,7 +507,7 @@ class Ensemble:
             # sync to source, removes all tied sources
             self._lazy_sync_tables(table="source")
 
-            return self # current in-place implementation
+            return self  # current in-place implementation
         else:
             # make a new ensemble
             # TODO: Investigate shared client warning
