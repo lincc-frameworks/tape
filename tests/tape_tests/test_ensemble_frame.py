@@ -409,3 +409,33 @@ def test_coalesce(dask_client, drop_inputs):
         # The input columns should still be present
         for col in ["flux1", "flux2", "flux3"]:
             assert col in ens.source.columns
+
+
+def test_partition_slicing(parquet_ensemble_with_divisions):
+    """
+    Test that partition slicing propagates EnsembleFrame metadata
+    """
+    ens = parquet_ensemble_with_divisions
+
+    ens.source.repartition(npartitions=10).update_ensemble()
+    ens.object.repartition(npartitions=5).update_ensemble()
+
+    prior_obj_len = len(ens.object)
+    prior_src_len = len(ens.source)
+
+    # slice on object
+    ens.object.partitions[0:3].update_ensemble()
+    ens._lazy_sync_tables("all")  # sync needed as len() won't trigger one
+
+    assert ens.object.npartitions == 3  # should return exactly 3 partitions
+    assert len(ens.source) < prior_src_len  # should affect source
+
+    prior_obj_len = len(ens.object)
+    prior_src_len = len(ens.source)
+
+    # slice on source
+    ens.source.partitions[0:2].update_ensemble()
+    ens._lazy_sync_tables("all")  # sync needed as len() won't trigger one
+
+    assert ens.source.npartitions == 2  # should return exactly 2 partitions
+    assert len(ens.object) < prior_src_len  # should affect objects

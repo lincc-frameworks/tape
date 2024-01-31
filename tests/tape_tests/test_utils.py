@@ -1,5 +1,22 @@
 import pytest
-from tape.utils import ColumnMapper
+from tape.utils import ColumnMapper, IndexCallable
+
+
+def test_index_callable(parquet_ensemble):
+    """
+    Test the basic function of the IndexCallable object
+    """
+
+    ens = parquet_ensemble
+
+    source_ic = IndexCallable(ens.source._partitions, True, "ensemble")
+
+    # grab the first (and only) source partition
+    sliced_source_frame = source_ic[0]
+
+    # ensure that the metadata propagates to the result
+    assert sliced_source_frame.dirty is True
+    assert sliced_source_frame.ensemble == "ensemble"
 
 
 def test_column_mapper():
