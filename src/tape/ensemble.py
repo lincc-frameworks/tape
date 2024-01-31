@@ -472,17 +472,15 @@ class Ensemble:
         self.update_frame(self.object.persist(**kwargs))
         self.update_frame(self.source.persist(**kwargs))
 
-    def sample(self, overwrite=False, **kwargs):
+    def sample_objects(self, **kwargs):
         """Selects a sample of objects.
 
-        This sampling will be lazily applied to the SourceFrame as well, but
-        will not affect any additional result frames.
+        This sampling will be lazily applied to the SourceFrame as well. A new
+        Ensemble object is created, and no additional EnsembleFrames will be
+        carried into the new Ensemble object.
 
         Parameters
         ----------
-        overwrite: boolean, optional
-            Indicates whether to overwrite the current ensemble (set True), or
-            create a new ensemble for the subset of objects (set False).
         **kwargs:
             keyword arguments passed along to
             `dask.dataframe.DataFrame.sample`
@@ -501,30 +499,20 @@ class Ensemble:
         object_subset = self.object.sample(**kwargs)
         object_subset.set_dirty(True)
 
-        if overwrite:
-            self.update_frame(object_subset)
-
-            # sync to source, removes all tied sources
-            self._lazy_sync_tables(table="source")
-
-            return self  # current in-place implementation
+        # make a new ensemble
+        # TODO: Investigate shared client warning
+        if self.client is not None:
+            new_ens = Ensemble(client=self.client)
         else:
-            # make a new ensemble
-            # TODO: Investigate shared client warning
-            if self.client is not None:
-                new_ens = Ensemble(client=self.client)
-            else:
-                new_ens = Ensemble(client=False)
+            new_ens = Ensemble(client=False)
 
-            new_ens.update_frame(object_subset)
-            new_ens.update_frame(self.source)
+        new_ens.update_frame(object_subset)
+        new_ens.update_frame(self.source)
 
-            # TODO: Add other frames? Sync against them?
+        # sync to source, removes all tied sources
+        new_ens._lazy_sync_tables(table="source")
 
-            # sync to source, removes all tied sources
-            new_ens._lazy_sync_tables(table="source")
-
-            return new_ens
+        return new_ens
 
     def columns(self, table="object"):
         """Retrieve columns from dask dataframe"""

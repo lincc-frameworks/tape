@@ -833,9 +833,9 @@ def test_persist(dask_client):
 
 
 @pytest.mark.parametrize("overwrite", [False, True])
-def test_sample(parquet_ensemble_with_divisions, overwrite):
+def test_sample_objects(parquet_ensemble_with_divisions, overwrite):
     """
-    Test Ensemble.sample
+    Test Ensemble.sample_objects
     """
 
     ens = parquet_ensemble_with_divisions
@@ -845,7 +845,7 @@ def test_sample(parquet_ensemble_with_divisions, overwrite):
     prior_obj_len = len(ens.object)
     prior_src_len = len(ens.source)
 
-    new_ens = ens.sample(frac=0.3, overwrite=overwrite)
+    new_ens = ens.sample_objects(frac=0.3, overwrite=overwrite)
 
     assert len(new_ens.object) < prior_obj_len  # frac is not exact
     assert len(new_ens.source) < prior_src_len  # should affect source
