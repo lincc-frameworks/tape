@@ -839,9 +839,9 @@ def test_persist(dask_client):
         "parquet_ensemble_without_client",
     ],
 )
-def test_sample_objects(data_fixture, request):
+def test_sample(data_fixture, request):
     """
-    Test Ensemble.sample_objects
+    Test Ensemble.sample
     """
 
     ens = request.getfixturevalue(data_fixture)
@@ -851,7 +851,7 @@ def test_sample_objects(data_fixture, request):
     prior_obj_len = len(ens.object)
     prior_src_len = len(ens.source)
 
-    new_ens = ens.sample_objects(frac=0.3)
+    new_ens = ens.sample(frac=0.3)
 
     assert len(new_ens.object) < prior_obj_len  # frac is not exact
     assert len(new_ens.source) < prior_src_len  # should affect source

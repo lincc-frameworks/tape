@@ -472,7 +472,7 @@ class Ensemble:
         self.update_frame(self.object.persist(**kwargs))
         self.update_frame(self.source.persist(**kwargs))
 
-    def sample_objects(self, frac=None, replace=False, random_state=None):
+    def sample(self, frac=None, replace=False, random_state=None):
         """Selects a random sample of objects (sampling each partition).
 
         This sampling will be lazily applied to the SourceFrame as well. A new
