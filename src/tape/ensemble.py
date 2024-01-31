@@ -473,11 +473,13 @@ class Ensemble:
         self.update_frame(self.source.persist(**kwargs))
 
     def sample_objects(self, **kwargs):
-        """Selects a sample of objects.
+        """Selects a random sample of objects.
 
         This sampling will be lazily applied to the SourceFrame as well. A new
         Ensemble object is created, and no additional EnsembleFrames will be
-        carried into the new Ensemble object.
+        carried into the new Ensemble object. See
+        https://docs.dask.org/en/latest/generated/dask.dataframe.DataFrame.sample.html
+        for details on available kwargs.
 
         Parameters
         ----------
@@ -512,6 +514,7 @@ class Ensemble:
             self.cleanup_client = False
             new_ens.cleanup_client = False
         else:
+            print("here")
             new_ens = Ensemble(client=False)
 
         new_ens.update_frame(object_subset)
