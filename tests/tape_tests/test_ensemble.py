@@ -861,7 +861,7 @@ def test_sample_objects(data_fixture, request):
     assert len(ens.source) == prior_src_len
 
     if data_fixture == "parquet_ensemble_with_divisions":
-        ens.client.close()
+        ens.client.close()  # sample_objects disables client cleanup, must do manually
 
 
 def test_update_column_map(dask_client):

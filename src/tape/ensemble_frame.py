@@ -231,6 +231,36 @@ class _Frame(dd.core._Frame):
         result.set_dirty(True)
         return result
 
+    def sample(self, **kwargs):
+        """Random sample of items from a Dataframe.
+
+        Doc string below derived from dask.dataframe.core
+
+        Parameters
+        ----------
+        frac: float, optional
+            Approximate fraction of objects to return. This sampling fraction
+            is applied to all partitions equally. Note that this is an
+            approximate fraction. You should not expect exactly len(df) * frac
+            items to be returned, as the exact number of elements selected will
+            depend on how your data is partitioned (but should be pretty close
+            in practice).
+        replace: boolean, optional
+            Sample with or without replacement. Default = False.
+        random_state: int or np.random.RandomState
+            If an int, we create a new RandomState with this as the seed;
+            Otherwise we draw from the passed RandomState.
+
+        Returns
+        ----------
+        result: `tape._Frame`
+            The modifed frame
+
+        """
+        result = self._propagate_metadata(super().sample(**kwargs))
+        result.set_dirty(True)
+        return result
+
     def merge(self, right, **kwargs):
         """Merge the Dataframe with another DataFrame
 

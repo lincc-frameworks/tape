@@ -472,20 +472,28 @@ class Ensemble:
         self.update_frame(self.object.persist(**kwargs))
         self.update_frame(self.source.persist(**kwargs))
 
-    def sample_objects(self, **kwargs):
-        """Selects a random sample of objects.
+    def sample_objects(self, frac=None, replace=False, random_state=None):
+        """Selects a random sample of objects (sampling each partition).
 
         This sampling will be lazily applied to the SourceFrame as well. A new
         Ensemble object is created, and no additional EnsembleFrames will be
-        carried into the new Ensemble object. See
-        https://docs.dask.org/en/latest/generated/dask.dataframe.DataFrame.sample.html
-        for details on available kwargs.
+        carried into the new Ensemble object. Most of docstring copied from
+        https://docs.dask.org/en/latest/generated/dask.dataframe.DataFrame.sample.html.
 
         Parameters
         ----------
-        **kwargs:
-            keyword arguments passed along to
-            `dask.dataframe.DataFrame.sample`
+        frac: float, optional
+            Approximate fraction of objects to return. This sampling fraction
+            is applied to all partitions equally. Note that this is an
+            approximate fraction. You should not expect exactly len(df) * frac
+            items to be returned, as the exact number of elements selected will
+            depend on how your data is partitioned (but should be pretty close
+            in practice).
+        replace: boolean, optional
+            Sample with or without replacement. Default = False.
+        random_state: int or np.random.RandomState
+            If an int, we create a new RandomState with this as the seed;
+            Otherwise we draw from the passed RandomState.
 
         Returns
         ----------
@@ -498,8 +506,7 @@ class Ensemble:
         self._lazy_sync_tables(table="object")
 
         # sample on the object table
-        object_subset = self.object.sample(**kwargs)
-        object_subset.set_dirty(True)
+        object_subset = self.object.sample(frac=frac, replace=replace, random_state=random_state)
 
         # make a new ensemble
         if self.client is not None:
@@ -517,7 +524,7 @@ class Ensemble:
             new_ens = Ensemble(client=False)
 
         new_ens.update_frame(object_subset)
-        new_ens.update_frame(self.source)
+        new_ens.update_frame(self.source.copy())
 
         # sync to source, removes all tied sources
         new_ens._lazy_sync_tables(table="source")
