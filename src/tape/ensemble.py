@@ -500,9 +500,17 @@ class Ensemble:
         object_subset.set_dirty(True)
 
         # make a new ensemble
-        # TODO: Investigate shared client warning
         if self.client is not None:
             new_ens = Ensemble(client=self.client)
+
+            # turn off cleanups -- in the case where multiple ensembles are
+            # using a client, an individual ensemble should not close the
+            # client during an __exit__ or __del__ event. This means that
+            # the client will not be closed without an explicit client.close()
+            # call, which is unfortunate... not sure of an alternative way
+            # forward.
+            self.cleanup_client = False
+            new_ens.cleanup_client = False
         else:
             new_ens = Ensemble(client=False)
 

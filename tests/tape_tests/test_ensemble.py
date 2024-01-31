@@ -853,6 +853,8 @@ def test_sample_objects(parquet_ensemble_with_divisions):
     assert len(ens.object) == prior_obj_len
     assert len(ens.source) == prior_src_len
 
+    ens.client.close()
+
 
 def test_update_column_map(dask_client):
     """
