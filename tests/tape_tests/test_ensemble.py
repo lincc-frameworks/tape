@@ -832,8 +832,7 @@ def test_persist(dask_client):
     assert new_graph_size < old_graph_size
 
 
-@pytest.mark.parametrize("overwrite", [False, True])
-def test_sample_objects(parquet_ensemble_with_divisions, overwrite):
+def test_sample_objects(parquet_ensemble_with_divisions):
     """
     Test Ensemble.sample_objects
     """
@@ -845,19 +844,14 @@ def test_sample_objects(parquet_ensemble_with_divisions, overwrite):
     prior_obj_len = len(ens.object)
     prior_src_len = len(ens.source)
 
-    new_ens = ens.sample_objects(frac=0.3, overwrite=overwrite)
+    new_ens = ens.sample_objects(frac=0.3)
 
     assert len(new_ens.object) < prior_obj_len  # frac is not exact
     assert len(new_ens.source) < prior_src_len  # should affect source
 
-    if overwrite:
-        # should have also affected ens in-place
-        assert len(ens.object) < prior_obj_len
-        assert len(ens.source) < prior_src_len
-    else:
-        # ens should not have been affected
-        assert len(ens.object) == prior_obj_len
-        assert len(ens.source) == prior_src_len
+    # ens should not have been affected
+    assert len(ens.object) == prior_obj_len
+    assert len(ens.source) == prior_src_len
 
 
 def test_update_column_map(dask_client):
