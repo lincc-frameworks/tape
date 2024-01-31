@@ -514,7 +514,6 @@ class Ensemble:
             self.cleanup_client = False
             new_ens.cleanup_client = False
         else:
-            print("here")
             new_ens = Ensemble(client=False)
 
         new_ens.update_frame(object_subset)
