@@ -1130,22 +1130,36 @@ class Ensemble:
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
-        if use_map:  # use map_partitions
-            id_col = self._id_col  # need to grab this before mapping
-            batch = source_to_batch.map_partitions(
-                lambda x: x.groupby(on, group_keys=True).apply(
-                    lambda y: func(
-                        *[y[arg].to_numpy() if arg != id_col else y.index.to_numpy() for arg in args],
-                        **kwargs,
-                    ),
-                ),
-                meta=meta,
+        def _apply_func_to_lc(lc, func, *args, **kwargs):
+            """
+            Apply a batch function to a lightcurve
+            """
+            return func(
+                *[lc[arg].to_numpy() if arg != id_col else lc.index.to_numpy() for arg in args],
+                **kwargs,
             )
+
+        if use_map:  # use map_partitions
+
+            def _batch_apply(df, func, on, *args, **kwargs):
+                """
+                Apply a function to a partition of the dataframe
+                """
+                return df.groupby(on, group_keys=True, sort=False).apply(
+                    _apply_func_to_lc, func, *args, **kwargs
+                )
+
+            id_col = self._id_col  # need to grab this before mapping
+
+            batch = source_to_batch.map_partitions(_batch_apply, func, on, *args, **kwargs, meta=meta)
+
         else:  # use groupby
-            batch = source_to_batch.groupby(on, group_keys=False).apply(
-                lambda x: func(
-                    *[x[arg].to_numpy() if arg != id_col else x.index.to_numpy() for arg in args], **kwargs
-                ),
+            # don't use _batch_apply as meta must be specified in the apply call
+            batch = source_to_batch.groupby(on, group_keys=True, sort=False).apply(
+                _apply_func_to_lc,
+                func,
+                *args,
+                **kwargs,
                 meta=meta,
             )
 
