@@ -4,6 +4,7 @@ import json
 import shutil
 import warnings
 import requests
+import lsdb
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
@@ -1533,9 +1534,7 @@ class Ensemble:
             information mapped from the input dataset.
         sync_tables: 'bool', optional
             In the case where an `object_frame`is provided, determines whether an
-            initial sync is performed between the object and source tables. If
-            not performed, dynamic information like the number of observations
-            may be out of date until a sync is performed internally.
+            initial sync is performed between the object and source tables.
         npartitions: `int`, optional
             If specified, attempts to repartition the ensemble to the specified
             number of partitions
@@ -1564,14 +1563,18 @@ class Ensemble:
             source_frame = source_frame.repartition(partition_size=partition_size)
 
         # Set the index of the source frame and save the resulting table
-        self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
+        if source_frame.index.name != self._id_col:  # prevents a potential no-op
+            self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
+        else:
+            self.update_frame(source_frame) # the index is already set
 
         if object_frame is None:  # generate an indexed object table from source
             self.update_frame(self._generate_object_table())
 
         else:
             self.update_frame(ObjectFrame.from_dask_dataframe(object_frame, ensemble=self))
-            self.update_frame(self.object.set_index(self._id_col, sorted=sorted, sort=sort))
+            if object_frame.index.name != self._id_col:  # prevents a potential no-op
+                self.update_frame(self.object.set_index(self._id_col, sorted=sorted, sort=sort))
 
             # Optionally sync the tables, recalculates nobs columns
             if sync_tables:
@@ -1587,46 +1590,113 @@ class Ensemble:
                 )
         return self
 
-    def from_hipscat(self, dir, source_subdir="source", object_subdir="object", column_mapper=None, **kwargs):
-        """Read in parquet files from a hipscat-formatted directory structure
+    def from_lsdb(self,
+                  source_catalog, 
+                  object_catalog=None, 
+                  column_mapper=None,
+                  sync_tables=False,
+                  ):
+        """Read in from LSDB catalog objects.
 
         Parameters
         ----------
-        dir: 'str'
-            Path to the directory structure
-        source_subdir: 'str'
-            Path to the subdirectory which contains source files
-        object_subdir: 'str'
-            Path to the subdirectory which contains object files, if None then
-            files will only be read from the source_subdir
+        source_catalog: 'dask.Dataframe'
+            An LSDB catalog that contains source information to be read into 
+            the ensemble.
+        object_catalog: 'dask.Dataframe', optional
+            An LSDB catalog containing object information. If not specified, 
+            a minimal ObjectFrame is generated from the source catalog.
         column_mapper: 'ColumnMapper' object
             If provided, the ColumnMapper is used to populate relevant column
             information mapped from the input dataset.
-        **kwargs:
-            keyword arguments passed along to
-            `tape.ensemble.Ensemble.from_parquet`
+        sync_tables: 'bool', optional
+            In the case where an `object_catalog`is provided, determines 
+            whether an initial sync is performed between the object and source 
+            tables.
 
         Returns
         ----------
         ensemble: `tape.ensemble.Ensemble`
-            The ensemble object with parquet data loaded
+            The ensemble object with the LSDB catalog data loaded.
         """
 
-        source_path = os.path.join(dir, source_subdir)
-        source_files = glob.glob(os.path.join(source_path, "**", "*.parquet"), recursive=True)
+        return self.from_dask_dataframe(source_catalog._ddf,
+                                        object_catalog._ddf,
+                                        column_mapper=column_mapper,
+                                        sync_tables=sync_tables,
+                                        sorted=True,  # TODO: Do we need to provide sort/sorted, or can we assume it's always sorted
+                                        sort=False,
+                                        npartitions=None,
+                                        partition_size=None,
+                                        )
 
-        if object_subdir is not None:
-            object_path = os.path.join(dir, object_subdir)
-            object_files = glob.glob(os.path.join(object_path, "**", "*.parquet"), recursive=True)
+    def from_hipscat(self,
+                     source_path,
+                     object_path=None,
+                     column_mapper=None,
+                     source_index=None,
+                     object_index=None,
+                     ):
+        """Use LSDB to read from a hipscat directory.
+
+        This function utilizes LSDB for reading a hipscat directory into TAPE.
+        In cases where a user would like to do operations on the LSDB catalog
+        objects, it's best to use LSDB itself first, and then load the result
+        into TAPE using `tape.Ensemble.from_lsdb`
+
+        Parameters
+        ----------
+        source_path: 'dask.Dataframe'
+            A hipscat directory that contains source information to be read
+            into the ensemble.
+        object_catalog: 'dask.Dataframe', optional
+            A hipscat directory containing object information. If not
+            specified, a minimal ObjectFrame is generated from the sources.
+        column_mapper: 'ColumnMapper' object
+            If provided, the ColumnMapper is used to populate relevant column
+            information mapped from the input dataset.
+        object_index: 'str', optional
+            The join index of the object table, if not specified then the
+            id column provided to the column_mapper is used
+        source_index: 'str', optional
+            The join index of the source table, if not specified then the
+            id column provided to the column_mapper is used
+
+        Returns
+        ----------
+        ensemble: `tape.ensemble.Ensemble`
+            The ensemble object with the hipscat data loaded.
+        """
+
+        # After margin/associated caches are implemented in LSDB, we should use them here
+        source_catalog = lsdb.read_hipscat(source_path)
+
+        if object_path is not None:
+            object_catalog = lsdb.read_hipscat(object_path)
+
+            # We do this to get the source catalog indexed by the objects hipscat index
+            # Very specifically need object.join(source)
+            joined_source_catalog = object_catalog.join(source_catalog,
+                                                        left_on=object_index,
+                                                        right_on=source_index,
+                                                        suffixes=("_drop_these_cols", ""),
+                                                        )
         else:
-            object_files = None
+            object_catalog = None
+            joined_source_catalog = source_catalog
 
-        return self.from_parquet(
-            source_files,
-            object_files,
-            column_mapper=column_mapper,
-            **kwargs,
-        )
+        # We should also set index column to be object's _hipscat_index
+        self.from_lsdb(joined_source_catalog,
+                       object_catalog,
+                       column_mapper=column_mapper,
+                       sync_tables=False,
+                       )
+
+        # drop the extra object columns from source
+        if object_path is not None:
+            cols_to_drop = [col for col in self.source.columns if "_drop_these_cols" in col]
+            self.source.drop(columns=cols_to_drop).update_ensemble()
+        return self
 
     def make_column_map(self):
         """Returns the current column mapping.

@@ -28,6 +28,7 @@ dependencies = [
     "deprecated",
     "ipykernel", # Support for Jupyter notebooks
     "light-curve>=0.7.3,<0.8.0",
+    "lsdb"
 ]
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
