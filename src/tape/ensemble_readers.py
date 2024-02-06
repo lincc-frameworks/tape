@@ -246,12 +246,7 @@ def read_parquet(
 
 
 def read_lsdb(
-        source_catalog, 
-        object_catalog=None, 
-        column_mapper=None,
-        sync_tables=False,
-        dask_client=True,
-        **kwargs
+    source_catalog, object_catalog=None, column_mapper=None, sync_tables=False, dask_client=True, **kwargs
 ):
     """Read in from LSDB catalog objects.
 

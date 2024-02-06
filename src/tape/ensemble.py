@@ -1566,7 +1566,7 @@ class Ensemble:
         if source_frame.index.name != self._id_col:  # prevents a potential no-op
             self.update_frame(source_frame.set_index(self._id_col, drop=True, sorted=sorted, sort=sort))
         else:
-            self.update_frame(source_frame) # the index is already set
+            self.update_frame(source_frame)  # the index is already set
 
         if object_frame is None:  # generate an indexed object table from source
             self.update_frame(self._generate_object_table())
@@ -1590,28 +1590,29 @@ class Ensemble:
                 )
         return self
 
-    def from_lsdb(self,
-                  source_catalog, 
-                  object_catalog=None, 
-                  column_mapper=None,
-                  sync_tables=False,
-                  ):
+    def from_lsdb(
+        self,
+        source_catalog,
+        object_catalog=None,
+        column_mapper=None,
+        sync_tables=False,
+    ):
         """Read in from LSDB catalog objects.
 
         Parameters
         ----------
         source_catalog: 'dask.Dataframe'
-            An LSDB catalog that contains source information to be read into 
+            An LSDB catalog that contains source information to be read into
             the ensemble.
         object_catalog: 'dask.Dataframe', optional
-            An LSDB catalog containing object information. If not specified, 
+            An LSDB catalog containing object information. If not specified,
             a minimal ObjectFrame is generated from the source catalog.
         column_mapper: 'ColumnMapper' object
             If provided, the ColumnMapper is used to populate relevant column
             information mapped from the input dataset.
         sync_tables: 'bool', optional
-            In the case where an `object_catalog`is provided, determines 
-            whether an initial sync is performed between the object and source 
+            In the case where an `object_catalog`is provided, determines
+            whether an initial sync is performed between the object and source
             tables.
 
         Returns
@@ -1620,23 +1621,25 @@ class Ensemble:
             The ensemble object with the LSDB catalog data loaded.
         """
 
-        return self.from_dask_dataframe(source_catalog._ddf,
-                                        object_catalog._ddf,
-                                        column_mapper=column_mapper,
-                                        sync_tables=sync_tables,
-                                        sorted=True,  # TODO: Do we need to provide sort/sorted, or can we assume it's always sorted
-                                        sort=False,
-                                        npartitions=None,
-                                        partition_size=None,
-                                        )
+        return self.from_dask_dataframe(
+            source_catalog._ddf,
+            object_catalog._ddf,
+            column_mapper=column_mapper,
+            sync_tables=sync_tables,
+            sorted=True,  # TODO: Do we need to provide sort/sorted, or can we assume it's always sorted
+            sort=False,
+            npartitions=None,
+            partition_size=None,
+        )
 
-    def from_hipscat(self,
-                     source_path,
-                     object_path=None,
-                     column_mapper=None,
-                     source_index=None,
-                     object_index=None,
-                     ):
+    def from_hipscat(
+        self,
+        source_path,
+        object_path=None,
+        column_mapper=None,
+        source_index=None,
+        object_index=None,
+    ):
         """Use LSDB to read from a hipscat directory.
 
         This function utilizes LSDB for reading a hipscat directory into TAPE.
@@ -1676,21 +1679,23 @@ class Ensemble:
 
             # We do this to get the source catalog indexed by the objects hipscat index
             # Very specifically need object.join(source)
-            joined_source_catalog = object_catalog.join(source_catalog,
-                                                        left_on=object_index,
-                                                        right_on=source_index,
-                                                        suffixes=("_drop_these_cols", ""),
-                                                        )
+            joined_source_catalog = object_catalog.join(
+                source_catalog,
+                left_on=object_index,
+                right_on=source_index,
+                suffixes=("_drop_these_cols", ""),
+            )
         else:
             object_catalog = None
             joined_source_catalog = source_catalog
 
         # We should also set index column to be object's _hipscat_index
-        self.from_lsdb(joined_source_catalog,
-                       object_catalog,
-                       column_mapper=column_mapper,
-                       sync_tables=False,
-                       )
+        self.from_lsdb(
+            joined_source_catalog,
+            object_catalog,
+            column_mapper=column_mapper,
+            sync_tables=False,
+        )
 
         # drop the extra object columns from source
         if object_path is not None:
