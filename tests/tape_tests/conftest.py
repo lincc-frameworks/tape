@@ -1,4 +1,5 @@
 """Test fixtures for Ensemble manipulations"""
+
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
@@ -197,13 +198,21 @@ def read_parquet_ensemble_with_known_column_mapper(dask_client):
 @pytest.fixture
 def read_parquet_ensemble_from_hipscat(dask_client):
     """Create an Ensemble from a hipscat/hive-style directory."""
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
     return tape.read_hipscat(
-        "tests/tape_tests/data",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog",
+        column_mapper=colmap,
+        object_index="id",
+        source_index="object_id",
         dask_client=dask_client,
     )
 
@@ -365,13 +374,21 @@ def parquet_ensemble_with_known_column_mapper(dask_client):
 def parquet_ensemble_from_hipscat(dask_client):
     """Create an Ensemble from a hipscat/hive-style directory."""
     ens = Ensemble(client=dask_client)
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
     ens.from_hipscat(
-        "tests/tape_tests/data",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog",
+        column_mapper=colmap,
+        object_index="id",
+        source_index="object_id",
     )
 
     return ens

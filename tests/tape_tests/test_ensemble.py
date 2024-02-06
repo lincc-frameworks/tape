@@ -1,4 +1,5 @@
 """Test ensemble manipulations"""
+
 import copy
 import os
 
@@ -47,20 +48,17 @@ def test_with_client():
         "parquet_ensemble_with_divisions",
         "parquet_ensemble_without_client",
         "parquet_ensemble_from_source",
-        "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
         "parquet_ensemble_partition_size",
         "read_parquet_ensemble",
         "read_parquet_ensemble_without_client",
         "read_parquet_ensemble_from_source",
-        "read_parquet_ensemble_from_hipscat",
         "read_parquet_ensemble_with_column_mapper",
         "read_parquet_ensemble_with_known_column_mapper",
         "read_parquet_ensemble",
         "read_parquet_ensemble_without_client",
         "read_parquet_ensemble_from_source",
-        "read_parquet_ensemble_from_hipscat",
         "read_parquet_ensemble_with_column_mapper",
         "read_parquet_ensemble_with_known_column_mapper",
     ],
@@ -144,6 +142,47 @@ def test_dataframe_constructors(data_fixture, request):
     # Check that we can compute an analysis function on the ensemble.
     amplitude = ens.batch(calc_stetson_J)
     assert len(amplitude) == 5
+
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble_from_hipscat",
+        "read_parquet_ensemble_from_hipscat",
+        "read_parquet_ensemble_from_hipscat",
+    ],
+)
+def test_hipscat_constructors(data_fixture, request):
+    """
+    Tests constructing an ensemble from LSDB and hipscat
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # Check to make sure the source and object tables were created
+    assert parquet_ensemble.source is not None
+    assert parquet_ensemble.object is not None
+
+    # Make sure divisions are set
+    assert parquet_ensemble.source.known_divisions
+    assert parquet_ensemble.object.known_divisions
+
+    # Check that the data is not empty.
+    obj, source = parquet_ensemble.compute()
+    assert len(source) == 16135  # full source is 17161, but we drop some in the join with object
+    assert len(obj) == 131
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        parquet_ensemble._time_col,
+        parquet_ensemble._flux_col,
+        parquet_ensemble._err_col,
+        parquet_ensemble._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert parquet_ensemble.source[col] is not None
 
 
 @pytest.mark.parametrize(
