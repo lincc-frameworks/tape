@@ -310,6 +310,8 @@ def read_hipscat(
     column_mapper=None,
     source_index=None,
     object_index=None,
+    sorted=True,
+    sort=False,
     dask_client=True,
     **kwargs,
 ):
@@ -339,6 +341,12 @@ def read_hipscat(
     source_index: 'str', optional
         The join index of the source table, should be the label for the
         object ID contained in the source table.
+    sorted: bool, optional
+        If the index column is already sorted in increasing order.
+        Defaults to True.
+    sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the
+        index on the individual existing partitions. Defaults to False.
     dask_client: `dask.distributed.client` or `bool`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `client=True`, passing any additional kwargs to a
@@ -359,6 +367,8 @@ def read_hipscat(
         column_mapper=column_mapper,
         source_index=source_index,
         object_index=object_index,
+        sorted=sorted,
+        sort=sort,
     )
 
     return new_ens

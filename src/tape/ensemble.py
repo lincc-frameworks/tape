@@ -1615,7 +1615,7 @@ class Ensemble:
         sync_tables: 'bool', optional
             In the case where an `object_catalog`is provided, determines
             whether an initial sync is performed between the object and source
-            tables.
+            tables. Defaults to False.
         sorted: bool, optional
             If the index column is already sorted in increasing order.
             Defaults to True.
@@ -1696,6 +1696,8 @@ class Ensemble:
         column_mapper=None,
         source_index=None,
         object_index=None,
+        sorted=True,
+        sort=False,
     ):
         """Use LSDB to read from a hipscat directory.
 
@@ -1723,6 +1725,12 @@ class Ensemble:
         source_index: 'str', optional
             The join index of the source table, should be the label for the
             object ID contained in the source table.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to True.
+        sort: `bool`, optional
+            If True, sorts the DataFrame by the id column. Otherwise set the
+            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1748,22 +1756,18 @@ class Ensemble:
             # We can assume it's sorted if object and source are both present
             # Though this depends on the chosen _id_col, as we assume
             # _hipscat_index is going to be used
-            use_sorted = True
-            use_sort = False
         else:
             object_catalog = None
             joined_source_catalog = source_catalog
-            use_sorted = False
-            use_sort = True
 
         # We should also set index column to be object's _hipscat_index
         self.from_lsdb(
             joined_source_catalog,
             object_catalog,
             column_mapper=column_mapper,
-            sync_tables=False,
-            sorted=use_sorted,
-            sort=use_sort,
+            sync_tables=False,  # should never need to sync, the join does it for us
+            sorted=sorted,
+            sort=sort,
         )
 
         # drop the extra object columns from source
