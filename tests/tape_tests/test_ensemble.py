@@ -482,12 +482,22 @@ def test_from_source_dict(dask_client):
     assert 8002 in obj_table.index
 
 
-def test_from_lsdb_no_object(dask_client):
-    """Ensemble from a hipscat directory, with just the source given"""
+@pytest.mark.parametrize("bad_sort_kwargs", [True, False])
+@pytest.mark.parametrize("use_object", [True, False])
+@pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
+def test_from_lsdb_warnings(dask_client, bad_sort_kwargs, use_object, id_col):
+    """Test warnings in from_lsdb"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
     source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
 
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
     colmap = ColumnMapper(
-        id_col="object_id",  # don't use _hipscat_index, it's per source
+        id_col=id_col,
         time_col="mjd",
         flux_col="mag",
         err_col="Norder",  # no error column...
@@ -497,7 +507,55 @@ def test_from_lsdb_no_object(dask_client):
     ens = Ensemble(dask_client)
 
     # We just avoid needing to invoke the ._ddf property from the catalogs
-    ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=False, sort=True)
+
+    # When object and source are used with a id_col that is not _hipscat_index
+    # Check to see if this gives the user the expected warning
+    if id_col != "_hipscat_index" and use_object:
+        # need to first rename
+        object_cat._ddf = object_cat._ddf.rename(columns={"id": id_col})
+        with pytest.warns(UserWarning):
+            ens.from_lsdb(joined_source_cat, object_cat, column_mapper=colmap, sorted=False, sort=True)
+
+    # When using just source and the _hipscat_index is chosen as the id_col
+    # Check to see if this gives user the expected warning, do not test further
+    # as this ensemble is incorrect (source _hipscat_index is unique per source)
+    elif id_col == "_hipscat_index" and not use_object:
+        with pytest.warns(UserWarning):
+            ens.from_lsdb(joined_source_cat, None, column_mapper=colmap, sorted=True, sort=False)
+
+    # When using just source with bad sort kwargs, check that a warning is
+    # raised, but this should still yield a valid result
+    elif bad_sort_kwargs and not use_object:
+        with pytest.warns(UserWarning):
+            ens.from_lsdb(joined_source_cat, None, column_mapper=colmap, sorted=True, sort=False)
+
+    else:
+        return
+
+
+@pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
+def test_from_lsdb_no_object(dask_client, id_col):
+    """Ensemble from a hipscat directory, with just the source given"""
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    colmap = ColumnMapper(
+        id_col=id_col,  # don't use _hipscat_index, it's per source
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(dask_client)
+
+    # Just check to make sure users trying to use the _hipscat_index get a warning
+    # Further tests are not useful as this ensemble is incorrect (one id per source)
+    if id_col == "_hipscat_index":
+        with pytest.warns(UserWarning):
+            ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=True, sort=False)
+        return
+    else:
+        ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=False, sort=True)
 
     # Check to make sure the source and object tables were created
     assert ens.source is not None
