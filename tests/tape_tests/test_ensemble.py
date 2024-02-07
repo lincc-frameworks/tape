@@ -485,7 +485,7 @@ def test_from_source_dict(dask_client):
 @pytest.mark.parametrize("bad_sort_kwargs", [True, False])
 @pytest.mark.parametrize("use_object", [True, False])
 @pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
-def test_from_lsdb_warnings(dask_client, bad_sort_kwargs, use_object, id_col):
+def test_from_lsdb_warnings(bad_sort_kwargs, use_object, id_col):
     """Test warnings in from_lsdb"""
     object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
     source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
@@ -504,7 +504,7 @@ def test_from_lsdb_warnings(dask_client, bad_sort_kwargs, use_object, id_col):
         band_col="band",
     )
 
-    ens = Ensemble(dask_client)
+    ens = Ensemble(client=False)
 
     # We just avoid needing to invoke the ._ddf property from the catalogs
 
@@ -534,7 +534,7 @@ def test_from_lsdb_warnings(dask_client, bad_sort_kwargs, use_object, id_col):
 
 
 @pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
-def test_from_lsdb_no_object(dask_client, id_col):
+def test_from_lsdb_no_object(id_col):
     """Ensemble from a hipscat directory, with just the source given"""
     source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
 
@@ -546,7 +546,7 @@ def test_from_lsdb_no_object(dask_client, id_col):
         band_col="band",
     )
 
-    ens = Ensemble(dask_client)
+    ens = Ensemble(client=False)
 
     # Just check to make sure users trying to use the _hipscat_index get a warning
     # Further tests are not useful as this ensemble is incorrect (one id per source)
@@ -584,9 +584,9 @@ def test_from_lsdb_no_object(dask_client, id_col):
         assert ens.source[col] is not None
 
 
-def test_from_hipscat_no_object(dask_client):
+def test_from_hipscat_no_object():
     """Ensemble from a hipscat directory, with just the source given"""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     colmap = ColumnMapper(
         id_col="object_id",  # don't use _hipscat_index, it's per source

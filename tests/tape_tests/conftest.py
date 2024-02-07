@@ -372,9 +372,9 @@ def parquet_ensemble_with_known_column_mapper(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_from_hipscat(dask_client):
+def parquet_ensemble_from_hipscat():
     """Create an Ensemble from a hipscat/hive-style directory."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     colmap = ColumnMapper(
         id_col="_hipscat_index",
@@ -397,7 +397,7 @@ def parquet_ensemble_from_hipscat(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def ensemble_from_lsdb(client=dask_client):
+def ensemble_from_lsdb():
     """Create a dask dataframe from LSDB catalogs"""
     object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
     source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
@@ -416,7 +416,7 @@ def ensemble_from_lsdb(client=dask_client):
         band_col="band",
     )
 
-    ens = Ensemble(dask_client)
+    ens = Ensemble(False)
 
     # We just avoid needing to invoke the ._ddf property from the catalogs
     ens.from_lsdb(joined_source_cat, object_cat, column_mapper=colmap)
@@ -426,7 +426,7 @@ def ensemble_from_lsdb(client=dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_ensemble_from_lsdb(client=dask_client):
+def read_ensemble_from_lsdb():
     """Create a dask dataframe from LSDB catalogs"""
     object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
     source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
@@ -446,7 +446,7 @@ def read_ensemble_from_lsdb(client=dask_client):
     )
 
     # We just avoid needing to invoke the ._ddf property from the catalogs
-    ens = tape.read_lsdb(joined_source_cat, object_cat, column_mapper=colmap, dask_client=dask_client)
+    ens = tape.read_lsdb(joined_source_cat, object_cat, column_mapper=colmap, dask_client=False)
 
     return ens
 
