@@ -150,6 +150,8 @@ def test_dataframe_constructors(data_fixture, request):
         "parquet_ensemble_from_hipscat",
         "read_parquet_ensemble_from_hipscat",
         "read_parquet_ensemble_from_hipscat",
+        "ensemble_from_lsdb",
+        "read_ensemble_from_lsdb",
     ],
 )
 def test_hipscat_constructors(data_fixture, request):

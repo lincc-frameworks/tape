@@ -1645,7 +1645,9 @@ class Ensemble:
         This function utilizes LSDB for reading a hipscat directory into TAPE.
         In cases where a user would like to do operations on the LSDB catalog
         objects, it's best to use LSDB itself first, and then load the result
-        into TAPE using `tape.Ensemble.from_lsdb`
+        into TAPE using `tape.Ensemble.from_lsdb`. A join is performed between
+        the two tables to modify the source table to use the object index,
+        using `object_index` and `source_index`.
 
         Parameters
         ----------
@@ -1659,11 +1661,11 @@ class Ensemble:
             If provided, the ColumnMapper is used to populate relevant column
             information mapped from the input dataset.
         object_index: 'str', optional
-            The join index of the object table, if not specified then the
-            id column provided to the column_mapper is used
+            The join index of the object table, should be the label for the
+            object ID contained in the object table.
         source_index: 'str', optional
-            The join index of the source table, if not specified then the
-            id column provided to the column_mapper is used
+            The join index of the source table, should be the label for the
+            object ID contained in the source table.
 
         Returns
         ----------

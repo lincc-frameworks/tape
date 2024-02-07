@@ -5,6 +5,7 @@ import pandas as pd
 import dask.dataframe as dd
 import pytest
 import tape
+import lsdb
 
 from dask.distributed import Client
 
@@ -390,6 +391,62 @@ def parquet_ensemble_from_hipscat(dask_client):
         object_index="id",
         source_index="object_id",
     )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def ensemble_from_lsdb(client=dask_client):
+    """Create a dask dataframe from LSDB catalogs"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(dask_client)
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens.from_lsdb(joined_source_cat, object_cat, column_mapper=colmap)
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def read_ensemble_from_lsdb(client=dask_client):
+    """Create a dask dataframe from LSDB catalogs"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens = tape.read_lsdb(joined_source_cat, object_cat, column_mapper=colmap, dask_client=dask_client)
 
     return ens
 
