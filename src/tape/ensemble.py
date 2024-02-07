@@ -1596,6 +1596,8 @@ class Ensemble:
         object_catalog=None,
         column_mapper=None,
         sync_tables=False,
+        sorted=True,
+        sort=False,
     ):
         """Read in from LSDB catalog objects.
 
@@ -1614,6 +1616,12 @@ class Ensemble:
             In the case where an `object_catalog`is provided, determines
             whether an initial sync is performed between the object and source
             tables.
+        sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to True.
+        sort: `bool`, optional
+            If True, sorts the DataFrame by the id column. Otherwise set the
+            index on the individual existing partitions. Defaults to False.
 
         Returns
         ----------
@@ -1621,16 +1629,65 @@ class Ensemble:
             The ensemble object with the LSDB catalog data loaded.
         """
 
-        return self.from_dask_dataframe(
-            source_catalog._ddf,
-            object_catalog._ddf,
-            column_mapper=column_mapper,
-            sync_tables=sync_tables,
-            sorted=True,  # TODO: Do we need to provide sort/sorted, or can we assume it's always sorted
-            sort=False,
-            npartitions=None,
-            partition_size=None,
-        )
+        # Support for just source catalog is somewhat involved
+        # The code below mainly tries to catch a few common pitfalls
+        if object_catalog is None:
+            # This is tricky, so just raise an explicit warning
+            if column_mapper.map["id_col"] == "_hipscat_index":
+                warnings.warn(
+                    "Using the _hipscat_index as the id column is not advised without a specified object catalog, as the _hipscat_index is unique per source in this case. Use an object-level id.",
+                    UserWarning,
+                )
+            # And if they didn't choose _hipscat_index, it's almost certainly not sorted
+            # Let's try to catch a bad sorted set, and reroute to sort for better user experience
+            try:
+                self.from_dask_dataframe(
+                    source_catalog._ddf,
+                    None,
+                    column_mapper=column_mapper,
+                    sync_tables=sync_tables,
+                    sorted=sorted,
+                    sort=sort,
+                    npartitions=None,
+                    partition_size=None,
+                )
+            except ValueError:
+                warnings.warn(
+                    f"Tried using sorted={sorted} and sort={sort} and failed, the data is likely not sorted by the chosen id_col ({column_mapper.map['id_col']})"
+                )
+                self.from_dask_dataframe(
+                    source_catalog._ddf,
+                    None,
+                    column_mapper=column_mapper,
+                    sync_tables=sync_tables,
+                    sorted=False,
+                    sort=True,
+                    npartitions=None,
+                    partition_size=None,
+                )
+
+        # When we have both object and source, it's much simpler
+        else:
+            # We are still vulnerable to users choosing a non-_hipscat_index
+            # Just warn them, though it's likely the function call will fail
+            if column_mapper.map["id_col"] != "_hipscat_index":
+                warnings.warn(
+                    f"With hipscat data, it's advised to use the _hipscat_index as the id_col (instead of {column_mapper.map['id_col']}), as the data is sorted using this column. If you'd like to use your chosen id column, make sure it's in both catalogs and use sort=True and sorted=False",
+                    UserWarning,
+                )
+
+            self.from_dask_dataframe(
+                source_catalog._ddf,
+                object_catalog._ddf,
+                column_mapper=column_mapper,
+                sync_tables=sync_tables,
+                sorted=sorted,
+                sort=sort,
+                npartitions=None,
+                partition_size=None,
+            )
+
+        return self
 
     def from_hipscat(
         self,
@@ -1687,9 +1744,17 @@ class Ensemble:
                 right_on=source_index,
                 suffixes=("_drop_these_cols", ""),
             )
+
+            # We can assume it's sorted if object and source are both present
+            # Though this depends on the chosen _id_col, as we assume
+            # _hipscat_index is going to be used
+            use_sorted = True
+            use_sort = False
         else:
             object_catalog = None
             joined_source_catalog = source_catalog
+            use_sorted = False
+            use_sort = True
 
         # We should also set index column to be object's _hipscat_index
         self.from_lsdb(
@@ -1697,6 +1762,8 @@ class Ensemble:
             object_catalog,
             column_mapper=column_mapper,
             sync_tables=False,
+            sorted=use_sorted,
+            sort=use_sort,
         )
 
         # drop the extra object columns from source

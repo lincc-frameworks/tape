@@ -246,7 +246,14 @@ def read_parquet(
 
 
 def read_lsdb(
-    source_catalog, object_catalog=None, column_mapper=None, sync_tables=False, dask_client=True, **kwargs
+    source_catalog,
+    object_catalog=None,
+    column_mapper=None,
+    sync_tables=False,
+    sorted=True,
+    sort=False,
+    dask_client=True,
+    **kwargs,
 ):
     """Read in from LSDB catalog objects.
 
@@ -265,6 +272,12 @@ def read_lsdb(
         In the case where an `object_catalog`is provided, determines
         whether an initial sync is performed between the object and source
         tables.
+    sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to True.
+    sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the
+        index on the individual existing partitions. Defaults to False.
     dask_client: `dask.distributed.client` or `bool`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `client=True`, passing any additional kwargs to a
@@ -284,6 +297,8 @@ def read_lsdb(
         object_catalog=object_catalog,
         column_mapper=column_mapper,
         sync_tables=sync_tables,
+        sorted=sorted,
+        sort=sort,
     )
 
     return new_ens
@@ -319,11 +334,11 @@ def read_hipscat(
         If provided, the ColumnMapper is used to populate relevant column
         information mapped from the input dataset.
     object_index: 'str', optional
-            The join index of the object table, should be the label for the
-            object ID contained in the object table.
-        source_index: 'str', optional
-            The join index of the source table, should be the label for the
-            object ID contained in the source table.
+        The join index of the object table, should be the label for the
+        object ID contained in the object table.
+    source_index: 'str', optional
+        The join index of the source table, should be the label for the
+        object ID contained in the source table.
     dask_client: `dask.distributed.client` or `bool`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `client=True`, passing any additional kwargs to a

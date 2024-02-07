@@ -2,6 +2,7 @@
 
 import copy
 import os
+import lsdb
 
 import dask.dataframe as dd
 import numpy as np
@@ -479,6 +480,95 @@ def test_from_source_dict(dask_client):
     # Check that the derived object table is correct.
     assert 8001 in obj_table.index
     assert 8002 in obj_table.index
+
+
+def test_from_lsdb_no_object(dask_client):
+    """Ensemble from a hipscat directory, with just the source given"""
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    colmap = ColumnMapper(
+        id_col="object_id",  # don't use _hipscat_index, it's per source
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(dask_client)
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=False, sort=True)
+
+    # Check to make sure the source and object tables were created
+    assert ens.source is not None
+    assert ens.object is not None
+
+    # Make sure divisions are set
+    assert ens.source.known_divisions
+    assert ens.object.known_divisions
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 17161
+    assert len(obj) == 131
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens.source[col] is not None
+
+
+def test_from_hipscat_no_object(dask_client):
+    """Ensemble from a hipscat directory, with just the source given"""
+    ens = Ensemble(client=dask_client)
+
+    colmap = ColumnMapper(
+        id_col="object_id",  # don't use _hipscat_index, it's per source
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens.from_hipscat(
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        object_path=None,
+        column_mapper=colmap,
+    )
+
+    # Check to make sure the source and object tables were created
+    assert ens.source is not None
+    assert ens.object is not None
+
+    # Make sure divisions are set
+    assert ens.source.known_divisions
+    assert ens.object.known_divisions
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 17161
+    assert len(obj) == 131
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens.source[col] is not None
 
 
 def test_read_source_dict(dask_client):
