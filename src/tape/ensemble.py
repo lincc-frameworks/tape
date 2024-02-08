@@ -1667,8 +1667,8 @@ class Ensemble:
                     f"With hipscat data, it's advised to use the _hipscat_index as the id_col (instead of {column_mapper.map['id_col']}), as the data is sorted using this column. If you'd like to use your chosen id column, make sure it's in both catalogs and use sort=True and sorted=False (these have been auto-set for this call)",
                     UserWarning,
                 )
-                sorted=False
-                sort=True
+                sorted = False
+                sort = True
 
             self.from_dask_dataframe(
                 source_catalog._ddf,
