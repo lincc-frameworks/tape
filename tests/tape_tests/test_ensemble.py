@@ -1,6 +1,8 @@
 """Test ensemble manipulations"""
+
 import copy
 import os
+import lsdb
 
 import dask.dataframe as dd
 import numpy as np
@@ -47,20 +49,17 @@ def test_with_client():
         "parquet_ensemble_with_divisions",
         "parquet_ensemble_without_client",
         "parquet_ensemble_from_source",
-        "parquet_ensemble_from_hipscat",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
         "parquet_ensemble_partition_size",
         "read_parquet_ensemble",
         "read_parquet_ensemble_without_client",
         "read_parquet_ensemble_from_source",
-        "read_parquet_ensemble_from_hipscat",
         "read_parquet_ensemble_with_column_mapper",
         "read_parquet_ensemble_with_known_column_mapper",
         "read_parquet_ensemble",
         "read_parquet_ensemble_without_client",
         "read_parquet_ensemble_from_source",
-        "read_parquet_ensemble_from_hipscat",
         "read_parquet_ensemble_with_column_mapper",
         "read_parquet_ensemble_with_known_column_mapper",
     ],
@@ -144,6 +143,49 @@ def test_dataframe_constructors(data_fixture, request):
     # Check that we can compute an analysis function on the ensemble.
     amplitude = ens.batch(calc_stetson_J)
     assert len(amplitude) == 5
+
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble_from_hipscat",
+        "read_parquet_ensemble_from_hipscat",
+        "read_parquet_ensemble_from_hipscat",
+        "ensemble_from_lsdb",
+        "read_ensemble_from_lsdb",
+    ],
+)
+def test_hipscat_constructors(data_fixture, request):
+    """
+    Tests constructing an ensemble from LSDB and hipscat
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # Check to make sure the source and object tables were created
+    assert parquet_ensemble.source is not None
+    assert parquet_ensemble.object is not None
+
+    # Make sure divisions are set
+    assert parquet_ensemble.source.known_divisions
+    assert parquet_ensemble.object.known_divisions
+
+    # Check that the data is not empty.
+    obj, source = parquet_ensemble.compute()
+    assert len(source) == 16135  # full source is 17161, but we drop some in the join with object
+    assert len(obj) == 131
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        parquet_ensemble._time_col,
+        parquet_ensemble._flux_col,
+        parquet_ensemble._err_col,
+        parquet_ensemble._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert parquet_ensemble.source[col] is not None
 
 
 @pytest.mark.parametrize(
@@ -438,6 +480,153 @@ def test_from_source_dict(dask_client):
     # Check that the derived object table is correct.
     assert 8001 in obj_table.index
     assert 8002 in obj_table.index
+
+
+@pytest.mark.parametrize("bad_sort_kwargs", [True, False])
+@pytest.mark.parametrize("use_object", [True, False])
+@pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
+def test_from_lsdb_warnings_errors(bad_sort_kwargs, use_object, id_col):
+    """Test warnings in from_lsdb"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col=id_col,
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(client=False)
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+
+    # When object and source are used with a id_col that is not _hipscat_index
+    # Check to see if this gives the user the expected warning
+    if id_col != "_hipscat_index" and use_object:
+        # need to first rename
+        object_cat._ddf = object_cat._ddf.rename(columns={"id": id_col})
+        with pytest.warns(UserWarning):
+            ens.from_lsdb(joined_source_cat, object_cat, column_mapper=colmap, sorted=False, sort=True)
+
+    # When using just source and the _hipscat_index is chosen as the id_col
+    # Check to see if this gives user the expected warning, do not test further
+    # as this ensemble is incorrect (source _hipscat_index is unique per source)
+    elif id_col == "_hipscat_index" and not use_object:
+        with pytest.raises(ValueError):
+            ens.from_lsdb(joined_source_cat, None, column_mapper=colmap, sorted=True, sort=False)
+
+    # When using just source with bad sort kwargs, check that a warning is
+    # raised, but this should still yield a valid result
+    elif bad_sort_kwargs and not use_object:
+        with pytest.warns(UserWarning):
+            ens.from_lsdb(joined_source_cat, None, column_mapper=colmap, sorted=True, sort=False)
+
+    else:
+        return
+
+
+@pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
+def test_from_lsdb_no_object(id_col):
+    """Ensemble from a hipscat directory, with just the source given"""
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    colmap = ColumnMapper(
+        id_col=id_col,  # don't use _hipscat_index, it's per source
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(client=False)
+
+    # Just check to make sure users trying to use the _hipscat_index get an error
+    # this ensemble is incorrect (one id per source)
+    if id_col == "_hipscat_index":
+        with pytest.raises(ValueError):
+            ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=True, sort=False)
+        return
+    else:
+        ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=False, sort=True)
+
+    # Check to make sure the source and object tables were created
+    assert ens.source is not None
+    assert ens.object is not None
+
+    # Make sure divisions are set
+    assert ens.source.known_divisions
+    assert ens.object.known_divisions
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 17161
+    assert len(obj) == 131
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens.source[col] is not None
+
+
+def test_from_hipscat_no_object():
+    """Ensemble from a hipscat directory, with just the source given"""
+    ens = Ensemble(client=False)
+
+    colmap = ColumnMapper(
+        id_col="object_id",  # don't use _hipscat_index, it's per source
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens.from_hipscat(
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        object_path=None,
+        column_mapper=colmap,
+    )
+
+    # Check to make sure the source and object tables were created
+    assert ens.source is not None
+    assert ens.object is not None
+
+    # Make sure divisions are set
+    assert ens.source.known_divisions
+    assert ens.object.known_divisions
+
+    # Check that the data is not empty.
+    obj, source = ens.compute()
+    assert len(source) == 17161
+    assert len(obj) == 131
+
+    # Check that source and object both have the same ids present
+    assert sorted(np.unique(list(source.index))) == sorted(np.array(obj.index))
+
+    # Check the we loaded the correct columns.
+    for col in [
+        ens._time_col,
+        ens._flux_col,
+        ens._err_col,
+        ens._band_col,
+    ]:
+        # Check to make sure the critical quantity labels are bound to real columns
+        assert ens.source[col] is not None
 
 
 def test_read_source_dict(dask_client):

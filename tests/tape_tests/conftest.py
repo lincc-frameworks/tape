@@ -1,9 +1,11 @@
 """Test fixtures for Ensemble manipulations"""
+
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 import pytest
 import tape
+import lsdb
 
 from dask.distributed import Client
 
@@ -197,13 +199,21 @@ def read_parquet_ensemble_with_known_column_mapper(dask_client):
 @pytest.fixture
 def read_parquet_ensemble_from_hipscat(dask_client):
     """Create an Ensemble from a hipscat/hive-style directory."""
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
     return tape.read_hipscat(
-        "tests/tape_tests/data",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog",
+        column_mapper=colmap,
+        object_index="id",
+        source_index="object_id",
         dask_client=dask_client,
     )
 
@@ -362,17 +372,81 @@ def parquet_ensemble_with_known_column_mapper(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_from_hipscat(dask_client):
+def parquet_ensemble_from_hipscat():
     """Create an Ensemble from a hipscat/hive-style directory."""
-    ens = Ensemble(client=dask_client)
-    ens.from_hipscat(
-        "tests/tape_tests/data",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+    ens = Ensemble(client=False)
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
     )
+
+    ens.from_hipscat(
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog",
+        column_mapper=colmap,
+        object_index="id",
+        source_index="object_id",
+    )
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def ensemble_from_lsdb():
+    """Create a dask dataframe from LSDB catalogs"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(False)
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens.from_lsdb(joined_source_cat, object_cat, column_mapper=colmap)
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def read_ensemble_from_lsdb():
+    """Create a dask dataframe from LSDB catalogs"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens = tape.read_lsdb(joined_source_cat, object_cat, column_mapper=colmap, dask_client=False)
 
     return ens
 
