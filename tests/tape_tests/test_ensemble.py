@@ -47,18 +47,13 @@ def test_with_client():
     [
         "parquet_ensemble",
         "parquet_ensemble_with_divisions",
-        "parquet_ensemble_without_client",
+        "parquet_ensemble_with_client",
         "parquet_ensemble_from_source",
         "parquet_ensemble_with_column_mapper",
         "parquet_ensemble_with_known_column_mapper",
         "parquet_ensemble_partition_size",
         "read_parquet_ensemble",
-        "read_parquet_ensemble_without_client",
-        "read_parquet_ensemble_from_source",
-        "read_parquet_ensemble_with_column_mapper",
-        "read_parquet_ensemble_with_known_column_mapper",
-        "read_parquet_ensemble",
-        "read_parquet_ensemble_without_client",
+        "read_parquet_ensemble_with_client",
         "read_parquet_ensemble_from_source",
         "read_parquet_ensemble_with_column_mapper",
         "read_parquet_ensemble_with_known_column_mapper",
@@ -192,7 +187,7 @@ def test_hipscat_constructors(data_fixture, request):
     "data_fixture",
     [
         "parquet_ensemble",
-        "parquet_ensemble_without_client",
+        "parquet_ensemble_with_client",
     ],
 )
 def test_update_ensemble(data_fixture, request):
@@ -261,7 +256,7 @@ def test_available_datasets(dask_client):
 @pytest.mark.parametrize(
     "data_fixture",
     [
-        "parquet_files_and_ensemble_without_client",
+        "parquet_files_and_ensemble_with_client",
     ],
 )
 def test_frame_tracking(data_fixture, request):
@@ -1025,7 +1020,7 @@ def test_persist(dask_client):
     "data_fixture",
     [
         "parquet_ensemble_with_divisions",
-        "parquet_ensemble_without_client",
+        "parquet_ensemble_with_client",
     ],
 )
 def test_sample(data_fixture, request):
@@ -1048,9 +1043,6 @@ def test_sample(data_fixture, request):
     # ens should not have been affected
     assert len(ens.object) == prior_obj_len
     assert len(ens.source) == prior_src_len
-
-    if data_fixture == "parquet_ensemble_with_divisions":
-        ens.client.close()  # sample_objects disables client cleanup, must do manually
 
 
 def test_update_column_map(dask_client):
@@ -1933,7 +1925,7 @@ def test_bin_sources_two_days(dask_client):
     [
         "parquet_ensemble",
         "parquet_ensemble_with_divisions",
-        "parquet_ensemble_without_client",
+        "parquet_ensemble_with_client",
     ],
 )
 @pytest.mark.parametrize("use_map", [True, False])

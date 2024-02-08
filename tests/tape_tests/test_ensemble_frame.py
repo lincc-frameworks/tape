@@ -1,4 +1,5 @@
 """ Test EnsembleFrame (inherited from Dask.DataFrame) creation and manipulations. """
+
 import numpy as np
 import pandas as pd
 from tape import (
@@ -228,7 +229,7 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
 @pytest.mark.parametrize(
     "data_fixture",
     [
-        "parquet_files_and_ensemble_without_client",
+        "parquet_files_and_ensemble_with_client",
     ],
 )
 def test_object_and_source_frame_propagation(data_fixture, request):
