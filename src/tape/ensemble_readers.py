@@ -326,10 +326,10 @@ def read_hipscat(
 
     Parameters
     ----------
-    source_path: 'dask.Dataframe'
+    source_path: str or Path
         A hipscat directory that contains source information to be read
         into the ensemble.
-    object_catalog: 'dask.Dataframe', optional
+    object_path: str or Path, optional
         A hipscat directory containing object information. If not
         specified, a minimal ObjectFrame is generated from the sources.
     column_mapper: 'ColumnMapper' object

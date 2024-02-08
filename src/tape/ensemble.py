@@ -1710,10 +1710,10 @@ class Ensemble:
 
         Parameters
         ----------
-        source_path: 'dask.Dataframe'
+        source_path: str or Path
             A hipscat directory that contains source information to be read
             into the ensemble.
-        object_catalog: 'dask.Dataframe', optional
+        object_path: str or Path, optional
             A hipscat directory containing object information. If not
             specified, a minimal ObjectFrame is generated from the sources.
         column_mapper: 'ColumnMapper' object
@@ -1772,7 +1772,7 @@ class Ensemble:
 
         # drop the extra object columns from source
         if object_path is not None:
-            cols_to_drop = [col for col in self.source.columns if "_drop_these_cols" in col]
+            cols_to_drop = [col for col in self.source.columns if col.endswith("_drop_these_cols")]
             self.source.drop(columns=cols_to_drop).update_ensemble()
         return self
 
