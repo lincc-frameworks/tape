@@ -1632,39 +1632,31 @@ class Ensemble:
         # Support for just source catalog is somewhat involved
         # The code below mainly tries to catch a few common pitfalls
         if object_catalog is None:
-            # This is tricky, so just raise an explicit warning
+            # This is tricky, so just raise an error
             if column_mapper.map["id_col"] == "_hipscat_index":
-                warnings.warn(
+                raise ValueError(
                     "Using the _hipscat_index as the id column is not advised without a specified object catalog, as the _hipscat_index is unique per source in this case. Use an object-level id.",
-                    UserWarning,
                 )
             # And if they didn't choose _hipscat_index, it's almost certainly not sorted
             # Let's try to catch a bad sorted set, and reroute to sort for better user experience
-            try:
-                self.from_dask_dataframe(
-                    source_catalog._ddf,
-                    None,
-                    column_mapper=column_mapper,
-                    sync_tables=sync_tables,
-                    sorted=sorted,
-                    sort=sort,
-                    npartitions=None,
-                    partition_size=None,
-                )
-            except ValueError:
-                warnings.warn(
-                    f"Tried using sorted={sorted} and sort={sort} and failed, the data is likely not sorted by the chosen id_col ({column_mapper.map['id_col']})"
-                )
-                self.from_dask_dataframe(
-                    source_catalog._ddf,
-                    None,
-                    column_mapper=column_mapper,
-                    sync_tables=sync_tables,
-                    sorted=False,
-                    sort=True,
-                    npartitions=None,
-                    partition_size=None,
-                )
+            else:
+                if sorted is True:
+                    warnings.warn(
+                        f" The sorted flag was set true with a non _hipscat_index id column ({column_mapper.map['id_col']}). This dataset is sorted by _hipscat_index, so the sorted flag has been turned off and sort has been turned on."
+                    )
+                    sorted = False
+                    sort = True
+
+            self.from_dask_dataframe(
+                source_catalog._ddf,
+                None,
+                column_mapper=column_mapper,
+                sync_tables=sync_tables,
+                sorted=sorted,
+                sort=sort,
+                npartitions=None,
+                partition_size=None,
+            )
 
         # When we have both object and source, it's much simpler
         else:
@@ -1672,9 +1664,11 @@ class Ensemble:
             # Just warn them, though it's likely the function call will fail
             if column_mapper.map["id_col"] != "_hipscat_index":
                 warnings.warn(
-                    f"With hipscat data, it's advised to use the _hipscat_index as the id_col (instead of {column_mapper.map['id_col']}), as the data is sorted using this column. If you'd like to use your chosen id column, make sure it's in both catalogs and use sort=True and sorted=False",
+                    f"With hipscat data, it's advised to use the _hipscat_index as the id_col (instead of {column_mapper.map['id_col']}), as the data is sorted using this column. If you'd like to use your chosen id column, make sure it's in both catalogs and use sort=True and sorted=False (these have been auto-set for this call)",
                     UserWarning,
                 )
+                sorted=False
+                sort=True
 
             self.from_dask_dataframe(
                 source_catalog._ddf,
@@ -1753,9 +1747,6 @@ class Ensemble:
                 suffixes=("_drop_these_cols", ""),
             )
 
-            # We can assume it's sorted if object and source are both present
-            # Though this depends on the chosen _id_col, as we assume
-            # _hipscat_index is going to be used
         else:
             object_catalog = None
             joined_source_catalog = source_catalog

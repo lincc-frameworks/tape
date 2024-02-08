@@ -485,7 +485,7 @@ def test_from_source_dict(dask_client):
 @pytest.mark.parametrize("bad_sort_kwargs", [True, False])
 @pytest.mark.parametrize("use_object", [True, False])
 @pytest.mark.parametrize("id_col", ["object_id", "_hipscat_index"])
-def test_from_lsdb_warnings(bad_sort_kwargs, use_object, id_col):
+def test_from_lsdb_warnings_errors(bad_sort_kwargs, use_object, id_col):
     """Test warnings in from_lsdb"""
     object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
     source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
@@ -520,7 +520,7 @@ def test_from_lsdb_warnings(bad_sort_kwargs, use_object, id_col):
     # Check to see if this gives user the expected warning, do not test further
     # as this ensemble is incorrect (source _hipscat_index is unique per source)
     elif id_col == "_hipscat_index" and not use_object:
-        with pytest.warns(UserWarning):
+        with pytest.raises(ValueError):
             ens.from_lsdb(joined_source_cat, None, column_mapper=colmap, sorted=True, sort=False)
 
     # When using just source with bad sort kwargs, check that a warning is
@@ -548,10 +548,10 @@ def test_from_lsdb_no_object(id_col):
 
     ens = Ensemble(client=False)
 
-    # Just check to make sure users trying to use the _hipscat_index get a warning
-    # Further tests are not useful as this ensemble is incorrect (one id per source)
+    # Just check to make sure users trying to use the _hipscat_index get an error
+    # this ensemble is incorrect (one id per source)
     if id_col == "_hipscat_index":
-        with pytest.warns(UserWarning):
+        with pytest.raises(ValueError):
             ens.from_lsdb(source_cat, object_catalog=None, column_mapper=colmap, sorted=True, sort=False)
         return
     else:
