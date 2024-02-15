@@ -50,9 +50,9 @@ class ColumnMapper:
             Column("band_col", True),
         ]
 
-        self.known_maps = {"ZTF": ZTFColumnMapper}
+        self.known_maps = {"ZTF": ZTFColumnMapper, "PS1": PS1ColumnMapper}
 
-    def _set_known_map(self):
+    def _set_known_map(self, hipscat=True):
         """Must be defined in a known map class"""
         raise NotImplementedError
 
@@ -60,13 +60,17 @@ class ColumnMapper:
     def map_id() -> str:
         return None
 
-    def use_known_map(self, map_id):
+    def use_known_map(self, map_id, hipscat=True):
         """Use a known mapping scheme
 
         Parameters
         ----------
         map_id: 'str'
             Identifies which mapping scheme to use
+        hipscat: 'bool'
+            Indicates whether the data is in hipscat format or not, which will
+            affect the chosen ID column (_hipscat_index will be used when
+            hipscat is true. True by default.
 
         Returns
         -------
@@ -74,8 +78,8 @@ class ColumnMapper:
         ZTFColumnMapper in the case of "ZTF" for example
 
         """
-        if map_id in self.known_maps:
-            return self.known_maps[map_id]()._set_known_map()
+        if map_id.upper() in self.known_maps:
+            return self.known_maps[map_id.upper()]()._set_known_map(hipscat=hipscat)
         else:
             raise ValueError(f'Unknown Mapping: "{map_id}"')
 
@@ -157,16 +161,43 @@ class ZTFColumnMapper(ColumnMapper):
     """This class establishs a known mapping to Zwicky Transient Facility (ZTF)
     catalog data columns"""
 
-    def _set_known_map(self):
+    def _set_known_map(self, hipscat=True):
+        if hipscat:
+            id_col = "_hipscat_index"
+        else:
+            id_col = "ps1_objid"
         self.map = {
-            "id_col": "ps1_objid",
-            "time_col": "midPointTai",
-            "flux_col": "psFlux",
-            "err_col": "psFluxErr",
-            "band_col": "filterName",
+            "id_col": id_col,
+            "time_col": "mjd",
+            "flux_col": "mag",
+            "err_col": "magerr",
+            "band_col": "band",
         }
         return self
 
     @staticmethod
     def map_id() -> str:
         return "ZTF"
+
+
+class PS1ColumnMapper(ColumnMapper):
+    """This class establishs a known mapping to Pan-STARRs (PS1)
+    catalog data columns"""
+
+    def _set_known_map(self, hipscat=True):
+        if hipscat:
+            id_col = "_hipscat_index"
+        else:
+            id_col = "objID"
+        self.map = {
+            "id_col": id_col,
+            "time_col": "obsTime",
+            "flux_col": "apFlux",
+            "err_col": "apFluxErr",
+            "band_col": "filterID",
+        }
+        return self
+
+    @staticmethod
+    def map_id() -> str:
+        return "PS1"

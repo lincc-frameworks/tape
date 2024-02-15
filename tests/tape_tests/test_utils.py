@@ -75,7 +75,7 @@ def test_column_mapper_init():
 
     assert col_map.map == expected_map  # The expected mapping
 
-    @pytest.mark.parametrize("map_id", ["ZTF", "Grundor"])
+    @pytest.mark.parametrize("map_id", ["ZTF", "PS1", "ztf", "Grundor"])
     def test_use_known_map(map_id):
         """test a known mapping"""
         cmap = ColumnMapper()
