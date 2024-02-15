@@ -56,10 +56,6 @@ class ColumnMapper:
         """Must be defined in a known map class"""
         raise NotImplementedError
 
-    @staticmethod
-    def map_id() -> str:
-        return None
-
     def use_known_map(self, map_id, hipscat=True):
         """Use a known mapping scheme
 
@@ -162,6 +158,7 @@ class ZTFColumnMapper(ColumnMapper):
     catalog data columns"""
 
     def _set_known_map(self, hipscat=True):
+
         if hipscat:
             id_col = "_hipscat_index"
         else:
@@ -175,16 +172,13 @@ class ZTFColumnMapper(ColumnMapper):
         }
         return self
 
-    @staticmethod
-    def map_id() -> str:
-        return "ZTF"
-
 
 class PS1ColumnMapper(ColumnMapper):
     """This class establishs a known mapping to Pan-STARRs (PS1)
     catalog data columns"""
 
     def _set_known_map(self, hipscat=True):
+
         if hipscat:
             id_col = "_hipscat_index"
         else:
@@ -197,7 +191,3 @@ class PS1ColumnMapper(ColumnMapper):
             "band_col": "filterID",
         }
         return self
-
-    @staticmethod
-    def map_id() -> str:
-        return "PS1"
