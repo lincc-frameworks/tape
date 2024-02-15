@@ -158,7 +158,7 @@ class ZTFColumnMapper(ColumnMapper):
     catalog data columns"""
 
     def _set_known_map(self, hipscat=True):
-
+        """sets the map to a pre-defined ZTF mapping"""
         if hipscat:
             id_col = "_hipscat_index"
         else:
@@ -178,7 +178,7 @@ class PS1ColumnMapper(ColumnMapper):
     catalog data columns"""
 
     def _set_known_map(self, hipscat=True):
-
+        """sets the map to a pre-defined PS1 mapping"""
         if hipscat:
             id_col = "_hipscat_index"
         else:
