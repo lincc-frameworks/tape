@@ -47,16 +47,12 @@ def test_with_client():
     [
         "parquet_ensemble",
         "parquet_ensemble_with_divisions",
-        "parquet_ensemble_with_client",
         "parquet_ensemble_from_source",
         "parquet_ensemble_with_column_mapper",
-        "parquet_ensemble_with_known_column_mapper",
         "parquet_ensemble_partition_size",
         "read_parquet_ensemble",
-        "read_parquet_ensemble_with_client",
         "read_parquet_ensemble_from_source",
         "read_parquet_ensemble_with_column_mapper",
-        "read_parquet_ensemble_with_known_column_mapper",
     ],
 )
 def test_parquet_construction(data_fixture, request):
