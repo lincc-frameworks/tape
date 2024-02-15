@@ -357,21 +357,6 @@ def parquet_ensemble_with_column_mapper():
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_with_known_column_mapper():
-    """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=False)
-
-    colmap = ColumnMapper().use_known_map("ZTF")
-    ens.from_parquet(
-        "tests/tape_tests/data/source/test_source.parquet",
-        column_mapper=colmap,
-    )
-
-    return ens
-
-
-# pylint: disable=redefined-outer-name
-@pytest.fixture
 def parquet_ensemble_from_hipscat():
     """Create an Ensemble from a hipscat/hive-style directory."""
     ens = Ensemble(client=False)
