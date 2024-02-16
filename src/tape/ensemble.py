@@ -41,7 +41,7 @@ METADATA_FILENAME = "ensemble_metadata.json"
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
 
-    def __init__(self, client=True, **kwargs):
+    def __init__(self, client=False, **kwargs):
         """Constructor of an Ensemble instance.
 
         Parameters
@@ -50,7 +50,7 @@ class Ensemble:
             Accepts an existing `dask.distributed.Client`, or creates one if
             `client=True`, passing any additional kwargs to a
              dask.distributed.Client constructor call. If `client=False`, the
-             Ensemble is created without a distributed client.
+             Ensemble is created without a distributed client (default).
 
         """
         self.result = None  # holds the latest query
