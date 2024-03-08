@@ -4,7 +4,8 @@ import json
 import shutil
 import warnings
 import requests
-import dask.dataframe as dd
+import dask_expr as dd
+#import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 
