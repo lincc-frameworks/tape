@@ -17,7 +17,9 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
-from .ensemble_frame import (
+
+# from .ensemble_frame import (
+from .expr import (
     EnsembleFrame,
     EnsembleSeries,
     ObjectFrame,
@@ -2160,6 +2162,7 @@ class Ensemble:
     def _generate_object_table(self):
         """Generate an empty object table from the source table."""
         res = self.source.map_partitions(lambda x: TapeObjectFrame(index=x.index.unique()))
+        res.label = "object"  # TODO: propagation issue with label
 
         return res
 

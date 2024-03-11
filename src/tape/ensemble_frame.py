@@ -3,20 +3,12 @@ from collections.abc import Sequence
 import warnings
 
 import dask_expr as dd
-#import dask.dataframe as dd
+import dask.dataframe as dd
 
 import dask
-
-from dask.utils import Dispatch
-make_meta_dispatch = Dispatch("make_meta_dispatch")
-#from dask.dataframe.dispatch import make_meta_dispatch
-
-from dask.dataframe.dispatch import meta_nonempty
-from dask.dataframe.backends import meta_nonempty_dataframe, _nonempty_series
-#from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe, _nonempty_series
+from dask.dataframe.dispatch import make_meta_dispatch
+from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe, _nonempty_series
 from tape.utils import IndexCallable
-
-#from dask_expr import get_collection_type # the dask-expr version of get_parallel_type
 from dask.dataframe.core import get_parallel_type
 from dask.dataframe.extensions import make_array_nonempty
 
@@ -104,7 +96,7 @@ class TapeObjectArrowEngine(TapeArrowEngine):
         return TapeObjectFrame(meta)
 
 
-class _Frame(dd._collection.FrameBase):
+class _Frame(dd.core._Frame):
     """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
 
     def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
@@ -834,13 +826,13 @@ class TapeFrame(pd.DataFrame):
         return TapeFrame
 
 
-class EnsembleSeries(_Frame, dd._collection.Series):
+class EnsembleSeries(_Frame, dd.core.Series):
     """A barebones extension of a Dask Series for Ensemble data."""
 
     _partition_type = TapeSeries  # Tracks the underlying data type
 
 
-class EnsembleFrame(_Frame, dd._collection.DataFrame):
+class EnsembleFrame(_Frame, dd.core.DataFrame):
     """An extension for a Dask Dataframe for data used by a lightcurve Ensemble.
 
     The underlying non-parallel dataframes are TapeFrames and TapeSeries which extend Pandas frames.
