@@ -1262,23 +1262,36 @@ class Ensemble:
 
             # Need to overwrite the meta manually as the multiindex will be
             # interpretted by dask as a single "index" column
-            batch._meta = TapeFrame(columns=on + res_cols)
+
+            # [expr] added map_partitions meta assignment
+            #batch._meta = TapeFrame(columns=on + res_cols)
+            batch = batch.map_partitions(TapeFrame, meta = TapeFrame(columns=on + res_cols))
 
             # Further reformatting for per-band results
             # Pivots on the band column to generate a result column for each
             # photometric band.
             if by_band:
                 batch = batch.categorize(self._band_col)
-                batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
-
+                # [expr] added values
+                #import pdb;pdb.set_trace()
+                col_values = [col for col in batch.columns if col not in [on[0], self._band_col]]
+                batch = batch.pivot_table(index=on[0], columns=self._band_col, values=col_values, aggfunc="sum")
+                
                 # Need to once again reestablish meta for the pivot
                 band_labels = batch.columns.values
                 out_cols = []
                 # To align with pandas pivot_table results, the columns should be generated in reverse order
                 for col in res_cols[::-1]:
                     for band in band_labels:
-                        out_cols += [(str(col), str(band))]
-                batch._meta = TapeFrame(columns=out_cols)  # apply new meta
+                        # [expr] adjusted labeling
+                        #out_cols += [(str(col), str(band))]
+                        out_cols += [(str(band[0]), str(band[1]))]
+
+                #import pdb; pdb.set_trace()
+                # [expr] added map_partitions meta assignment
+                #batch._meta = TapeFrame(columns=out_cols)  # apply new meta
+                #apply new meta
+                batch = batch.map_partitions(TapeFrame, meta = TapeFrame(columns=band_labels))
 
                 # Flatten the columns to a new column per band
                 batch.columns = ["_".join(col) for col in batch.columns.values]

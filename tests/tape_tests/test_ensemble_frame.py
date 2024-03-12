@@ -204,9 +204,6 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
     ens_frame.label = TEST_LABEL
     ens_frame.ensemble = ens
 
-    print(type(ens_frame))
-    assert False
-
     if zp_form == "flux":
         ens_frame = ens_frame.convert_flux_to_mag("flux", "zp_flux", err_col, zp_form, out_col_name)
 

@@ -2075,10 +2075,15 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
         # An EnsembleFrame should be returned
         assert isinstance(res, EnsembleFrame)
 
+
+        #import pdb; pdb.set_trace()
+
         # Make sure we get all the expected columns
         assert all([col in res.columns for col in ["result_g", "result_r"]])
 
         # These should be equivalent
+        # [expr] need this TODO: investigate typing issue
+        filter_res.index = filter_res.index.astype("int")
         assert (
             res.loc[88472935274829959]["result_g"]
             .compute()
@@ -2107,6 +2112,10 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
         assert all([col in res.columns for col in ["max_g", "max_r", "min_g", "min_r"]])
 
         # These should be equivalent
+
+        # [expr] need this TODO: investigate typing issue
+        filter_res.index = filter_res.index.astype("int")
+        
         assert (
             res.loc[88472935274829959]["max_g"]
             .compute()

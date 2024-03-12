@@ -27,12 +27,12 @@ from dask_expr import (
     elemwise,
     from_graph,
     get_collection_type,
-    from_dict,
+    #from_dict,
 )
-from dask_expr._collection import new_collection
+from dask_expr._collection import new_collection, from_dict
 from dask_expr._expr import _emulate, ApplyConcatApply
 
-from .ensemble_frame import TapeFrame, TapeSeries
+#from .ensemble_frame import TapeFrame, TapeSeries
 
 SOURCE_FRAME_LABEL = "source"  # Reserved label for source table
 OBJECT_FRAME_LABEL = "object"  # Reserved label for object table.
@@ -52,6 +52,35 @@ from functools import partial
 from dask.dataframe.io.parquet.arrow import (
     ArrowDatasetEngine as DaskArrowDatasetEngine,
 )
+
+class TapeSeries(pd.Series):
+    """A barebones extension of a Pandas series to be used for underlying Ensemble data.
+
+    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
+    """
+
+    @property
+    def _constructor(self):
+        return TapeSeries
+
+    @property
+    def _constructor_sliced(self):
+        return TapeSeries
+
+
+class TapeFrame(pd.DataFrame):
+    """A barebones extension of a Pandas frame to be used for underlying Ensemble data.
+
+    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
+    """
+
+    @property
+    def _constructor(self):
+        return TapeFrame
+
+    @property
+    def _constructor_expanddim(self):
+        return TapeFrame
 
 
 class TapeArrowEngine(DaskArrowDatasetEngine):
@@ -840,34 +869,7 @@ class _Frame(dx.FrameBase):
         return self._propagate_metadata(result)
 
 
-class TapeSeries(pd.Series):
-    """A barebones extension of a Pandas series to be used for underlying Ensemble data.
 
-    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
-    """
-
-    @property
-    def _constructor(self):
-        return TapeSeries
-
-    @property
-    def _constructor_sliced(self):
-        return TapeSeries
-
-
-class TapeFrame(pd.DataFrame):
-    """A barebones extension of a Pandas frame to be used for underlying Ensemble data.
-
-    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
-    """
-
-    @property
-    def _constructor(self):
-        return TapeFrame
-
-    @property
-    def _constructor_expanddim(self):
-        return TapeFrame
 
 
 class EnsembleSeries(_Frame, dd.Series):
@@ -976,7 +978,7 @@ class EnsembleFrame(
         cl, data, npartitions, orient="columns", dtype=None, columns=None, label=None, ensemble=None
     ):
         """"""
-        result = from_dict(data, npartitions=npartitions, orient=orient, dtype=dtype, columns=columns)
+        result = from_dict(data, npartitions=npartitions, orient=orient, dtype=dtype, columns=columns, constructor=TapeFrame)
         result.label = label
         result.ensemble = ensemble
         return result
