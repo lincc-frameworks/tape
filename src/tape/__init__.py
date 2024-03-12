@@ -4,4 +4,4 @@ from .ensemble_frame import *  # noqa
 from .timeseries import *  # noqa
 from .ensemble_readers import *  # noqa
 from ._version import __version__  # noqa
-from .expr import * #noqa
+from .expr import *  # noqa
