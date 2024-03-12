@@ -2249,7 +2249,7 @@ class Ensemble:
                 else:
                     warnings.warn("Divisions are not known, syncing using a non-lazy method.")
                     # Sync Source to Object; remove any objects that do not have sources
-                    sor_idx = list(self.source.index.unique().compute())
+                    sor_idx = list(self.source.index.compute().unique())
                     self.update_frame(self.object.map_partitions(lambda x: x[x.index.isin(sor_idx)]))
                     self.update_frame(self.object.persist())  # persist the object frame
 

@@ -5,12 +5,24 @@ import pandas as pd
 from tape import (
     Ensemble,
     ColumnMapper,
+    # EnsembleFrame,
+    # ObjectFrame,
+    # SourceFrame,
+    # TapeObjectFrame,
+    # TapeSourceFrame,
+    # TapeFrame,
+)
+
+# from .ensemble_frame import (
+from tape.expr import (
     EnsembleFrame,
+    EnsembleSeries,
     ObjectFrame,
     SourceFrame,
+    TapeFrame,
     TapeObjectFrame,
     TapeSourceFrame,
-    TapeFrame,
+    TapeSeries,
 )
 
 import pytest
@@ -191,6 +203,9 @@ def test_convert_flux_to_mag(data_fixture, request, err_col, zp_form, out_col_na
     ens_frame = EnsembleFrame.from_dict(data, npartitions=1)
     ens_frame.label = TEST_LABEL
     ens_frame.ensemble = ens
+
+    print(type(ens_frame))
+    assert False
 
     if zp_form == "flux":
         ens_frame = ens_frame.convert_flux_to_mag("flux", "zp_flux", err_col, zp_form, out_col_name)

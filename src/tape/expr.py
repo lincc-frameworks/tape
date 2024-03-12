@@ -27,6 +27,7 @@ from dask_expr import (
     elemwise,
     from_graph,
     get_collection_type,
+    from_dict,
 )
 from dask_expr._collection import new_collection
 from dask_expr._expr import _emulate, ApplyConcatApply
@@ -130,7 +131,6 @@ class _Frame(dx.FrameBase):
     _partition_type = TapeFrame
 
     def __init__(self, expr, label=None, ensemble=None):
-
         # We define relevant object fields before super().__init__ since that call may lead to a
         # map_partitions call which will assume these fields exist.
         self.label = label  # A label used by the Ensemble to identify this frame.
@@ -972,6 +972,16 @@ class EnsembleFrame(
         return self.ensemble.update_frame(self)
 
     @classmethod
+    def from_dict(
+        cl, data, npartitions, orient="columns", dtype=None, columns=None, label=None, ensemble=None
+    ):
+        """"""
+        result = from_dict(data, npartitions=npartitions, orient=orient, dtype=dtype, columns=columns)
+        result.label = label
+        result.ensemble = ensemble
+        return result
+
+    @classmethod
     def from_parquet(cl, path, index=None, columns=None, label=None, ensemble=None, **kwargs):
         """Returns an EnsembleFrame constructed from loading a parquet file.
 
@@ -1010,6 +1020,139 @@ class EnsembleFrame(
 
         return result
 
+    def convert_flux_to_mag(
+        self,
+        flux_col,
+        zero_point,
+        err_col=None,
+        zp_form="mag",
+        out_col_name=None,
+    ):
+        """Converts this EnsembleFrame's flux column into a magnitude column, returning a new
+        EnsembleFrame.
+
+        Parameters
+        ----------
+        flux_col: 'str'
+            The name of the EnsembleFrame flux column to convert into magnitudes.
+        zero_point: 'str'
+            The name of the EnsembleFrame column containing the zero point
+            information for column transformation.
+        err_col: 'str', optional
+            The name of the EnsembleFrame column containing the errors to propagate.
+            Errors are propagated using the following approximation:
+            Err= (2.5/log(10))*(flux_error/flux), which holds mainly when the
+            error in flux is much smaller than the flux.
+        zp_form: `str`, optional
+            The form of the zero point column, either "flux" or
+            "magnitude"/"mag". Determines how the zero point (zp) is applied in
+            the conversion. If "flux", then the function is applied as
+            mag=-2.5*log10(flux/zp), or if "magnitude", then
+            mag=-2.5*log10(flux)+zp.
+        out_col_name: 'str', optional
+            The name of the output magnitude column, if None then the output
+            is just the flux column name + "_mag". The error column is also
+            generated as the out_col_name + "_err".
+
+        Returns
+        ----------
+        result: `tape.EnsembleFrame`
+            A new EnsembleFrame object with a new magnitude (and error) column.
+        """
+        if out_col_name is None:
+            out_col_name = flux_col + "_mag"
+
+        result = None
+        if zp_form == "flux":  # mag = -2.5*np.log10(flux/zp)
+            result = self.assign(**{out_col_name: lambda x: -2.5 * np.log10(x[flux_col] / x[zero_point])})
+
+        elif zp_form == "magnitude" or zp_form == "mag":  # mag = -2.5*np.log10(flux) + zp
+            result = self.assign(**{out_col_name: lambda x: -2.5 * np.log10(x[flux_col]) + x[zero_point]})
+        else:
+            raise ValueError(f"{zp_form} is not a valid zero_point format.")
+
+        # Calculate Errors
+        if err_col is not None:
+            result = result.assign(
+                **{out_col_name + "_err": lambda x: (2.5 / np.log(10)) * (x[err_col] / x[flux_col])}
+            )
+
+        return result
+
+    def coalesce(self, input_cols, output_col, drop_inputs=False):
+        """Combines multiple input columns into a single output column, with
+        values equal to the first non-nan value encountered in the input cols.
+
+        Parameters
+        ----------
+        input_cols: `list`
+            The list of column names to coalesce into a single column.
+        output_col: `str`, optional
+            The name of the coalesced output column.
+        drop_inputs: `bool`, optional
+            Determines whether the input columns are dropped or preserved. If
+            a mapped column is an input and dropped, the output column is
+            automatically assigned to replace that column mapping internally.
+
+        Returns
+        -------
+        ensemble: `tape.ensemble.Ensemble`
+            An ensemble object.
+        """
+
+        def coalesce_partition(df, input_cols, output_col):
+            """Coalescing function for a single partition (pandas dataframe)"""
+
+            # Create a subset dataframe per input column
+            # Rename column to output to allow combination
+            input_dfs = []
+            for col in input_cols:
+                col_df = df[[col]]
+                input_dfs.append(col_df.rename(columns={col: output_col}))
+
+            # Combine each dataframe
+            coal_df = input_dfs.pop()
+            while input_dfs:
+                coal_df = coal_df.combine_first(input_dfs.pop())
+
+            # Assign the output column to the partition dataframe
+            out_df = df.assign(**{output_col: coal_df[output_col]})
+
+            return out_df
+
+        table_ddf = self.map_partitions(lambda x: coalesce_partition(x, input_cols, output_col))
+
+        # Drop the input columns if wanted
+        if drop_inputs:
+            if self.ensemble is not None:
+                # First check to see if any dropped columns were critical columns
+                current_map = self.ensemble.make_column_map().map
+                cols_to_update = [key for key in current_map if current_map[key] in input_cols]
+
+                # Theoretically a user could assign multiple critical columns in the input cols, this is very
+                # likely to be a mistake, so we throw a warning here to alert them.
+                if len(cols_to_update) > 1:
+                    warnings.warn(
+                        """Warning: Coalesce (with column dropping) is needing to update more than one
+                    critical column mapping, please check that the resulting mapping is set as intended"""
+                    )
+
+                # Update critical columns to the new output column as needed
+                if len(cols_to_update):  # if not zero
+                    new_map = current_map
+                    for col in cols_to_update:
+                        new_map[col] = output_col
+
+                    new_colmap = self.ensemble.make_column_map()
+                    new_colmap.map = new_map
+
+                    # Update the mapping
+                    self.ensemble.update_column_mapping(new_colmap)
+
+            table_ddf = table_ddf.drop(columns=input_cols)
+
+        return table_ddf
+
 
 class TapeSourceFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble source data
@@ -1047,7 +1190,6 @@ class SourceFrame(EnsembleFrame):
     _partition_type = TapeSourceFrame  # Tracks the underlying data type
 
     def __init__(self, expr, ensemble=None):
-
         # We define relevant object fields before super().__init__ since that call may lead to a
         # map_partitions call which will assume these fields exist.
         self.label = SOURCE_FRAME_LABEL  # A label used by the Ensemble to identify this frame.
@@ -1115,7 +1257,6 @@ class ObjectFrame(EnsembleFrame):
     _partition_type = TapeObjectFrame  # Tracks the underlying data type
 
     def __init__(self, expr, ensemble=None):
-
         # We define relevant object fields before super().__init__ since that call may lead to a
         # map_partitions call which will assume these fields exist.
         self.label = OBJECT_FRAME_LABEL  # A label used by the Ensemble to identify this frame.

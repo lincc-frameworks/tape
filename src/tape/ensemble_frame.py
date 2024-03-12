@@ -2,7 +2,6 @@ from collections.abc import Sequence
 
 import warnings
 
-import dask_expr as dd
 import dask.dataframe as dd
 
 import dask
