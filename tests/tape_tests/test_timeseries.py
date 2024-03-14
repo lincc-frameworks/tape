@@ -1,4 +1,5 @@
 """Test ensemble manipulations"""
+
 import pandas as pd
 
 from tape import TimeSeries

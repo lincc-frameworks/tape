@@ -1,18 +1,22 @@
 # Changes here will be overwritten by Copier
-_commit: v1.4.5
+_commit: v2.0.1
 _src_path: gh:lincc-frameworks/python-project-template
 author_email: brantd@uw.edu
 author_name: Doug Branton
 create_example_module: false
 custom_install: true
+enforce_style:
+- black
+failure_notification: []
 include_benchmarks: true
 include_docs: true
 include_notebooks: true
 mypy_type_checking: none
 package_name: tape
-preferred_linter: black
 project_license: MIT
 project_name: tape
 project_organization: lincc-frameworks
-use_gitlfs: none
-use_isort: false
+python_versions:
+- '3.9'
+- '3.10'
+- '3.11'
