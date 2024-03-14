@@ -10,6 +10,7 @@ functionality.
     Working with the TAPE Ensemble object <tutorials/working_with_the_ensemble>
     Working with HiPSCat and LSDB data <tutorials/working_with_hipscat_and_lsdb>
     Working with the TAPE Timeseries object <tutorials/working_with_the_timeseries>
+    Common Data Operations with TAPE <tutorials/common_data_operations>
     Scaling to Large Data Volume <tutorials/scaling_to_large_data>
     Working with Structure Function <tutorials/working_with_structure_function>
     Using Ray with the Ensemble <tutorials/using_ray_with_the_ensemble>
