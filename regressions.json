@@ -1,1 +1,1 @@
-{"regressions": [["benchmarks.time_prune_sync_workflow", "graphs/Cython/branch-HEAD/build/machine-gh-runner/packaging/python-3.10/benchmarks.time_prune_sync_workflow.json", {}, null, 0.0472599505000062, 0.043784450999993396, [[null, 575, 0.043784450999993396, 0.0472599505000062]]]]}
+{"regressions": [["benchmarks.time_prune_sync_workflow", "graphs/Cython/branch-HEAD/build/machine-gh-runner/packaging/python-3.10/benchmarks.time_prune_sync_workflow.json", {}, null, 0.047130370499985474, 0.043784450999993396, [[null, 575, 0.043784450999993396, 0.047130370499985474]]]]}
