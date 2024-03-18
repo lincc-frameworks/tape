@@ -25,7 +25,7 @@ def test_stetsonk():
     assert_array_equal(result.dtypes, np.float64)
 
 
-def test_multiple_features_with_ensemble(dask_client):
+def test_multiple_features_with_ensemble():
     n = 5
 
     object1 = {
@@ -45,7 +45,7 @@ def test_multiple_features_with_ensemble(dask_client):
     rows = {column: np.concatenate([object1[column], object2[column]]) for column in object1}
 
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
-    ens = Ensemble(client=dask_client).from_source_dict(rows, cmap)
+    ens = Ensemble(client=False).from_source_dict(rows, cmap)
 
     extractor = licu.Extractor(licu.AndersonDarlingNormal(), licu.InterPercentileRange(0.25), licu.StetsonK())
     result = ens.batch(
@@ -58,7 +58,7 @@ def test_multiple_features_with_ensemble(dask_client):
     assert_allclose(result, [[0.114875, 0.625, 0.848528]] * 2, atol=1e-5)
 
 
-def test_otsu_with_ensemble_all_bands(dask_client):
+def test_otsu_with_ensemble_all_bands():
     n = 10
     assert n % 2 == 0
 
@@ -79,7 +79,7 @@ def test_otsu_with_ensemble_all_bands(dask_client):
     rows = {column: np.concatenate([object1[column], object2[column]]) for column in object1}
 
     cmap = ColumnMapper(id_col="id", time_col="time", flux_col="flux", err_col="err", band_col="band")
-    ens = Ensemble(client=dask_client).from_source_dict(rows, cmap)
+    ens = Ensemble(client=False).from_source_dict(rows, cmap)
 
     result = ens.batch(
         licu.OtsuSplit(),

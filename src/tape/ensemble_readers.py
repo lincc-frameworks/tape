@@ -2,6 +2,7 @@
     The following package-level methods can be used to create a new Ensemble object 
     by reading in the given data source.
 """
+
 import requests
 
 import dask.dataframe as dd
@@ -244,51 +245,130 @@ def read_parquet(
     return new_ens
 
 
-def read_hipscat(
-    dir,
-    source_subdir="source",
-    object_subdir="object",
+def read_lsdb(
+    source_catalog,
+    object_catalog=None,
     column_mapper=None,
+    sync_tables=False,
+    sorted=True,
+    sort=False,
     dask_client=True,
     **kwargs,
 ):
-    """Read in parquet files from a hipscat-formatted directory structure
+    """Read in from LSDB catalog objects.
 
     Parameters
     ----------
-    dir: 'str'
-        Path to the directory structure
-    source_subdir: 'str'
-        Path to the subdirectory which contains source files
-    object_subdir: 'str'
-        Path to the subdirectory which contains object files, if None then
-        files will only be read from the source_subdir
+    source_catalog: 'dask.Dataframe'
+        An LSDB catalog that contains source information to be read into
+        the ensemble.
+    object_catalog: 'dask.Dataframe', optional
+        An LSDB catalog containing object information. If not specified,
+        a minimal ObjectFrame is generated from the source catalog.
     column_mapper: 'ColumnMapper' object
         If provided, the ColumnMapper is used to populate relevant column
         information mapped from the input dataset.
+    sync_tables: 'bool', optional
+        In the case where an `object_catalog`is provided, determines
+        whether an initial sync is performed between the object and source
+        tables.
+    sorted: bool, optional
+            If the index column is already sorted in increasing order.
+            Defaults to True.
+    sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the
+        index on the individual existing partitions. Defaults to False.
     dask_client: `dask.distributed.client` or `bool`, optional
         Accepts an existing `dask.distributed.Client`, or creates one if
         `client=True`, passing any additional kwargs to a
         dask.distributed.Client constructor call. If `client=False`, the
         Ensemble is created without a distributed client.
-    **kwargs:
-        keyword arguments passed along to
-        `tape.ensemble.Ensemble.from_parquet`
 
     Returns
     ----------
     ensemble: `tape.ensemble.Ensemble`
-        The ensemble object with parquet data loaded
+        The ensemble object with the LSDB catalog data loaded.
+    """
+
+    new_ens = Ensemble(dask_client, **kwargs)
+
+    new_ens.from_lsdb(
+        source_catalog=source_catalog,
+        object_catalog=object_catalog,
+        column_mapper=column_mapper,
+        sync_tables=sync_tables,
+        sorted=sorted,
+        sort=sort,
+    )
+
+    return new_ens
+
+
+def read_hipscat(
+    source_path,
+    object_path=None,
+    column_mapper=None,
+    source_index=None,
+    object_index=None,
+    sorted=True,
+    sort=False,
+    dask_client=True,
+    **kwargs,
+):
+    """Use LSDB to read from a hipscat directory.
+
+    This function utilizes LSDB for reading a hipscat directory into TAPE.
+    In cases where a user would like to do operations on the LSDB catalog
+    objects, it's best to use LSDB itself first, and then load the result
+    into TAPE using `tape.Ensemble.from_lsdb`. A join is performed between
+    the two tables to modify the source table to use the object index,
+    using `object_index` and `source_index`.
+
+    Parameters
+    ----------
+    source_path: str or Path
+        A hipscat directory that contains source information to be read
+        into the ensemble.
+    object_path: str or Path, optional
+        A hipscat directory containing object information. If not
+        specified, a minimal ObjectFrame is generated from the sources.
+    column_mapper: 'ColumnMapper' object
+        If provided, the ColumnMapper is used to populate relevant column
+        information mapped from the input dataset.
+    object_index: 'str', optional
+        The join index of the object table, should be the label for the
+        object ID contained in the object table.
+    source_index: 'str', optional
+        The join index of the source table, should be the label for the
+        object ID contained in the source table.
+    sorted: bool, optional
+        If the index column is already sorted in increasing order.
+        Defaults to True.
+    sort: `bool`, optional
+        If True, sorts the DataFrame by the id column. Otherwise set the
+        index on the individual existing partitions. Defaults to False.
+    dask_client: `dask.distributed.client` or `bool`, optional
+        Accepts an existing `dask.distributed.Client`, or creates one if
+        `client=True`, passing any additional kwargs to a
+        dask.distributed.Client constructor call. If `client=False`, the
+        Ensemble is created without a distributed client.
+
+    Returns
+    ----------
+    ensemble: `tape.ensemble.Ensemble`
+        The ensemble object with the hipscat data loaded.
     """
 
     new_ens = Ensemble(dask_client, **kwargs)
 
     new_ens.from_hipscat(
-        dir=dir,
-        source_subdir=source_subdir,
-        object_subdir=object_subdir,
+        source_path,
+        object_path=object_path,
         column_mapper=column_mapper,
-        **kwargs,
+        source_index=source_index,
+        object_index=object_index,
+        sorted=sorted,
+        sort=sort,
     )
 
     return new_ens

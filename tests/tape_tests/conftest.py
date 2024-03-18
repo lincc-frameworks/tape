@@ -1,9 +1,11 @@
 """Test fixtures for Ensemble manipulations"""
+
 import numpy as np
 import pandas as pd
 import dask.dataframe as dd
 import pytest
 import tape
+import lsdb
 
 from dask.distributed import Client
 
@@ -54,9 +56,9 @@ def create_test_object_table(npartitions=1):
     "create_test_source_table, create_test_column_mapper",
     [("create_test_source_table", "create_test_column_mapper")],
 )
-def read_dask_dataframe_ensemble(dask_client, create_test_source_table, create_test_column_mapper):
+def read_dask_dataframe_ensemble(create_test_source_table, create_test_column_mapper):
     return tape.read_dask_dataframe(
-        dask_client=dask_client,
+        dask_client=False,
         source_frame=create_test_source_table,
         column_mapper=create_test_column_mapper,
     )
@@ -69,12 +71,12 @@ def read_dask_dataframe_ensemble(dask_client, create_test_source_table, create_t
     [("create_test_source_table", "create_test_object_table", "create_test_column_mapper")],
 )
 def read_dask_dataframe_with_object_ensemble(
-    dask_client, create_test_source_table, create_test_object_table, create_test_column_mapper
+    create_test_source_table, create_test_object_table, create_test_column_mapper
 ):
     return tape.read_dask_dataframe(
         source_frame=create_test_source_table,
         object_frame=create_test_object_table,
-        dask_client=dask_client,
+        dask_client=False,
         column_mapper=create_test_column_mapper,
     )
 
@@ -84,11 +86,11 @@ def read_dask_dataframe_with_object_ensemble(
 @pytest.mark.parametrize(
     "create_test_rows, create_test_column_mapper", [("create_test_rows", "create_test_column_mapper")]
 )
-def read_pandas_ensemble(dask_client, create_test_rows, create_test_column_mapper):
+def read_pandas_ensemble(create_test_rows, create_test_column_mapper):
     return tape.read_pandas_dataframe(
         source_frame=pd.DataFrame(create_test_rows),
         column_mapper=create_test_column_mapper,
-        dask_client=dask_client,
+        dask_client=False,
         npartitions=1,
     )
 
@@ -98,7 +100,7 @@ def read_pandas_ensemble(dask_client, create_test_rows, create_test_column_mappe
 @pytest.mark.parametrize(
     "create_test_rows, create_test_column_mapper", [("create_test_rows", "create_test_column_mapper")]
 )
-def read_pandas_with_object_ensemble(dask_client, create_test_rows, create_test_column_mapper):
+def read_pandas_with_object_ensemble(create_test_rows, create_test_column_mapper):
     n_obj = 5
     id = 8000 + np.arange(n_obj)
     name = id.astype(str)
@@ -106,7 +108,7 @@ def read_pandas_with_object_ensemble(dask_client, create_test_rows, create_test_
 
     """Create an Ensemble from pandas dataframes."""
     return tape.read_pandas_dataframe(
-        dask_client=dask_client,
+        dask_client=False,
         source_frame=pd.DataFrame(create_test_rows),
         object_frame=object_table,
         column_mapper=create_test_column_mapper,
@@ -116,8 +118,24 @@ def read_pandas_with_object_ensemble(dask_client, create_test_rows, create_test_
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_without_client():
-    """Create an Ensemble from parquet data without a dask client."""
+def read_parquet_ensemble_with_client(dask_client):
+    """Create an Ensemble from parquet data with a dask client."""
+    return tape.read_parquet(
+        source_file="tests/tape_tests/data/source/test_source.parquet",
+        object_file="tests/tape_tests/data/object/test_object.parquet",
+        dask_client=dask_client,
+        id_col="ps1_objid",
+        time_col="midPointTai",
+        band_col="filterName",
+        flux_col="psFlux",
+        err_col="psFluxErr",
+    )
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def read_parquet_ensemble():
+    """Create an Ensemble from parquet data."""
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
         object_file="tests/tape_tests/data/object/test_object.parquet",
@@ -132,27 +150,11 @@ def read_parquet_ensemble_without_client():
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble(dask_client):
-    """Create an Ensemble from parquet data."""
-    return tape.read_parquet(
-        source_file="tests/tape_tests/data/source/test_source.parquet",
-        object_file="tests/tape_tests/data/object/test_object.parquet",
-        dask_client=dask_client,
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
-    )
-
-
-# pylint: disable=redefined-outer-name
-@pytest.fixture
-def read_parquet_ensemble_from_source(dask_client):
+def read_parquet_ensemble_from_source():
     """Create an Ensemble from parquet data, with object file withheld."""
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
-        dask_client=dask_client,
+        dask_client=False,
         id_col="ps1_objid",
         time_col="midPointTai",
         band_col="filterName",
@@ -163,7 +165,7 @@ def read_parquet_ensemble_from_source(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_with_column_mapper(dask_client):
+def read_parquet_ensemble_with_column_mapper():
     """Create an Ensemble from parquet data, with object file withheld."""
     colmap = ColumnMapper().assign(
         id_col="ps1_objid",
@@ -176,35 +178,43 @@ def read_parquet_ensemble_with_column_mapper(dask_client):
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
         column_mapper=colmap,
-        dask_client=dask_client,
+        dask_client=False,
     )
 
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_with_known_column_mapper(dask_client):
+def read_parquet_ensemble_with_known_column_mapper():
     """Create an Ensemble from parquet data, with object file withheld."""
     colmap = ColumnMapper().use_known_map("ZTF")
 
     return tape.read_parquet(
         source_file="tests/tape_tests/data/source/test_source.parquet",
         column_mapper=colmap,
-        dask_client=dask_client,
+        dask_client=False,
     )
 
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def read_parquet_ensemble_from_hipscat(dask_client):
+def read_parquet_ensemble_from_hipscat():
     """Create an Ensemble from a hipscat/hive-style directory."""
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
     return tape.read_hipscat(
-        "tests/tape_tests/data",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
-        dask_client=dask_client,
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog",
+        column_mapper=colmap,
+        object_index="id",
+        source_index="object_id",
+        dask_client=False,
     )
 
 
@@ -218,9 +228,9 @@ def dask_client():
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_without_client():
+def parquet_ensemble_with_client(dask_client):
     """Create an Ensemble from parquet data without a dask client."""
-    ens = Ensemble(client=False)
+    ens = Ensemble(client=dask_client)
     ens.from_parquet(
         "tests/tape_tests/data/source/test_source.parquet",
         "tests/tape_tests/data/object/test_object.parquet",
@@ -235,9 +245,9 @@ def parquet_ensemble_without_client():
 
 
 @pytest.fixture
-def parquet_files_and_ensemble_without_client():
+def parquet_files_and_ensemble_with_client(dask_client):
     """Create an Ensemble from parquet data without a dask client."""
-    ens = Ensemble(client=False)
+    ens = Ensemble(client=dask_client)
     source_file = "tests/tape_tests/data/source/test_source.parquet"
     object_file = "tests/tape_tests/data/object/test_object.parquet"
     colmap = ColumnMapper().assign(
@@ -253,9 +263,9 @@ def parquet_files_and_ensemble_without_client():
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble(dask_client):
+def parquet_ensemble():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_parquet(
         "tests/tape_tests/data/source/test_source.parquet",
         "tests/tape_tests/data/object/test_object.parquet",
@@ -271,9 +281,9 @@ def parquet_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_partition_size(dask_client):
+def parquet_ensemble_partition_size():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_parquet(
         "tests/tape_tests/data/source/test_source.parquet",
         "tests/tape_tests/data/object/test_object.parquet",
@@ -290,9 +300,9 @@ def parquet_ensemble_partition_size(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_with_divisions(dask_client):
+def parquet_ensemble_with_divisions():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_parquet(
         "tests/tape_tests/data/source/test_source.parquet",
         "tests/tape_tests/data/object/test_object.parquet",
@@ -309,9 +319,9 @@ def parquet_ensemble_with_divisions(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_from_source(dask_client):
+def parquet_ensemble_from_source():
     """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
     ens.from_parquet(
         "tests/tape_tests/data/source/test_source.parquet",
         id_col="ps1_objid",
@@ -326,9 +336,9 @@ def parquet_ensemble_from_source(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_with_column_mapper(dask_client):
+def parquet_ensemble_with_column_mapper():
     """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     colmap = ColumnMapper().assign(
         id_col="ps1_objid",
@@ -347,31 +357,24 @@ def parquet_ensemble_with_column_mapper(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def parquet_ensemble_with_known_column_mapper(dask_client):
-    """Create an Ensemble from parquet data, with object file withheld."""
-    ens = Ensemble(client=dask_client)
-
-    colmap = ColumnMapper().use_known_map("ZTF")
-    ens.from_parquet(
-        "tests/tape_tests/data/source/test_source.parquet",
-        column_mapper=colmap,
-    )
-
-    return ens
-
-
-# pylint: disable=redefined-outer-name
-@pytest.fixture
-def parquet_ensemble_from_hipscat(dask_client):
+def parquet_ensemble_from_hipscat():
     """Create an Ensemble from a hipscat/hive-style directory."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
     ens.from_hipscat(
-        "tests/tape_tests/data",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog",
+        "tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog",
+        column_mapper=colmap,
+        object_index="id",
+        source_index="object_id",
     )
 
     return ens
@@ -379,9 +382,65 @@ def parquet_ensemble_from_hipscat(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def dask_dataframe_ensemble(dask_client):
+def ensemble_from_lsdb():
+    """Create a dask dataframe from LSDB catalogs"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    ens = Ensemble(client=False)
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens.from_lsdb(joined_source_cat, object_cat, column_mapper=colmap)
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def read_ensemble_from_lsdb():
+    """Create a dask dataframe from LSDB catalogs"""
+    object_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_object_catalog")
+    source_cat = lsdb.read_hipscat("tests/tape_tests/data/small_sky_hipscat/small_sky_source_catalog")
+
+    # Pain points: Suffixes here are a bit annoying, and I'd ideally want just the source columns (especially at scale)
+    # We do this to get the source catalog indexed by the objects hipscat index
+    joined_source_cat = object_cat.join(
+        source_cat, left_on="id", right_on="object_id", suffixes=("_object", "")
+    )
+
+    colmap = ColumnMapper(
+        id_col="_hipscat_index",
+        time_col="mjd",
+        flux_col="mag",
+        err_col="Norder",  # no error column...
+        band_col="band",
+    )
+
+    # We just avoid needing to invoke the ._ddf property from the catalogs
+    ens = tape.read_lsdb(joined_source_cat, object_cat, column_mapper=colmap, dask_client=False)
+
+    return ens
+
+
+# pylint: disable=redefined-outer-name
+@pytest.fixture
+def dask_dataframe_ensemble():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = np.array(["r", "g", "b", "i"])
@@ -406,9 +465,9 @@ def dask_dataframe_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def dask_dataframe_ensemble_partition_size(dask_client):
+def dask_dataframe_ensemble_partition_size():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = np.array(["r", "g", "b", "i"])
@@ -434,9 +493,9 @@ def dask_dataframe_ensemble_partition_size(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def dask_dataframe_with_object_ensemble(dask_client):
+def dask_dataframe_with_object_ensemble():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     n_obj = 5
     id = 8000 + np.arange(n_obj)
@@ -473,9 +532,9 @@ def dask_dataframe_with_object_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def pandas_ensemble(dask_client):
+def pandas_ensemble():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     num_points = 1000
     all_bands = np.array(["r", "g", "b", "i"])
@@ -501,9 +560,9 @@ def pandas_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def pandas_with_object_ensemble(dask_client):
+def pandas_with_object_ensemble():
     """Create an Ensemble from parquet data."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     n_obj = 5
     id = 8000 + np.arange(n_obj)
@@ -539,9 +598,9 @@ def pandas_with_object_ensemble(dask_client):
 
 # pylint: disable=redefined-outer-name
 @pytest.fixture
-def ensemble_from_source_dict(dask_client):
+def ensemble_from_source_dict():
     """Create an Ensemble from a source dict, returning the ensemble and the source dict."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble(client=False)
 
     # Create some fake data with two IDs (8001, 8002), two bands ["g", "b"]
     # a few time steps, flux, and data for zero point calculations.

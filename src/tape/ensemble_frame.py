@@ -7,7 +7,7 @@ import dask.dataframe as dd
 import dask
 from dask.dataframe.dispatch import make_meta_dispatch
 from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe, _nonempty_series
-
+from tape.utils import IndexCallable
 from dask.dataframe.core import get_parallel_type
 from dask.dataframe.extensions import make_array_nonempty
 
@@ -119,6 +119,29 @@ class _Frame(dd.core._Frame):
         # See https://github.com/geopandas/dask-geopandas/issues/237
         return super()._args + (self.label, self.ensemble)
 
+    @property
+    def partitions(self):
+        """Slice dataframe by partitions
+
+        This allows partitionwise slicing of a TAPE EnsembleFrame.  You can perform normal
+        Numpy-style slicing, but now rather than slice elements of the array you
+        slice along partitions so, for example, ``df.partitions[:5]`` produces a new
+        Dask Dataframe of the first five partitions. Valid indexers are integers, sequences
+        of integers, slices, or boolean masks.
+
+        Examples
+        --------
+        >>> df.partitions[0]  # doctest: +SKIP
+        >>> df.partitions[:3]  # doctest: +SKIP
+        >>> df.partitions[::10]  # doctest: +SKIP
+
+        Returns
+        -------
+        A TAPE EnsembleFrame Object
+        """
+        self.set_dirty(True)
+        return IndexCallable(self._partitions, self.is_dirty(), self.ensemble)
+
     def _propagate_metadata(self, new_frame):
         """Propagates any relevant metadata to a new frame.
 
@@ -205,6 +228,36 @@ class _Frame(dd.core._Frame):
             numexpr.set_num_threads(1)
         """
         result = self._propagate_metadata(super().query(expr, **kwargs))
+        result.set_dirty(True)
+        return result
+
+    def sample(self, **kwargs):
+        """Random sample of items from a Dataframe.
+
+        Doc string below derived from dask.dataframe.core
+
+        Parameters
+        ----------
+        frac: float, optional
+            Approximate fraction of objects to return. This sampling fraction
+            is applied to all partitions equally. Note that this is an
+            approximate fraction. You should not expect exactly len(df) * frac
+            items to be returned, as the exact number of elements selected will
+            depend on how your data is partitioned (but should be pretty close
+            in practice).
+        replace: boolean, optional
+            Sample with or without replacement. Default = False.
+        random_state: int or np.random.RandomState
+            If an int, we create a new RandomState with this as the seed;
+            Otherwise we draw from the passed RandomState.
+
+        Returns
+        ----------
+        result: `tape._Frame`
+            The modifed frame
+
+        """
+        result = self._propagate_metadata(super().sample(**kwargs))
         result.set_dirty(True)
         return result
 
