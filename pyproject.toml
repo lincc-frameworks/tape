@@ -27,7 +27,7 @@ dependencies = [
     'aiohttp',
     'coverage',
     "deprecated",
-    "light-curve>=0.7.3,<0.8.0",
+    "light-curve>=0.9.0,<0.10.0",
     "lsdb"
 ]
 

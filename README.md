@@ -4,9 +4,14 @@
 # TAPE (Timeseries Analysis & Processing Engine)
 
 [![Template](https://img.shields.io/badge/Template-LINCC%20Frameworks%20Python%20Project%20Template-brightgreen)](https://lincc-ppt.readthedocs.io/en/latest/)
-[![Documentation Status](https://readthedocs.org/projects/tape/badge/?version=latest)](https://tape.readthedocs.io/en/latest/?badge=latest)
-[![Unit test and code coverage](https://github.com/lincc-frameworks/tape/actions/workflows/testing-and-coverage.yml/badge.svg)](https://github.com/lincc-frameworks/tape/actions/workflows/testing-and-coverage.yml)
-[![codecov](https://codecov.io/gh/lincc-frameworks/tape/branch/main/graph/badge.svg?token=NFLCNEC55C)](https://codecov.io/gh/lincc-frameworks/tape)
+
+[![PyPI](https://img.shields.io/pypi/v/lf-tape?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/lf-tape/)
+<!-- [![Conda](https://img.shields.io/conda/vn/conda-forge/lf-tape.svg?color=blue&logo=condaforge&logoColor=white)](https://anaconda.org/conda-forge/lf-tape) -->
+
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/lincc-frameworks/tape/smoke-test.yml)](https://github.com/lincc-frameworks/tape/actions/workflows/smoke-test.yml)
+[![codecov](https://codecov.io/gh/lincc-frameworks/tape/branch/main/graph/badge.svg)](https://codecov.io/gh/lincc-frameworks/tape)
+[![Read the Docs](https://img.shields.io/readthedocs/tape)](https://tape.readthedocs.io/)
+[![benchmarks](https://img.shields.io/github/actions/workflow/status/lincc-frameworks/tape/asv-main.yml?label=benchmarks)](https://lincc-frameworks.github.io/tape/)
 
 The **Time series Analysis and Processing Engine** (TAPE) is a framework for distributed time series analysis which enables the user to scale their algorithms to large datasets, created to work towards the goal of making [LSST](https://www.lsst.org/about) time series analysis accessible. It allows for efficient and scalable evaluation of algorithms on time domain data through built-in fitting and analysis methods as well as support for user-provided algorithms. TAPE supports ingestion of multiple time series formats, enabling easy access to both LSST time series objects and data from other astronomical surveys.
 
