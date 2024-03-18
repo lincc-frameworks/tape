@@ -17,7 +17,7 @@ The **Time series Analysis and Processing Engine** (TAPE) is a framework for dis
 
 In short term we are working on two main goals of the project:
   - Enable efficient and scalable evaluation of algorithms on time-domain data
-  - Enable ease of access to TimeSeries objects in LSST
+  - Enable ease of access to time-domain data in LSST
 
 This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks).
 
