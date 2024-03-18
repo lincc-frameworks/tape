@@ -2247,7 +2247,7 @@ def test_select_random_timeseries(parquet_ensemble, repartition, seed):
     ens = parquet_ensemble
 
     if repartition:
-        ens.object = ens.object.repartition(3)
+        ens.object = ens.object.repartition(npartitions=3)
 
     ts = ens.select_random_timeseries(seed=seed)
 
@@ -2283,7 +2283,7 @@ def test_select_random_timeseries_empty_partitions(dask_client, all_empty):
     ens.from_source_dict(data_dict, column_mapper=colmap)
 
     # The single id will be in the last partition
-    ens.object = ens.object.repartition(5)
+    ens.object = ens.object.repartition(npartitions=5)
 
     # Remove the last partition, make sure we get the expected error when the
     # Object table has no IDs in any partition
