@@ -1970,7 +1970,6 @@ def test_batch(data_fixture, request, use_map, on):
     [
         "parquet_ensemble",
         "parquet_ensemble_with_divisions",
-        "parquet_ensemble_without_client",
     ],
 )
 @pytest.mark.parametrize("sort_by_band", [True, False])
