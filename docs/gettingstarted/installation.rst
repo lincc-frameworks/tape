@@ -19,7 +19,7 @@ TAPE source code and installs it and any needed dependencies in a fresh conda en
 
 .. code-block:: bash
 
-    conda create -n tape_env python=3.10
+    conda create -n tape_env python=3.11
     conda activate tape_env
 
     git clone https://github.com/lincc-frameworks/tape
