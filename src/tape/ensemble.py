@@ -444,14 +444,14 @@ class Ensemble:
         Note that if the lightcurves are split across multiple partitions, this operation
         only sorts on a per-partition basis, and the table will not be globally sorted.
 
-        You can check that no lightcurves are not split across multiple partitions by 
+        You can check that no lightcurves are not split across multiple partitions by
         seeing if `Ensemble.check_lightcurve_cohesion()` is `True`.
 
         Parameters
         ----------
         by_band: `bool`, optional
             If True, the lightcurves are still sorted first by the indexed ID column,
-            but then by band and then by timestamp, all in ascending order. 
+            but then by band and then by timestamp, all in ascending order.
 
         Returns
         -------
@@ -468,7 +468,9 @@ class Ensemble:
             self.source.map_partitions(lambda x: x.sort_values([id_col, time_col])).update_ensemble()
         else:
             band_col = self._band_col
-            self.source.map_partitions(lambda x: x.sort_values([id_col, band_col, time_col])).update_ensemble()
+            self.source.map_partitions(
+                lambda x: x.sort_values([id_col, band_col, time_col])
+            ).update_ensemble()
 
         return self
 
