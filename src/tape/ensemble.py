@@ -434,6 +434,46 @@ class Ensemble:
                 return False
         return True
 
+    def sort_lightcurves(self, by_band=True):
+        """Sorts each Source partition first by the indexed ID column and then by
+        the time column, each in ascending order.
+
+        This allows for efficient access of lightcurves by their indexed object ID
+        while still giving easy access to the sorted time series.
+
+        Note that if the lightcurves are split across multiple partitions, this operation
+        only sorts on a per-partition basis, and the table will not be globally sorted.
+
+        You can check that no lightcurves are not split across multiple partitions by
+        seeing if `Ensemble.check_lightcurve_cohesion()` is `True`.
+
+        Parameters
+        ----------
+        by_band: `bool`, optional
+            If True, the lightcurves are still sorted first by the indexed ID column,
+            but then by band and then by timestamp, all in ascending order.
+
+        Returns
+        -------
+        Ensemble
+        """
+        self._lazy_sync_tables(table="source")
+
+        # Dask lacks support for multi-column sorting and indices, but if we have
+        # lightcurve cohesion, we can sort each partition individually since
+        # each lightcurve should only be in a single partition. We sort the Source
+        # table first by its indexed ID column and then by the timestamp.
+        id_col, time_col = self._id_col, self._time_col  # save column names for scoping for the lambda
+        if not by_band:
+            self.source.map_partitions(lambda x: x.sort_values([id_col, time_col])).update_ensemble()
+        else:
+            band_col = self._band_col
+            self.source.map_partitions(
+                lambda x: x.sort_values([id_col, band_col, time_col])
+            ).update_ensemble()
+
+        return self
+
     def compute(self, table=None, **kwargs):
         """Wrapper for dask.dataframe.DataFrame.compute()
 
@@ -1001,7 +1041,17 @@ class Ensemble:
         self.source.set_dirty(True)
         return self
 
-    def batch(self, func, *args, meta=None, by_band=False, use_map=True, on=None, label="", **kwargs):
+    def batch(
+        self,
+        func,
+        *args,
+        meta=None,
+        by_band=False,
+        use_map=True,
+        on=None,
+        label="",
+        **kwargs,
+    ):
         """Run a function from tape.TimeSeries on the available ids
 
         Parameters
