@@ -1545,8 +1545,11 @@ def test_calc_nobs(data_fixture, request, by_band, multi_partition):
     # Get the Ensemble from a fixture
     ens = request.getfixturevalue(data_fixture)
 
+    #if data_fixture == "parquet_ensemble_with_divisions":
+    #    import pdb; pdb.set_trace()
+
     if multi_partition:
-        ens.source = ens.source.repartition(3)
+        ens.source = ens.source.repartition(npartitions=3)
 
     # Drop the existing nobs columns
     ens.object = ens.object.drop(["nobs_g", "nobs_r", "nobs_total"], axis=1)

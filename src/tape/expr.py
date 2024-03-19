@@ -201,7 +201,7 @@ class _Frame(dx.FrameBase):
         A TAPE EnsembleFrame Object
         """
         self.set_dirty(True)
-        return IndexCallable(self._partitions, self.is_dirty(), self.ensemble)
+        return IndexCallable(self._partitions, self.is_dirty(), self.ensemble, self.label)
 
     def optimize(self, fuse: bool = True):
         result = new_collection(self.expr.optimize(fuse=fuse))

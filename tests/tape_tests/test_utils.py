@@ -9,7 +9,7 @@ def test_index_callable(parquet_ensemble):
 
     ens = parquet_ensemble
 
-    source_ic = IndexCallable(ens.source._partitions, True, "ensemble")
+    source_ic = IndexCallable(ens.source._partitions, True, "ensemble", ens.source.label)
 
     # grab the first (and only) source partition
     sliced_source_frame = source_ic[0]
@@ -17,6 +17,7 @@ def test_index_callable(parquet_ensemble):
     # ensure that the metadata propagates to the result
     assert sliced_source_frame.dirty is True
     assert sliced_source_frame.ensemble == "ensemble"
+    assert sliced_source_frame.label == "source"
 
 
 def test_column_mapper():

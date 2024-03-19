@@ -437,6 +437,7 @@ def test_partition_slicing(parquet_ensemble_with_divisions):
     prior_src_len = len(ens.source)
 
     # slice on object
+    #import pdb;pdb.set_trace()
     ens.object.partitions[0:3].update_ensemble()
     ens._lazy_sync_tables("all")  # sync needed as len() won't trigger one
 

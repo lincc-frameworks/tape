@@ -5,6 +5,7 @@ import shutil
 import warnings
 import requests
 import lsdb
+#import dask_expr as dd
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
@@ -998,7 +999,7 @@ class Ensemble:
         if tmp_time_col in self.source.columns:
             raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
         self.source[tmp_time_col] = self.source[self._time_col].apply(
-            lambda x: np.floor((x + offset) / time_window) * time_window, meta=pd.Series(dtype=float)
+            lambda x: np.floor((x + offset) / time_window) * time_window, meta=TapeSeries(dtype=float)
         )
 
         # Set up the aggregation functions for the time and flux columns.
@@ -1414,6 +1415,10 @@ class Ensemble:
 
         # Now write out the frames to subdirectories
         for subdir in created_subdirs:
+            # TODO: Figure this out, peek at the real meta as a stop gap
+            # TODO: It may be best to make sure batch returns valid index names
+            idx_name = self.frames[subdir].head(1).index.name
+            self.frames[subdir].index = self.frames[subdir].index.rename(idx_name)
             self.frames[subdir].to_parquet(os.path.join(ens_path, subdir), write_metadata_file=True, **kwargs)
 
         print(f"Saved to {os.path.join(path, dirname)}")
@@ -2312,7 +2317,7 @@ class Ensemble:
 
         # Scan through the shuffled partition list until a partition with data is found
         while not object_selected:
-            partition_index = self.object.partitions[partitions[i]].index
+            partition_index = self.object.partitions[int(partitions[i])].index
             # Check for empty partitions
             if len(partition_index) > 0:
                 lcid = rng.choice(partition_index.values)  # randomly select lightcurve
@@ -2460,7 +2465,8 @@ class Ensemble:
 
         # Inherit divisions information if known
         if self.source.known_divisions and self.object.known_divisions:
-            result.divisions = self.source.divisions
+            pass # TODO: Can no longer directly set divisions
+            #result.divisions = self.source.divisions
 
         return result
 
