@@ -13,13 +13,11 @@
 [![Read the Docs](https://img.shields.io/readthedocs/tape)](https://tape.readthedocs.io/)
 [![benchmarks](https://img.shields.io/github/actions/workflow/status/lincc-frameworks/tape/asv-main.yml?label=benchmarks)](https://lincc-frameworks.github.io/tape/)
 
-Package for working with LSST time series data
-
-Given the duration and cadence of [Vera C. Rubin LSST](https://www.lsst.org/about), the survey will generate a vast amount of time series information capturing the variability of various objects. Scientists will need flexible and highly scalable tools to store and analyze O(Billions) of time series.  The **Time series Analysis and Processing Engine** (TAPE) is a framework for distributed time series analysis which enables the user to scale their algorithm to LSST data sizes. It allows for efficient and scalable evaluation of algorithms on time domain data through built-in fitting and analysis methods as well as support for user-provided algorithms. TAPE supports ingestion of multiple time series formats, enabling easy access to both LSST time series objects and data from other astronomical surveys.
+The **Time series Analysis and Processing Engine** (TAPE) is a framework for distributed time series analysis which enables the user to scale their algorithms to large datasets, created to work towards the goal of making [LSST](https://www.lsst.org/about) time series analysis accessible. It allows for efficient and scalable evaluation of algorithms on time domain data through built-in fitting and analysis methods as well as support for user-provided algorithms. TAPE supports ingestion of multiple time series formats, enabling easy access to both LSST time series objects and data from other astronomical surveys.
 
 In short term we are working on two main goals of the project:
-  - Enable ease of access to TimeSeries objects in LSST
   - Enable efficient and scalable evaluation of algorithms on time-domain data
+  - Enable ease of access to time-domain data in LSST
 
 This is a LINCC Frameworks project - find more information about LINCC Frameworks [here](https://www.lsstcorporation.org/lincc/frameworks).
 
@@ -36,7 +34,7 @@ pip install lf-tape
 Download code and install dependencies in a conda environment. Run unit tests at the end as a verification that the packages are properly installed.
 
 ```
-$ conda create -n seriesenv python=3.10
+$ conda create -n seriesenv python=3.11
 $ conda activate seriesenv
 
 $ git clone https://github.com/lincc-frameworks/tape
