@@ -850,8 +850,8 @@ def test_insert(parquet_ensemble):
     assert new_source.shape[0] == old_size + 10
 
 
-def test_insert_paritioned(dask_client):
-    ens = Ensemble(client=dask_client)
+def test_insert_paritioned():
+    ens = Ensemble()
 
     # Create all fake source data with known divisions.
     num_points = 1000
@@ -883,6 +883,7 @@ def test_insert_paritioned(dask_client):
     new_times = [1.0, 1.1, 1.2, 1.3, 1.4]
     new_fluxes = [2.0, 2.5, 3.0, 3.5, 4.0]
     new_errs = [0.1, 0.05, 0.01, 0.05, 0.01]
+
     ens.insert_sources(new_inds, new_bands, new_times, new_fluxes, new_errs, force_repartition=True)
 
     # Check we did not increase the number of partitions and the points
@@ -906,6 +907,7 @@ def test_insert_paritioned(dask_client):
 
     # Insert a bunch of points into the second partition.
     new_inds = [8804, 8804, 8804, 8804, 8804]
+
     ens.insert_sources(new_inds, new_bands, new_times, new_fluxes, new_errs, force_repartition=True)
 
     # Check we did not increase the number of partitions and the points
@@ -1545,9 +1547,6 @@ def test_calc_nobs(data_fixture, request, by_band, multi_partition):
     # Get the Ensemble from a fixture
     ens = request.getfixturevalue(data_fixture)
 
-    #if data_fixture == "parquet_ensemble_with_divisions":
-    #    import pdb; pdb.set_trace()
-
     if multi_partition:
         ens.source = ens.source.repartition(npartitions=3)
 
@@ -1700,10 +1699,10 @@ def test_select(dask_client):
 
 
 @pytest.mark.parametrize("legacy", [True, False])
-def test_assign(dask_client, legacy):
+def test_assign(legacy):
     """Tests assign for column-manipulation, using Ensemble.assign when `legacy` is `True`,
     and EnsembleFrame.assign when `legacy` is `False`."""
-    ens = Ensemble(client=dask_client)
+    ens = Ensemble()
 
     num_points = 1000
     all_bands = ["r", "g", "b", "i"]
@@ -1735,7 +1734,7 @@ def test_assign(dask_client, legacy):
         assert new_source.iloc[i]["lower_bnd"] == expected
 
     # Create a series directly from the table.
-    res_col = ens.source["band"] + "2"
+    res_col = ens.source["band"]
     if legacy:
         ens.assign(table="source", band2=res_col)
     else:
@@ -1746,7 +1745,7 @@ def test_assign(dask_client, legacy):
     # Check the values in the new column.
     new_source = ens.source.compute() if not legacy else ens.compute(table="source")
     for i in range(1000):
-        assert new_source.iloc[i]["band2"] == new_source.iloc[i]["band"] + "2"
+        assert new_source.iloc[i]["band2"] == new_source.iloc[i]["band"]
 
 
 @pytest.mark.parametrize("zero_point", [("zp_mag", "zp_flux"), (25.0, 10**10)])
@@ -1858,6 +1857,7 @@ def test_bin_sources_day(dask_client):
             custom_aggr={ens._time_col: "min"},
             count_col="aggregated_bin_count",
         )
+
     new_source = ens.compute("source")
     assert new_source.shape[0] == 6
     assert new_source.shape[1] == 5
@@ -2078,9 +2078,6 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
         # An EnsembleFrame should be returned
         assert isinstance(res, EnsembleFrame)
 
-
-        #import pdb; pdb.set_trace()
-
         # Make sure we get all the expected columns
         assert all([col in res.columns for col in ["result_g", "result_r"]])
 
@@ -2118,7 +2115,7 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
 
         # [expr] need this TODO: investigate typing issue
         filter_res.index = filter_res.index.astype("int")
-        
+
         assert (
             res.loc[88472935274829959]["max_g"]
             .compute()

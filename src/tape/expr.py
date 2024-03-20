@@ -27,12 +27,12 @@ from dask_expr import (
     elemwise,
     from_graph,
     get_collection_type,
-    #from_dict,
+    # from_dict,
 )
 from dask_expr._collection import new_collection, from_dict
 from dask_expr._expr import _emulate, ApplyConcatApply
 
-#from .ensemble_frame import TapeFrame, TapeSeries
+# from .ensemble_frame import TapeFrame, TapeSeries
 
 SOURCE_FRAME_LABEL = "source"  # Reserved label for source table
 OBJECT_FRAME_LABEL = "object"  # Reserved label for object table.
@@ -52,6 +52,7 @@ from functools import partial
 from dask.dataframe.io.parquet.arrow import (
     ArrowDatasetEngine as DaskArrowDatasetEngine,
 )
+
 
 class TapeSeries(pd.Series):
     """A barebones extension of a Pandas series to be used for underlying Ensemble data.
@@ -683,7 +684,7 @@ class _Frame(dx.FrameBase):
         result: `tape._Frame`
             The indexed frame
         """
-        result = super().set_index(other, drop, sorted, npartitions, divisions, inplace, sort, **kwargs)
+        result = super().set_index(other, drop, sorted, npartitions, divisions, sort, **kwargs)
         return self._propagate_metadata(result)
 
     def map_partitions(self, func, *args, **kwargs):
@@ -869,9 +870,6 @@ class _Frame(dx.FrameBase):
         return self._propagate_metadata(result)
 
 
-
-
-
 class EnsembleSeries(_Frame, dd.Series):
     """A barebones extension of a Dask Series for Ensemble data."""
 
@@ -978,7 +976,9 @@ class EnsembleFrame(
         cl, data, npartitions, orient="columns", dtype=None, columns=None, label=None, ensemble=None
     ):
         """"""
-        result = from_dict(data, npartitions=npartitions, orient=orient, dtype=dtype, columns=columns, constructor=TapeFrame)
+        result = from_dict(
+            data, npartitions=npartitions, orient=orient, dtype=dtype, columns=columns, constructor=TapeFrame
+        )
         result.label = label
         result.ensemble = ensemble
         return result

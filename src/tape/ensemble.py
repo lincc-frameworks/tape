@@ -5,7 +5,8 @@ import shutil
 import warnings
 import requests
 import lsdb
-#import dask_expr as dd
+
+# import dask_expr as dd
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
@@ -329,7 +330,7 @@ class Ensemble:
                 rows[key] = value
 
         # Create the new row and set the paritioning to match the original dataframe.
-        df2 = dd.DataFrame.from_dict(rows, npartitions=1)
+        df2 = dd.DataFrame.from_dict(rows, npartitions=2)  # need at least 2 partitions for div
         df2 = df2.set_index(self._id_col, drop=True, sort=True)
 
         # Save the divisions and number of partitions.
@@ -337,7 +338,10 @@ class Ensemble:
         prev_num = self.source.npartitions
 
         # Append the new rows to the correct divisions.
-        self.update_frame(dd.concat([self.source, df2], axis=0, interleave_partitions=True))
+        result = dd.concat([self.source, df2], axis=0, interleave_partitions=True)
+        self.update_frame(
+            self.source._propagate_metadata(result)
+        )  # propagate source metadata and update frame
         self.source.set_dirty(True)
 
         # Do the repartitioning if requested. If the divisions were set, reuse them.
@@ -1033,12 +1037,16 @@ class Ensemble:
                 aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.
-        self.update_frame(
-            self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
-        )
+        result = self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+        # self.update_frame(self.source._propagate_metadata(result))
 
         # Fix the indices and remove the temporary column.
-        self.update_frame(self.source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1))
+        result = self.source._propagate_metadata(
+            result.reset_index().set_index(self._id_col).drop(columns=[tmp_time_col])
+        )
+
+        # Updates the source frame
+        self.update_frame(result)
 
         # Mark the source table as dirty.
         self.source.set_dirty(True)
@@ -1265,8 +1273,8 @@ class Ensemble:
             # interpretted by dask as a single "index" column
 
             # [expr] added map_partitions meta assignment
-            #batch._meta = TapeFrame(columns=on + res_cols)
-            batch = batch.map_partitions(TapeFrame, meta = TapeFrame(columns=on + res_cols))
+            # batch._meta = TapeFrame(columns=on + res_cols)
+            batch = batch.map_partitions(TapeFrame, meta=TapeFrame(columns=on + res_cols))
 
             # Further reformatting for per-band results
             # Pivots on the band column to generate a result column for each
@@ -1274,10 +1282,11 @@ class Ensemble:
             if by_band:
                 batch = batch.categorize(self._band_col)
                 # [expr] added values
-                #import pdb;pdb.set_trace()
                 col_values = [col for col in batch.columns if col not in [on[0], self._band_col]]
-                batch = batch.pivot_table(index=on[0], columns=self._band_col, values=col_values, aggfunc="sum")
-                
+                batch = batch.pivot_table(
+                    index=on[0], columns=self._band_col, values=col_values, aggfunc="sum"
+                )
+
                 # Need to once again reestablish meta for the pivot
                 band_labels = batch.columns.values
                 out_cols = []
@@ -1285,14 +1294,13 @@ class Ensemble:
                 for col in res_cols[::-1]:
                     for band in band_labels:
                         # [expr] adjusted labeling
-                        #out_cols += [(str(col), str(band))]
+                        # out_cols += [(str(col), str(band))]
                         out_cols += [(str(band[0]), str(band[1]))]
 
-                #import pdb; pdb.set_trace()
                 # [expr] added map_partitions meta assignment
-                #batch._meta = TapeFrame(columns=out_cols)  # apply new meta
-                #apply new meta
-                batch = batch.map_partitions(TapeFrame, meta = TapeFrame(columns=band_labels))
+                # batch._meta = TapeFrame(columns=out_cols)  # apply new meta
+                # apply new meta
+                batch = batch.map_partitions(TapeFrame, meta=TapeFrame(columns=band_labels))
 
                 # Flatten the columns to a new column per band
                 batch.columns = ["_".join(col) for col in batch.columns.values]
@@ -2465,8 +2473,8 @@ class Ensemble:
 
         # Inherit divisions information if known
         if self.source.known_divisions and self.object.known_divisions:
-            pass # TODO: Can no longer directly set divisions
-            #result.divisions = self.source.divisions
+            pass  # TODO: Can no longer directly set divisions
+            # result.divisions = self.source.divisions
 
         return result
 

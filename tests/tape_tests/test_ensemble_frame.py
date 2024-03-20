@@ -337,7 +337,7 @@ def test_object_and_source_frame_propagation(data_fixture, request):
         object_frame.copy(), on=[ens._id_col], suffixes=(None, "_drop_me")
     )
     cols_to_drop = [col for col in merged_frame.columns if "_drop_me" in col]
-    merged_frame = merged_frame.drop(cols_to_drop, axis=1).persist()
+    merged_frame = merged_frame.drop(columns=cols_to_drop).persist()
     assert isinstance(merged_frame, SourceFrame)
     assert merged_frame.label == SOURCE_LABEL
     assert merged_frame.ensemble == ens
@@ -437,7 +437,6 @@ def test_partition_slicing(parquet_ensemble_with_divisions):
     prior_src_len = len(ens.source)
 
     # slice on object
-    #import pdb;pdb.set_trace()
     ens.object.partitions[0:3].update_ensemble()
     ens._lazy_sync_tables("all")  # sync needed as len() won't trigger one
 
