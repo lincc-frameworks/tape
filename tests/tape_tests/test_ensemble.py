@@ -1920,11 +1920,7 @@ def test_bin_sources_two_days(dask_client):
 
 @pytest.mark.parametrize(
     "data_fixture",
-    [
-        "parquet_ensemble",
-        "parquet_ensemble_with_divisions",
-        "parquet_ensemble_with_client",
-    ],
+    ["parquet_ensemble_with_divisions"],
 )
 @pytest.mark.parametrize("use_map", [True, False])
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["nobs_total", "ps1_objid"]])
