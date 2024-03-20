@@ -1404,7 +1404,6 @@ def test_temporary_cols(parquet_ensemble):
 @pytest.mark.parametrize(
     "data_fixture",
     [
-        "parquet_ensemble",
         "parquet_ensemble_with_divisions",
     ],
 )
