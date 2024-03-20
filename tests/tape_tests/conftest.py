@@ -304,31 +304,23 @@ def parquet_ensemble_with_divisions():
     """Create an Ensemble from parquet data."""
     ens = Ensemble(client=False)
 
-    source_ddf = dd.read_parquet("tests/tape_tests/data/source/test_source.parquet",
-                                 calculate_divisions=True).repartition(npartitions=3)
-    object_ddf = dd.read_parquet("tests/tape_tests/data/object/test_object.parquet",
-                                 calculate_divisions=True).repartition(npartitions=2)
+    source_ddf = dd.read_parquet(
+        "tests/tape_tests/data/source/test_source.parquet", calculate_divisions=True
+    ).repartition(npartitions=3)
+    object_ddf = dd.read_parquet(
+        "tests/tape_tests/data/object/test_object.parquet", calculate_divisions=True
+    ).repartition(npartitions=2)
 
-    ens.from_dask_dataframe(source_ddf,
+    ens.from_dask_dataframe(
+        source_ddf,
         object_ddf,
         id_col="ps1_objid",
         time_col="midPointTai",
         band_col="filterName",
         flux_col="psFlux",
         err_col="psFluxErr",
-        sorted=True,)
-    """
-    ens.from_parquet(
-        "tests/tape_tests/data/source/test_source.parquet",
-        "tests/tape_tests/data/object/test_object.parquet",
-        id_col="ps1_objid",
-        time_col="midPointTai",
-        band_col="filterName",
-        flux_col="psFlux",
-        err_col="psFluxErr",
-        sort=True,
+        sorted=True,
     )
-    """
 
     return ens
 

@@ -18,8 +18,8 @@ requires-python = ">=3.9"
 dependencies = [
     'pandas',
     'numpy',
-    'dask',
-    'dask[distributed]',
+    'dask>=2024.3.0',
+    'dask[distributed]>=2024.3.0',
     'pyarrow',
     'pyvo',
     'scipy',
