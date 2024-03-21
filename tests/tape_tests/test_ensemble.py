@@ -1965,6 +1965,95 @@ def test_batch(data_fixture, request, use_map, on):
         assert pytest.approx(result.values[1]["r"], 0.001) == -0.49639028
 
 
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
+@pytest.mark.parametrize("sort_by_band", [True, False])
+def test_sort_lightcurves(data_fixture, request, sort_by_band):
+    """
+    Test that we can have the ensemble sort its lightcurves by timestamp.
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # filter NaNs from the source table
+    parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
+
+    # To check that all columns are rearranged when sorting the time column,
+    # we create a duplicate time column which should be sorted as well.
+    parquet_ensemble.source.assign(
+        dup_time=parquet_ensemble.source[parquet_ensemble._time_col]
+    ).update_ensemble()
+
+    # Validate the Ensemble is sorted by ID
+    assert parquet_ensemble.check_sorted("source")
+
+    bands = parquet_ensemble.source[parquet_ensemble._band_col].unique().compute()
+
+    # A trivial function that raises an Exception if the data is not temporally sorted
+    def my_mean(flux, time, dup_time, band):
+        if not sort_by_band:
+            # Check that the time column is sorted
+            if not np.all(time[:-1] <= time[1:]):
+                raise ValueError("The time column was not sorted in ascending order")
+        else:
+            # Check that the band column is sorted
+            if not np.all(band[:-1] <= band[1:]):
+                raise ValueError("The bands column was not sorted in ascending order")
+            # Check that the time column is sorted for each band
+            for curr_band in bands:
+                # Get a mask for the current band
+                mask = band == curr_band
+                if not np.all(time[mask][:-1] <= time[mask][1:]):
+                    raise ValueError(f"The time column was not sorted in ascending order for band {band}")
+        # Check that the other columns were rearranged to preserve the dataframe's rows
+        # We can use the duplicate time column as an easy check.
+        if not np.array_equal(time, dup_time):
+            raise ValueError("The dataframe's time column was sorted but isn't aligned with other columns")
+        return np.mean(flux)
+
+    band = parquet_ensemble._band_col if sort_by_band else None
+
+    # Validate that our custom function throws an Exception on the unsorted data to
+    # ensure that we actually sort when requested.
+    with pytest.raises(ValueError):
+        parquet_ensemble.batch(
+            my_mean,
+            parquet_ensemble._flux_col,
+            parquet_ensemble._time_col,
+            "dup_time",
+            parquet_ensemble._band_col,
+            by_band=False,
+        ).compute()
+
+    parquet_ensemble.sort_lightcurves(by_band=sort_by_band)
+
+    result = parquet_ensemble.batch(
+        my_mean,
+        parquet_ensemble._flux_col,
+        parquet_ensemble._time_col,
+        "dup_time",
+        parquet_ensemble._band_col,
+        by_band=False,
+    )
+
+    # Validate that the result is non-empty
+    assert len(result.compute()) > 0
+
+    # Make sure that divisions information was propagated if known
+    if parquet_ensemble.source.known_divisions and parquet_ensemble.object.known_divisions:
+        assert result.known_divisions
+
+    # Check that the dataframe is still sorted by the ID column
+    assert parquet_ensemble.check_sorted("source")
+
+    # Verify that we preserved lightcurve cohesion
+    assert parquet_ensemble.check_lightcurve_cohesion()
+
+
 @pytest.mark.parametrize("on", [None, ["ps1_objid", "filterName"], ["filterName", "ps1_objid"]])
 @pytest.mark.parametrize("func_label", ["mean", "bounds"])
 def test_batch_by_band(parquet_ensemble, func_label, on):

@@ -5,13 +5,16 @@
 TAPE (Timeseries Analysis & Processing Engine)
 ==============================================
 
-A Python package for scalable computing with LSST timeseries data.
+A Python package for scalable computing of timeseries data.
 
 TAPE offers a complete ecosystem for loading, filtering, and analyzing
-LSST timeseries data. Over the survey lifetime of the LSST, on order ~billions
-of objects will have multiband lightcurves available for analysis. TAPE
-is built to enable users to run provided and user-defined analysis functions 
-at scale in a parallelized and/or distributed manner.
+timeseries data. TAPE is built to enable users to run provided and user-defined 
+analysis functions at scale in a parallelized and/or distributed manner.
+
+Over the survey lifetime of the [LSST](https://www.lsst.org/about), on order 
+~billionsof objects will have multiband lightcurves available, and TAPE has
+been built as a framework with the goal of making analysis of LSST-scale
+data accessible.
 
 TAPE is built on top of `Dask <https://www.dask.org/>`_, and leverages 
 its "lazy evaluation" to only load data and run computations when needed.
@@ -36,7 +39,7 @@ create and activate a new environment.
 
 .. code-block:: console
 
-   >> conda create env -n <env_name> python=3.10
+   >> conda create env -n <env_name> python=3.11
    >> conda activate <env_name>
 
 
