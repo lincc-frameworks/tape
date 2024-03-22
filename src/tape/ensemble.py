@@ -21,7 +21,7 @@ from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 
 # from .ensemble_frame import (
-from .expr import (
+from .ensemble_frame import (
     EnsembleFrame,
     EnsembleSeries,
     ObjectFrame,

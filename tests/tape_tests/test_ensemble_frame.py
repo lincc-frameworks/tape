@@ -14,7 +14,7 @@ from tape import (
 )
 
 # from .ensemble_frame import (
-from tape.expr import (
+from tape.ensemble_frame import (
     EnsembleFrame,
     EnsembleSeries,
     ObjectFrame,
