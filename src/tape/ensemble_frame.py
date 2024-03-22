@@ -10,29 +10,14 @@ import dask.array as da
 
 from tape.utils import IndexCallable
 
-# from dask.dataframe import map_partitions
-from dask.highlevelgraph import HighLevelGraph
-from dask.utils import M, OperatorMethodMixin, derived_from, ignore_warning
-from dask.base import tokenize
-
-from dask.dataframe.core import get_parallel_type
 from dask.dataframe.utils import meta_nonempty
-from dask.dataframe.extensions import make_array_nonempty, make_scalar
-from dask.base import normalize_token
 from dask.dataframe.dispatch import make_meta_dispatch, pyarrow_schema_dispatch
 from dask.dataframe.backends import _nonempty_index, meta_nonempty_dataframe, _nonempty_series
 
 import dask_expr as dx
-from dask_expr import (
-    elemwise,
-    from_graph,
-    get_collection_type,
-    # from_dict,
-)
+from dask_expr import get_collection_type
 from dask_expr._collection import new_collection, from_dict
 from dask_expr._expr import _emulate, ApplyConcatApply
-
-# from .ensemble_frame import TapeFrame, TapeSeries
 
 SOURCE_FRAME_LABEL = "source"  # Reserved label for source table
 OBJECT_FRAME_LABEL = "object"  # Reserved label for object table.
@@ -143,19 +128,8 @@ class TapeObjectArrowEngine(TapeArrowEngine):
 
 
 class _Frame(dx.FrameBase):
-    """Superclass for DataFrame and Series
-    Parameters
-    ----------
-    dsk : dict
-        The dask graph to compute this DataFrame
-    name : str
-        The key prefix that specifies which keys in the dask comprise this
-        particular DataFrame / Series
-    meta : geopandas.GeoDataFrame, geopandas.GeoSeries
-        An empty geopandas object with names, dtypes, and indices matching the
-        expected output.
-    divisions : tuple of index values
-        Values along which we partition our blocks on the index
+    """Base class for extensions of Dask Dataframes that track additional
+    Ensemble-related metadata.
     """
 
     _partition_type = TapeFrame
@@ -604,7 +578,6 @@ class _Frame(dx.FrameBase):
         sorted=False,
         npartitions=None,
         divisions=None,
-        inplace=False,
         sort=True,
         **kwargs,
     ):
@@ -660,9 +633,6 @@ class _Frame(dx.FrameBase):
             Note that if ``sorted=True``, specified divisions are assumed to match
             the existing partitions in the data; if this is untrue you should
             leave divisions empty and call ``repartition`` after ``set_index``.
-        inplace: bool, optional
-            Modifying the DataFrame in place is not supported by Dask.
-            Defaults to False.
         sort: bool, optional
             If ``True``, sort the DataFrame by the new index. Otherwise
             set the index on the individual existing partitions.
