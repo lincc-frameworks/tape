@@ -733,6 +733,12 @@ class _Frame(dx.FrameBase):
         if isinstance(result, self.__class__):
             # If the output of func is another _Frame, let's propagate any metadata.
             return self._propagate_metadata(result)
+        elif isinstance(result, ObjectFrame):
+            result = self._propagate_metadata(result)
+            result.label = "object"  # override the label
+            return result
+        elif isinstance(result, SourceFrame):
+            return self._propagate_metadata(result)
         return result
 
     def compute(self, **kwargs):

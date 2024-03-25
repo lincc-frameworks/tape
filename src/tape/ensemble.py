@@ -1226,8 +1226,8 @@ class Ensemble:
             )
 
         # Output standardization
-        batch = self._standardize_batch(batch, on, by_band)
 
+        batch = self._standardize_batch(batch, on, by_band)
         # Inherit divisions if known from source and the resulting index is the id
         # Groupby on index should always return a subset that adheres to the same divisions criteria
         if self.source.known_divisions and batch.index.name == self._id_col:
@@ -1250,10 +1250,18 @@ class Ensemble:
             # make sure the output is separated from the id column
             if batch.name == self._id_col:
                 batch = batch.rename("result")
+
+                # need to set the index name
+                set_idx_name = True
+            else:
+                set_idx_name = False
+
             res_cols = [batch.name]  # grab the series name to use as a column label
 
             # convert the series to an EnsembleFrame object
             batch = EnsembleFrame.from_dask_dataframe(batch.to_frame())
+            if set_idx_name and len(on) < 2:
+                batch.index = batch.index.rename(self._id_col)
 
         elif isinstance(batch, EnsembleFrame):
             # collect output columns
@@ -1423,10 +1431,6 @@ class Ensemble:
 
         # Now write out the frames to subdirectories
         for subdir in created_subdirs:
-            # TODO: Figure this out, peek at the real meta as a stop gap
-            # TODO: It may be best to make sure batch returns valid index names
-            idx_name = self.frames[subdir].head(1).index.name
-            self.frames[subdir].index = self.frames[subdir].index.rename(idx_name)
             self.frames[subdir].to_parquet(os.path.join(ens_path, subdir), write_metadata_file=True, **kwargs)
 
         print(f"Saved to {os.path.join(path, dirname)}")
@@ -2188,8 +2192,6 @@ class Ensemble:
     def _generate_object_table(self):
         """Generate an empty object table from the source table."""
         res = self.source.map_partitions(lambda x: TapeObjectFrame(index=x.index.unique()))
-        res.label = "object"  # TODO: propagation issue with label
-
         return res
 
     def _lazy_sync_tables_from_frame(self, frame):
