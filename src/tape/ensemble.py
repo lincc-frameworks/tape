@@ -5,13 +5,14 @@ import shutil
 import warnings
 import requests
 import lsdb
+import dask
 
-# import dask_expr as dd
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 
 from dask.distributed import Client
+from dask import config
 from collections import Counter
 from collections.abc import Iterable
 
@@ -20,7 +21,6 @@ from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
 
-# from .ensemble_frame import (
 from .ensemble_frame import (
     EnsembleFrame,
     EnsembleSeries,
@@ -1038,7 +1038,6 @@ class Ensemble:
 
         # Group the columns by id, band, and time bucket and aggregate.
         result = self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
-        # self.update_frame(self.source._propagate_metadata(result))
 
         # Fix the indices and remove the temporary column.
         result = self.source._propagate_metadata(
@@ -1297,11 +1296,9 @@ class Ensemble:
                 for col in res_cols[::-1]:
                     for band in band_labels:
                         # [expr] adjusted labeling
-                        # out_cols += [(str(col), str(band))]
                         out_cols += [(str(band[0]), str(band[1]))]
 
                 # [expr] added map_partitions meta assignment
-                # batch._meta = TapeFrame(columns=out_cols)  # apply new meta
                 # apply new meta
                 batch = batch.map_partitions(TapeFrame, meta=TapeFrame(columns=band_labels))
 
