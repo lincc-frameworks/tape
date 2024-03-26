@@ -1226,12 +1226,7 @@ class Ensemble:
             )
 
         # Output standardization
-
         batch = self._standardize_batch(batch, on, by_band)
-        # Inherit divisions if known from source and the resulting index is the id
-        # Groupby on index should always return a subset that adheres to the same divisions criteria
-        if self.source.known_divisions and batch.index.name == self._id_col:
-            batch.divisions = self.source.divisions
 
         if label is not None:
             if label == "":
@@ -2472,11 +2467,6 @@ class Ensemble:
 
         else:
             result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
-
-        # Inherit divisions information if known
-        if self.source.known_divisions and self.object.known_divisions:
-            pass  # TODO: Can no longer directly set divisions
-            # result.divisions = self.source.divisions
 
         return result
 
