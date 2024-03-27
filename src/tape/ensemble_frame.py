@@ -1,26 +1,23 @@
-from collections.abc import Sequence
-
+from packaging.version import Version
 import warnings
-
-import dask.dataframe as dd
-
-import dask
-from dask.dataframe.dispatch import make_meta_dispatch
-from dask.dataframe.backends import _nonempty_index, meta_nonempty, meta_nonempty_dataframe, _nonempty_series
-from tape.utils import IndexCallable
-from dask.dataframe.core import get_parallel_type
-from dask.dataframe.extensions import make_array_nonempty
 
 import numpy as np
 import pandas as pd
 
-from typing import Literal
+import dask
+import dask.dataframe as dd
+import dask.array as da
 
+from tape.utils import IndexCallable
 
-from functools import partial
-from dask.dataframe.io.parquet.arrow import (
-    ArrowDatasetEngine as DaskArrowDatasetEngine,
-)
+from dask.dataframe.utils import meta_nonempty
+from dask.dataframe.dispatch import make_meta_dispatch, pyarrow_schema_dispatch
+from dask.dataframe.backends import _nonempty_index, meta_nonempty_dataframe, _nonempty_series
+
+import dask_expr as dx
+from dask_expr import get_collection_type
+from dask_expr._collection import new_collection, from_dict
+from dask_expr._expr import _emulate, ApplyConcatApply
 
 SOURCE_FRAME_LABEL = "source"  # Reserved label for source table
 OBJECT_FRAME_LABEL = "object"  # Reserved label for object table.
@@ -35,6 +32,41 @@ __all__ = [
     "TapeSourceFrame",
     "TapeSeries",
 ]
+
+from functools import partial
+from dask.dataframe.io.parquet.arrow import (
+    ArrowDatasetEngine as DaskArrowDatasetEngine,
+)
+
+
+class TapeSeries(pd.Series):
+    """A barebones extension of a Pandas series to be used for underlying Ensemble data.
+
+    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
+    """
+
+    @property
+    def _constructor(self):
+        return TapeSeries
+
+    @property
+    def _constructor_sliced(self):
+        return TapeSeries
+
+
+class TapeFrame(pd.DataFrame):
+    """A barebones extension of a Pandas frame to be used for underlying Ensemble data.
+
+    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
+    """
+
+    @property
+    def _constructor(self):
+        return TapeFrame
+
+    @property
+    def _constructor_expanddim(self):
+        return TapeFrame
 
 
 class TapeArrowEngine(DaskArrowDatasetEngine):
@@ -95,17 +127,21 @@ class TapeObjectArrowEngine(TapeArrowEngine):
         return TapeObjectFrame(meta)
 
 
-class _Frame(dd.core._Frame):
-    """Base class for extensions of Dask Dataframes that track additional Ensemble-related metadata."""
+class _Frame(dx.FrameBase):
+    """Base class for extensions of Dask Dataframes that track additional
+    Ensemble-related metadata.
+    """
 
-    def __init__(self, dsk, name, meta, divisions, label=None, ensemble=None):
+    _partition_type = TapeFrame
+
+    def __init__(self, expr, label=None, ensemble=None):
         # We define relevant object fields before super().__init__ since that call may lead to a
         # map_partitions call which will assume these fields exist.
         self.label = label  # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble  # The Ensemble object containing this frame.
         self.dirty = False  # True if the underlying data is out of sync with the Ensemble
 
-        super().__init__(dsk, name, meta, divisions)
+        super().__init__(expr)
 
     def is_dirty(self):
         return self.dirty
@@ -140,7 +176,20 @@ class _Frame(dd.core._Frame):
         A TAPE EnsembleFrame Object
         """
         self.set_dirty(True)
-        return IndexCallable(self._partitions, self.is_dirty(), self.ensemble)
+        return IndexCallable(self._partitions, self.is_dirty(), self.ensemble, self.label)
+
+    def optimize(self, fuse: bool = True):
+        result = new_collection(self.expr.optimize(fuse=fuse))
+        return result
+
+    def __dask_postpersist__(self):
+        func, args = super().__dask_postpersist__()
+
+        return self._rebuild, (func, args)
+
+    def _rebuild(self, graph, func, args):
+        collection = func(graph, *args)
+        return collection
 
     def _propagate_metadata(self, new_frame):
         """Propagates any relevant metadata to a new frame.
@@ -529,7 +578,6 @@ class _Frame(dd.core._Frame):
         sorted=False,
         npartitions=None,
         divisions=None,
-        inplace=False,
         sort=True,
         **kwargs,
     ):
@@ -585,9 +633,6 @@ class _Frame(dd.core._Frame):
             Note that if ``sorted=True``, specified divisions are assumed to match
             the existing partitions in the data; if this is untrue you should
             leave divisions empty and call ``repartition`` after ``set_index``.
-        inplace: bool, optional
-            Modifying the DataFrame in place is not supported by Dask.
-            Defaults to False.
         sort: bool, optional
             If ``True``, sort the DataFrame by the new index. Otherwise
             set the index on the individual existing partitions.
@@ -609,7 +654,7 @@ class _Frame(dd.core._Frame):
         result: `tape._Frame`
             The indexed frame
         """
-        result = super().set_index(other, drop, sorted, npartitions, divisions, inplace, sort, **kwargs)
+        result = super().set_index(other, drop, sorted, npartitions, divisions, sort, **kwargs)
         return self._propagate_metadata(result)
 
     def map_partitions(self, func, *args, **kwargs):
@@ -687,6 +732,12 @@ class _Frame(dd.core._Frame):
         result = super().map_partitions(func, *args, **kwargs)
         if isinstance(result, self.__class__):
             # If the output of func is another _Frame, let's propagate any metadata.
+            return self._propagate_metadata(result)
+        elif isinstance(result, ObjectFrame):
+            result = self._propagate_metadata(result)
+            result.label = OBJECT_FRAME_LABEL  # override the label
+            return result
+        elif isinstance(result, SourceFrame):
             return self._propagate_metadata(result)
         return result
 
@@ -795,43 +846,15 @@ class _Frame(dd.core._Frame):
         return self._propagate_metadata(result)
 
 
-class TapeSeries(pd.Series):
-    """A barebones extension of a Pandas series to be used for underlying Ensemble data.
-
-    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
-    """
-
-    @property
-    def _constructor(self):
-        return TapeSeries
-
-    @property
-    def _constructor_sliced(self):
-        return TapeSeries
-
-
-class TapeFrame(pd.DataFrame):
-    """A barebones extension of a Pandas frame to be used for underlying Ensemble data.
-
-    See https://pandas.pydata.org/docs/development/extending.html#subclassing-pandas-data-structures
-    """
-
-    @property
-    def _constructor(self):
-        return TapeFrame
-
-    @property
-    def _constructor_expanddim(self):
-        return TapeFrame
-
-
-class EnsembleSeries(_Frame, dd.core.Series):
+class EnsembleSeries(_Frame, dd.Series):
     """A barebones extension of a Dask Series for Ensemble data."""
 
     _partition_type = TapeSeries  # Tracks the underlying data type
 
 
-class EnsembleFrame(_Frame, dd.core.DataFrame):
+class EnsembleFrame(
+    _Frame, dd.DataFrame
+):  # can use dd.DataFrame instead of dx.DataFrame if the config is set true (default in >=2024.3.0)
     """An extension for a Dask Dataframe for data used by a lightcurve Ensemble.
 
     The underlying non-parallel dataframes are TapeFrames and TapeSeries which extend Pandas frames.
@@ -923,6 +946,93 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
             return None
         # Update the Ensemble to track this frame and return the ensemble.
         return self.ensemble.update_frame(self)
+
+    @classmethod
+    def from_dict(
+        cls, data, npartitions, orient="columns", dtype=None, columns=None, label=None, ensemble=None
+    ):
+        """
+        Construct a Tape EnsembleFrame from a Python Dictionary
+
+        Parameters
+        ----------
+        data : dict
+            Of the form {field : array-like} or {field : dict}.
+        npartitions : int
+            The number of partitions of the index to create. Note that depending on
+            the size and index of the dataframe, the output may have fewer
+            partitions than requested.
+        orient : {'columns', 'index', 'tight'}, default 'columns'
+            The "orientation" of the data. If the keys of the passed dict
+            should be the columns of the resulting DataFrame, pass 'columns'
+            (default). Otherwise if the keys should be rows, pass 'index'.
+            If 'tight', assume a dict with keys
+            ['index', 'columns', 'data', 'index_names', 'column_names'].
+        dtype: bool
+            Data type to force, otherwise infer.
+        columns: string, optional
+            Column labels to use when ``orient='index'``. Raises a ValueError
+            if used with ``orient='columns'`` or ``orient='tight'``.
+        label: `str`, optional
+            The label used to by the Ensemble to identify the frame.
+        ensemble: `tape.ensemble.Ensemble`, optional
+            A link to the Ensemble object that owns this frame.
+
+        Returns
+        ----------
+        result: `tape.EnsembleFrame`
+            The constructed EnsembleFrame object.
+        """
+        result = from_dict(
+            data,
+            npartitions=npartitions,
+            orient=orient,
+            dtype=dtype,
+            columns=columns,
+            constructor=cls._partition_type,
+        )
+        result.label = label
+        result.ensemble = ensemble
+        return result
+
+    @classmethod
+    def from_parquet(cl, path, index=None, columns=None, label=None, ensemble=None, **kwargs):
+        """Returns an EnsembleFrame constructed from loading a parquet file.
+
+        Parameters
+        ----------
+        path: `str` or `list`
+            Source directory for data, or path(s) to individual parquet files. Prefix with a
+            protocol like s3:// to read from alternative filesystems. To read from multiple
+            files you can pass a globstring or a list of paths, with the caveat that they must all
+            have the same protocol.
+        index: `str`, `list`, `False`, optional
+            Field name(s) to use as the output frame index. Default is None and index will be
+            inferred from the pandas parquet file metadata, if present. Use False to read all
+            fields as columns.
+        columns: `str` or `list`, optional
+            Field name(s) to read in as columns in the output. By default all non-index fields will
+            be read (as determined by the pandas parquet metadata, if present). Provide a single
+            field name instead of a list to read in the data as a Series.
+        label: `str`, optional
+            The label used to by the Ensemble to identify the frame.
+        ensemble: `tape.ensemble.Ensemble`, optional
+            A link to the Ensemble object that owns this frame.
+
+        Returns
+        ----------
+        result: `tape.EnsembleFrame`
+            The constructed EnsembleFrame object.
+        """
+        # Read the parquet file with an engine that will assume the meta is a TapeFrame which Dask will
+        # instantiate as EnsembleFrame via its dispatcher.
+        result = dd.read_parquet(
+            path, index=index, columns=columns, split_row_groups=True, engine=TapeArrowEngine, **kwargs
+        )
+        result.label = label
+        result.ensemble = ensemble
+
+        return result
 
     def convert_flux_to_mag(
         self,
@@ -1057,45 +1167,6 @@ class EnsembleFrame(_Frame, dd.core.DataFrame):
 
         return table_ddf
 
-    @classmethod
-    def from_parquet(cl, path, index=None, columns=None, label=None, ensemble=None, **kwargs):
-        """Returns an EnsembleFrame constructed from loading a parquet file.
-
-        Parameters
-        ----------
-        path: `str` or `list`
-            Source directory for data, or path(s) to individual parquet files. Prefix with a
-            protocol like s3:// to read from alternative filesystems. To read from multiple
-            files you can pass a globstring or a list of paths, with the caveat that they must all
-            have the same protocol.
-        index: `str`, `list`, `False`, optional
-            Field name(s) to use as the output frame index. Default is None and index will be
-            inferred from the pandas parquet file metadata, if present. Use False to read all
-            fields as columns.
-        columns: `str` or `list`, optional
-            Field name(s) to read in as columns in the output. By default all non-index fields will
-            be read (as determined by the pandas parquet metadata, if present). Provide a single
-            field name instead of a list to read in the data as a Series.
-        label: `str`, optional
-            The label used to by the Ensemble to identify the frame.
-        ensemble: `tape.ensemble.Ensemble`, optional
-            A link to the Ensemble object that owns this frame.
-
-        Returns
-        ----------
-        result: `tape.EnsembleFrame`
-            The constructed EnsembleFrame object.
-        """
-        # Read the parquet file with an engine that will assume the meta is a TapeFrame which Dask will
-        # instantiate as EnsembleFrame via its dispatcher.
-        result = dd.read_parquet(
-            path, index=index, columns=columns, split_row_groups=True, engine=TapeArrowEngine, **kwargs
-        )
-        result.label = label
-        result.ensemble = ensemble
-
-        return result
-
 
 class TapeSourceFrame(TapeFrame):
     """A barebones extension of a Pandas frame to be used for underlying Ensemble source data
@@ -1132,10 +1203,14 @@ class SourceFrame(EnsembleFrame):
 
     _partition_type = TapeSourceFrame  # Tracks the underlying data type
 
-    def __init__(self, dsk, name, meta, divisions, ensemble=None):
-        super().__init__(dsk, name, meta, divisions)
+    def __init__(self, expr, ensemble=None):
+        # We define relevant object fields before super().__init__ since that call may lead to a
+        # map_partitions call which will assume these fields exist.
         self.label = SOURCE_FRAME_LABEL  # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble  # The Ensemble object containing this frame.
+        self.dirty = False  # True if the underlying data is out of sync with the Ensemble
+
+        super().__init__(expr)
 
     def __getitem__(self, key):
         result = super().__getitem__(key)
@@ -1152,34 +1227,8 @@ class SourceFrame(EnsembleFrame):
         columns=None,
         ensemble=None,
     ):
-        """Returns a SourceFrame constructed from loading a parquet file.
+        """Returns a SourceFrame constructed from loading a parquet file."""
 
-        Parameters
-        ----------
-        path: `str` or `list`
-            Source directory for data, or path(s) to individual parquet files. Prefix with a
-            protocol like s3:// to read from alternative filesystems. To read from multiple
-            files you can pass a globstring or a list of paths, with the caveat that they must all
-            have the same protocol.
-        columns: `str` or `list`, optional
-            Field name(s) to read in as columns in the output. By default all non-index fields will
-            be read (as determined by the pandas parquet metadata, if present). Provide a single
-            field name instead of a list to read in the data as a Series.
-        index: `str`, `list`, `False`, optional
-            Field name(s) to use as the output frame index. Default is None and index will be
-            inferred from the pandas parquet file metadata, if present. Use False to read all
-            fields as columns.
-        ensemble: `tape.ensemble.Ensemble`, optional
-            A link to the Ensemble object that owns this frame.
-
-        Returns
-        ----------
-        result: `tape.EnsembleFrame`
-            The constructed EnsembleFrame object.
-        """
-        # Read the source parquet file with an engine that will assume the meta is a
-        # TapeSourceFrame which tells Dask to instantiate a SourceFrame via its
-        # dispatcher.
         result = dd.read_parquet(
             path,
             index=index,
@@ -1221,10 +1270,14 @@ class ObjectFrame(EnsembleFrame):
 
     _partition_type = TapeObjectFrame  # Tracks the underlying data type
 
-    def __init__(self, dsk, name, meta, divisions, ensemble=None):
-        super().__init__(dsk, name, meta, divisions)
+    def __init__(self, expr, ensemble=None):
+        # We define relevant object fields before super().__init__ since that call may lead to a
+        # map_partitions call which will assume these fields exist.
         self.label = OBJECT_FRAME_LABEL  # A label used by the Ensemble to identify this frame.
         self.ensemble = ensemble  # The Ensemble object containing this frame.
+        self.dirty = False  # True if the underlying data is out of sync with the Ensemble
+
+        super().__init__(expr)
 
     @classmethod
     def from_parquet(
@@ -1234,31 +1287,7 @@ class ObjectFrame(EnsembleFrame):
         columns=None,
         ensemble=None,
     ):
-        """Returns an ObjectFrame constructed from loading a parquet file.
-
-        Parameters
-        ----------
-        path: `str` or `list`
-            Source directory for data, or path(s) to individual parquet files. Prefix with a
-            protocol like s3:// to read from alternative filesystems. To read from multiple
-            files you can pass a globstring or a list of paths, with the caveat that they must all
-            have the same protocol.
-        columns: `str` or `list`, optional
-            Field name(s) to read in as columns in the output. By default all non-index fields will
-            be read (as determined by the pandas parquet metadata, if present). Provide a single
-            field name instead of a list to read in the data as a Series.
-        index: `str`, `list`, `False`, optional
-            Field name(s) to use as the output frame index. Default is None and index will be
-            inferred from the pandas parquet file metadata, if present. Use False to read all
-            fields as columns.
-        ensemble: `tape.ensemble.Ensemble`, optional
-            A link to the Ensemble object that owns this frame.
-
-        Returns
-        ----------
-        result: `tape.ObjectFrame`
-            The constructed ObjectFrame object.
-        """
+        """Returns an ObjectFrame constructed from loading a parquet file."""
         # Read in the object Parquet file
         result = dd.read_parquet(
             path,
@@ -1305,11 +1334,15 @@ class ObjectFrame(EnsembleFrame):
 # The following should ensure that any Dask Dataframes which use TapeSeries or TapeFrames as their
 # underlying data will be resolved as EnsembleFrames or EnsembleSeries as their parrallel
 # counterparts. The underlying Dask Dataframe _meta will be a TapeSeries or TapeFrame.
+#
+# Note that with the change to the dask-expr backend, the `get_collection_type` method
+# is used to register instead of the previously used `get_parallel_type`.
 
-get_parallel_type.register(TapeSeries, lambda _: EnsembleSeries)
-get_parallel_type.register(TapeFrame, lambda _: EnsembleFrame)
-get_parallel_type.register(TapeObjectFrame, lambda _: ObjectFrame)
-get_parallel_type.register(TapeSourceFrame, lambda _: SourceFrame)
+
+get_collection_type.register(TapeSeries, lambda _: EnsembleSeries)
+get_collection_type.register(TapeFrame, lambda _: EnsembleFrame)
+get_collection_type.register(TapeObjectFrame, lambda _: ObjectFrame)
+get_collection_type.register(TapeSourceFrame, lambda _: SourceFrame)
 
 
 @make_meta_dispatch.register(TapeSeries)
@@ -1348,7 +1381,7 @@ def make_meta_frame(x, index=None):
 
 
 @meta_nonempty.register(TapeObjectFrame)
-def _nonempty_tapesourceframe(x, index=None):
+def _nonempty_tapeobjectframe(x, index=None):
     # Construct a new TapeObjectFrame with the same underlying data.
     df = meta_nonempty_dataframe(x)
     return TapeObjectFrame(df)

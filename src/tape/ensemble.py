@@ -5,11 +5,14 @@ import shutil
 import warnings
 import requests
 import lsdb
+import dask
+
 import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 
 from dask.distributed import Client
+from dask import config
 from collections import Counter
 from collections.abc import Iterable
 
@@ -17,6 +20,7 @@ from .analysis.base import AnalysisFunction
 from .analysis.feature_extractor import BaseLightCurveFeature, FeatureExtractor
 from .analysis.structure_function import SF_METHODS
 from .analysis.structurefunction2 import calc_sf2
+
 from .ensemble_frame import (
     EnsembleFrame,
     EnsembleSeries,
@@ -326,7 +330,7 @@ class Ensemble:
                 rows[key] = value
 
         # Create the new row and set the paritioning to match the original dataframe.
-        df2 = dd.DataFrame.from_dict(rows, npartitions=1)
+        df2 = dd.DataFrame.from_dict(rows, npartitions=2)  # need at least 2 partitions for div
         df2 = df2.set_index(self._id_col, drop=True, sort=True)
 
         # Save the divisions and number of partitions.
@@ -334,7 +338,10 @@ class Ensemble:
         prev_num = self.source.npartitions
 
         # Append the new rows to the correct divisions.
-        self.update_frame(dd.concat([self.source, df2], axis=0, interleave_partitions=True))
+        result = dd.concat([self.source, df2], axis=0, interleave_partitions=True)
+        self.update_frame(
+            self.source._propagate_metadata(result)
+        )  # propagate source metadata and update frame
         self.source.set_dirty(True)
 
         # Do the repartitioning if requested. If the divisions were set, reuse them.
@@ -996,7 +1003,7 @@ class Ensemble:
         if tmp_time_col in self.source.columns:
             raise KeyError(f"Column '{tmp_time_col}' already exists in source table.")
         self.source[tmp_time_col] = self.source[self._time_col].apply(
-            lambda x: np.floor((x + offset) / time_window) * time_window, meta=pd.Series(dtype=float)
+            lambda x: np.floor((x + offset) / time_window) * time_window, meta=TapeSeries(dtype=float)
         )
 
         # Set up the aggregation functions for the time and flux columns.
@@ -1030,12 +1037,14 @@ class Ensemble:
                 aggr_funs[key] = custom_aggr[key]
 
         # Group the columns by id, band, and time bucket and aggregate.
-        self.update_frame(
-            self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+        result = self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
+        # Fix the indices and remove the temporary column.
+        result = self.source._propagate_metadata(
+            result.reset_index().set_index(self._id_col).drop(columns=[tmp_time_col])
         )
 
-        # Fix the indices and remove the temporary column.
-        self.update_frame(self.source.reset_index().set_index(self._id_col).drop(tmp_time_col, axis=1))
+        # Updates the source frame
+        self.update_frame(result)
 
         # Mark the source table as dirty.
         self.source.set_dirty(True)
@@ -1217,11 +1226,6 @@ class Ensemble:
         # Output standardization
         batch = self._standardize_batch(batch, on, by_band)
 
-        # Inherit divisions if known from source and the resulting index is the id
-        # Groupby on index should always return a subset that adheres to the same divisions criteria
-        if self.source.known_divisions and batch.index.name == self._id_col:
-            batch.divisions = self.source.divisions
-
         if label is not None:
             if label == "":
                 label = self._generate_frame_label()
@@ -1239,10 +1243,18 @@ class Ensemble:
             # make sure the output is separated from the id column
             if batch.name == self._id_col:
                 batch = batch.rename("result")
+
+                # need to set the index name
+                set_idx_name = True
+            else:
+                set_idx_name = False
+
             res_cols = [batch.name]  # grab the series name to use as a column label
 
             # convert the series to an EnsembleFrame object
             batch = EnsembleFrame.from_dask_dataframe(batch.to_frame())
+            if set_idx_name and len(on) < 2:
+                batch.index = batch.index.rename(self._id_col)
 
         elif isinstance(batch, EnsembleFrame):
             # collect output columns
@@ -1260,14 +1272,21 @@ class Ensemble:
 
             # Need to overwrite the meta manually as the multiindex will be
             # interpretted by dask as a single "index" column
-            batch._meta = TapeFrame(columns=on + res_cols)
+
+            # [expr] added map_partitions meta assignment
+            # batch._meta = TapeFrame(columns=on + res_cols)
+            batch = batch.map_partitions(TapeFrame, meta=TapeFrame(columns=on + res_cols))
 
             # Further reformatting for per-band results
             # Pivots on the band column to generate a result column for each
             # photometric band.
             if by_band:
                 batch = batch.categorize(self._band_col)
-                batch = batch.pivot_table(index=on[0], columns=self._band_col, aggfunc="sum")
+                # [expr] added values
+                col_values = [col for col in batch.columns if col not in [on[0], self._band_col]]
+                batch = batch.pivot_table(
+                    index=on[0], columns=self._band_col, values=col_values, aggfunc="sum"
+                )
 
                 # Need to once again reestablish meta for the pivot
                 band_labels = batch.columns.values
@@ -1275,8 +1294,12 @@ class Ensemble:
                 # To align with pandas pivot_table results, the columns should be generated in reverse order
                 for col in res_cols[::-1]:
                     for band in band_labels:
-                        out_cols += [(str(col), str(band))]
-                batch._meta = TapeFrame(columns=out_cols)  # apply new meta
+                        # [expr] adjusted labeling
+                        out_cols += [(str(band[0]), str(band[1]))]
+
+                # [expr] added map_partitions meta assignment
+                # apply new meta
+                batch = batch.map_partitions(TapeFrame, meta=TapeFrame(columns=band_labels))
 
                 # Flatten the columns to a new column per band
                 batch.columns = ["_".join(col) for col in batch.columns.values]
@@ -2160,7 +2183,6 @@ class Ensemble:
     def _generate_object_table(self):
         """Generate an empty object table from the source table."""
         res = self.source.map_partitions(lambda x: TapeObjectFrame(index=x.index.unique()))
-
         return res
 
     def _lazy_sync_tables_from_frame(self, frame):
@@ -2246,7 +2268,7 @@ class Ensemble:
                 else:
                     warnings.warn("Divisions are not known, syncing using a non-lazy method.")
                     # Sync Source to Object; remove any objects that do not have sources
-                    sor_idx = list(self.source.index.unique().compute())
+                    sor_idx = list(self.source.index.compute().unique())
                     self.update_frame(self.object.map_partitions(lambda x: x[x.index.isin(sor_idx)]))
                     self.update_frame(self.object.persist())  # persist the object frame
 
@@ -2296,7 +2318,7 @@ class Ensemble:
 
         # Scan through the shuffled partition list until a partition with data is found
         while not object_selected:
-            partition_index = self.object.partitions[partitions[i]].index
+            partition_index = self.object.partitions[int(partitions[i])].index
             # Check for empty partitions
             if len(partition_index) > 0:
                 lcid = rng.choice(partition_index.values)  # randomly select lightcurve
@@ -2441,10 +2463,6 @@ class Ensemble:
 
         else:
             result = self.batch(calc_sf2, use_map=use_map, argument_container=argument_container)
-
-        # Inherit divisions information if known
-        if self.source.known_divisions and self.object.known_divisions:
-            result.divisions = self.source.divisions
 
         return result
 
