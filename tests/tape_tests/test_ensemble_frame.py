@@ -5,15 +5,8 @@ import pandas as pd
 from tape import (
     Ensemble,
     ColumnMapper,
-    # EnsembleFrame,
-    # ObjectFrame,
-    # SourceFrame,
-    # TapeObjectFrame,
-    # TapeSourceFrame,
-    # TapeFrame,
 )
 
-# from .ensemble_frame import (
 from tape.ensemble_frame import (
     EnsembleFrame,
     EnsembleSeries,
@@ -52,6 +45,17 @@ def test_from_dict(data_fixture, request):
     # The calculation for finding the max flux from the data. Note that the
     # inherited dask compute method must be called to obtain the result.
     assert ens_frame.flux.max().compute() == 80.6
+
+    # Test SourceFrame Meta/Partition Typing
+    src_frame = SourceFrame.from_dict(data, npartitions=1)
+    assert isinstance(src_frame, SourceFrame)
+    assert isinstance(src_frame._meta, TapeSourceFrame)
+
+    # Test ObjectFrame Meta/Partition Typing
+    # use a dummy dict as the above is source data
+    obj_frame = ObjectFrame.from_dict({"a": [1]}, npartitions=1)
+    assert isinstance(obj_frame, ObjectFrame)
+    assert isinstance(obj_frame._meta, TapeObjectFrame)
 
 
 @pytest.mark.parametrize(
@@ -342,6 +346,20 @@ def test_object_and_source_frame_propagation(data_fixture, request):
     assert merged_frame.label == SOURCE_LABEL
     assert merged_frame.ensemble == ens
     assert merged_frame.is_dirty()
+
+
+def test_map_partitions_metadata(parquet_ensemble):
+    # Get Source and object frames to test joins on.
+    source_frame, object_frame = parquet_ensemble.source.copy(), parquet_ensemble.object.copy()
+
+    src_res = source_frame.map_partitions(lambda x: x)
+    obj_res = object_frame.map_partitions(lambda x: x)
+
+    assert src_res.label == SOURCE_LABEL
+    assert obj_res.label == OBJECT_LABEL
+
+    assert src_res.ensemble == parquet_ensemble
+    assert obj_res.ensemble == parquet_ensemble
 
 
 def test_object_and_source_joins(parquet_ensemble):

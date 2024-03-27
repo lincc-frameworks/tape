@@ -735,7 +735,7 @@ class _Frame(dx.FrameBase):
             return self._propagate_metadata(result)
         elif isinstance(result, ObjectFrame):
             result = self._propagate_metadata(result)
-            result.label = "object"  # override the label
+            result.label = OBJECT_FRAME_LABEL  # override the label
             return result
         elif isinstance(result, SourceFrame):
             return self._propagate_metadata(result)
@@ -949,11 +949,47 @@ class EnsembleFrame(
 
     @classmethod
     def from_dict(
-        cl, data, npartitions, orient="columns", dtype=None, columns=None, label=None, ensemble=None
+        cls, data, npartitions, orient="columns", dtype=None, columns=None, label=None, ensemble=None
     ):
-        """"""
+        """
+        Construct a Tape EnsembleFrame from a Python Dictionary
+
+        Parameters
+        ----------
+        data : dict
+            Of the form {field : array-like} or {field : dict}.
+        npartitions : int
+            The number of partitions of the index to create. Note that depending on
+            the size and index of the dataframe, the output may have fewer
+            partitions than requested.
+        orient : {'columns', 'index', 'tight'}, default 'columns'
+            The "orientation" of the data. If the keys of the passed dict
+            should be the columns of the resulting DataFrame, pass 'columns'
+            (default). Otherwise if the keys should be rows, pass 'index'.
+            If 'tight', assume a dict with keys
+            ['index', 'columns', 'data', 'index_names', 'column_names'].
+        dtype: bool
+            Data type to force, otherwise infer.
+        columns: string, optional
+            Column labels to use when ``orient='index'``. Raises a ValueError
+            if used with ``orient='columns'`` or ``orient='tight'``.
+        label: `str`, optional
+            The label used to by the Ensemble to identify the frame.
+        ensemble: `tape.ensemble.Ensemble`, optional
+            A link to the Ensemble object that owns this frame.
+
+        Returns
+        ----------
+        result: `tape.EnsembleFrame`
+            The constructed EnsembleFrame object.
+        """
         result = from_dict(
-            data, npartitions=npartitions, orient=orient, dtype=dtype, columns=columns, constructor=TapeFrame
+            data,
+            npartitions=npartitions,
+            orient=orient,
+            dtype=dtype,
+            columns=columns,
+            constructor=cls._partition_type,
         )
         result.label = label
         result.ensemble = ensemble
@@ -1298,6 +1334,9 @@ class ObjectFrame(EnsembleFrame):
 # The following should ensure that any Dask Dataframes which use TapeSeries or TapeFrames as their
 # underlying data will be resolved as EnsembleFrames or EnsembleSeries as their parrallel
 # counterparts. The underlying Dask Dataframe _meta will be a TapeSeries or TapeFrame.
+#
+# Note that with the change to the dask-expr backend, the `get_collection_type` method
+# is used to register instead of the previously used `get_parallel_type`.
 
 
 get_collection_type.register(TapeSeries, lambda _: EnsembleSeries)
@@ -1342,7 +1381,7 @@ def make_meta_frame(x, index=None):
 
 
 @meta_nonempty.register(TapeObjectFrame)
-def _nonempty_tapesourceframe(x, index=None):
+def _nonempty_tapeobjectframe(x, index=None):
     # Construct a new TapeObjectFrame with the same underlying data.
     df = meta_nonempty_dataframe(x)
     return TapeObjectFrame(df)

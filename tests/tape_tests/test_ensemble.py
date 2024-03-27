@@ -850,7 +850,7 @@ def test_insert(parquet_ensemble):
     assert new_source.shape[0] == old_size + 10
 
 
-def test_insert_paritioned():
+def test_insert_partitioned():
     ens = Ensemble()
 
     # Create all fake source data with known divisions.

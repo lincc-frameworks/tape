@@ -1038,7 +1038,6 @@ class Ensemble:
 
         # Group the columns by id, band, and time bucket and aggregate.
         result = self.source.groupby([self._id_col, self._band_col, tmp_time_col]).aggregate(aggr_funs)
-
         # Fix the indices and remove the temporary column.
         result = self.source._propagate_metadata(
             result.reset_index().set_index(self._id_col).drop(columns=[tmp_time_col])
