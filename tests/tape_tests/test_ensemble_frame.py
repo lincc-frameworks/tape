@@ -472,6 +472,7 @@ def test_partition_slicing(parquet_ensemble_with_divisions):
     assert ens.source.npartitions == 2  # should return exactly 2 partitions
     assert len(ens.object) < prior_src_len  # should affect objects
 
+
 @pytest.mark.parametrize(
     "data_fixture",
     [
@@ -522,4 +523,3 @@ def test_head(data_fixture, request):
     assert len(result) == rows
     assert isinstance(result, TapeFrame)
     assert set(result.columns) == set(frame.columns)
-
