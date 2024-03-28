@@ -497,6 +497,8 @@ def test_head(data_fixture, request):
     assert len(frame.head(0)) == 0
     assert len(frame.head(-1)) == 0
 
+    assert len(frame.head(100, compute=False).compute()) == 100
+
     one_res = frame.head(1)
     assert len(one_res) == 1
     assert isinstance(one_res, TapeFrame)
