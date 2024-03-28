@@ -2047,12 +2047,6 @@ class Ensemble:
             column_mapper=col_map,
             **kwargs,
         )
-        # return self.from_parquet(
-        #    source_file=dataset_info["source_file"],
-        #    object_file=dataset_info["object_file"],
-        #    column_mapper=col_map,
-        #    **kwargs,
-        # )
 
     def available_datasets(self):
         """Retrieve descriptions of available TAPE datasets.
