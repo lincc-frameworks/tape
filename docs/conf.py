@@ -47,13 +47,15 @@ master_doc = "index"
 # Remove 'view source code' from top of page (for html, not python)
 html_show_sourcelink = False
 # Remove namespaces from class/method signatures
-add_module_names = True
+add_module_names = False
 
 autoapi_type = "python"
 autoapi_dirs = ["../src"]
 autoapi_ignore = ["*/__main__.py", "*/_version.py"]
-autoapi_add_toc_tree_entry = False
-autoapi_member_order = "bysource"
+autoapi_add_toc_tree_entry = True
+autoapi_member_order = "groupwise"
+autoapi_own_page_level = "class"
+autoapi_options = [ 'members', 'show-inheritance', 'show-module-summary', 'imported-members', ]
 
 html_theme = "sphinx_book_theme"
 
