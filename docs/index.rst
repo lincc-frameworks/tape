@@ -19,9 +19,10 @@ data accessible.
 TAPE is built on top of `Dask <https://www.dask.org/>`_, and leverages 
 its "lazy evaluation" to only load data and run computations when needed.
 
-# How to Use This Guide
+How to Use This Guide
+==============================================
 
-Begin with the **`Getting Started <https://tape.readthedocs.io/en/latest/gettingstarted.html>`_** guide to learn the basics of installation and
+Begin with the `**Getting Started** <https://tape.readthedocs.io/en/latest/gettingstarted.html>`_guide to learn the basics of installation and
 walk through a simple example of using TAPE.
 
 The `Tutorials <https://tape.readthedocs.io/en/latest/tutorials.html>`_ section showcases the fundamental features of TAPE.
