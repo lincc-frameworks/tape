@@ -816,7 +816,7 @@ class Ensemble:
                     .reset_index()
                     .pivot_table(values=band_col, index=id_col, columns=band_col, aggfunc="sum"),
                     meta=meta,
-                ).repartition(divisions=self.object.divisions)
+                ).repartition(divisions=self.object.divisions, force=True)
             else:
                 band_counts = (
                     self.source.groupby([self._id_col])[self._band_col]  # group by each object
@@ -852,7 +852,7 @@ class Ensemble:
                 # Map the groupby to each partition
                 counts = self.source.map_partitions(
                     lambda x: x.groupby([id_col])[[band_col]].aggregate("count")
-                ).repartition(divisions=self.object.divisions)
+                ).repartition(divisions=self.object.divisions, force=True)
             else:
                 # Just do a groupby on all source
                 counts = (
