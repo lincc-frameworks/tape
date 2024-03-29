@@ -2127,6 +2127,25 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     assert all([col in res.columns for col in res.compute().columns])
 
 
+@pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
+def test_batch_single_lc(data_fixture, request):
+    """
+    Test that ensemble.batch() can run a function on a single light curve.
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    lc = 88472935274829959
+
+    lc_res = parquet_ensemble.prune(10).batch(
+        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=lc
+    )
+    assert len(lc_res) == 1
+
+    # Now ensure that we got the same result when we ran the function on the entire ensemble.
+    full_res = parquet_ensemble.prune(10).batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None)
+    assert full_res.compute().loc[lc].stetsonJ == lc_res.compute().iloc[0].stetsonJ
+
+
 def test_batch_labels(parquet_ensemble):
     """
     Test that ensemble.batch() generates unique labels for result frames when none are provided.

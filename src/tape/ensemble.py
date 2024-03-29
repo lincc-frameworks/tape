@@ -1059,6 +1059,7 @@ class Ensemble:
         use_map=True,
         on=None,
         label="",
+        single_lc=None,
         **kwargs,
     ):
         """Run a function from tape.TimeSeries on the available ids
@@ -1107,6 +1108,9 @@ class Ensemble:
             source or object tables. If not specified, then the id column is
             used by default. For TAPE and `light-curve` functions this is
             populated automatically.
+        single_lc: `int`, optional
+            If provided, only the lightcurve with the specified id will be
+            used in batch. Default is None.
         label: 'str', optional
             If provided the ensemble will use this label to track the result
             dataframe. If not provided, a label of the from "result_{x}" where x
@@ -1132,6 +1136,12 @@ class Ensemble:
 
             from light_curve import EtaE
             ens.batch(EtaE(), band_to_calc='g')
+
+        To run a TAPE function on a single lightcurve:
+            from tape.analysis.stetsonj import calc_stetson_J
+            ens = Ensemble().from_dataset('rrlyr82')
+            lc_id = 4378437892 # The lightcurve id
+            ensemble.batch(calc_stetson_J, band_to_calc='i', single_lc=lc_id)
 
         Run a custom function on the ensemble::
 
@@ -1160,6 +1170,13 @@ class Ensemble:
         if meta is None:
             meta = (self._id_col, float)  # return a series of ids, default assume a float is returned
 
+        src_to_batch = self.source
+        obj_to_batch = self.object
+
+        if single_lc is not None:
+            src_to_batch = src_to_batch.loc[single_lc]
+            obj_to_batch = obj_to_batch.loc[single_lc]
+
         # Translate the meta into an appropriate TapeFrame or TapeSeries. This ensures that the
         # batch result will be an EnsembleFrame or EnsembleSeries.
         meta = self._translate_meta(meta)
@@ -1178,15 +1195,13 @@ class Ensemble:
                 on[-1] = self._band_col
 
         # Handle object columns to group on
-        source_cols = list(self.source.columns)
-        object_cols = list(self.object.columns)
+        source_cols = list(src_to_batch.columns)
+        object_cols = list(obj_to_batch.columns)
         object_group_cols = [col for col in on if (col in object_cols) and (col not in source_cols)]
 
         if len(object_group_cols) > 0:
-            object_col_dd = self.object[object_group_cols]
-            source_to_batch = self.source.merge(object_col_dd, how="left")
-        else:
-            source_to_batch = self.source  # Can directly use the source table
+            obj_to_batch = obj_to_batch[object_group_cols]
+            src_to_batch = src_to_batch.merge(obj_to_batch, how="left")
 
         id_col = self._id_col  # pre-compute needed for dask in lambda function
 
@@ -1211,11 +1226,11 @@ class Ensemble:
 
             id_col = self._id_col  # need to grab this before mapping
 
-            batch = source_to_batch.map_partitions(_batch_apply, func, on, *args, **kwargs, meta=meta)
+            batch = src_to_batch.map_partitions(_batch_apply, func, on, *args, **kwargs, meta=meta)
 
         else:  # use groupby
             # don't use _batch_apply as meta must be specified in the apply call
-            batch = source_to_batch.groupby(on, group_keys=True, sort=False).apply(
+            batch = src_to_batch.groupby(on, group_keys=True, sort=False).apply(
                 _apply_func_to_lc,
                 func,
                 *args,
