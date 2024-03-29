@@ -2049,9 +2049,16 @@ class Ensemble:
             band_col=dataset_map["band"],
         )
 
-        return self.from_parquet(
-            source_file=dataset_info["source_file"],
-            object_file=dataset_info["object_file"],
+        # repartition and sort these demo datasets
+        src = dd.read_parquet(dataset_info["source_file"]).repartition(npartitions=4).persist()
+        obj = dd.read_parquet(dataset_info["object_file"]).repartition(npartitions=2).persist()
+
+        src = src.set_index(dataset_map["id"], sort=True)
+        obj = obj.set_index(dataset_map["id"], sort=True)
+
+        return self.from_dask_dataframe(
+            source_frame=src,
+            object_frame=obj,
             column_mapper=col_map,
             **kwargs,
         )
