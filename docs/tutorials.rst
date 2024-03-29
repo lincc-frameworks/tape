@@ -5,6 +5,7 @@ These pages contain a set of tutorial notebooks for working through core and mor
 functionality.
 
 .. toctree::
+    :maxdepth: 1
 
     Loading Data into TAPE <tutorials/tape_datasets>
     Working with the TAPE Ensemble object <tutorials/working_with_the_ensemble>
