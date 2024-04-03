@@ -11,8 +11,7 @@ TAPE offers a complete ecosystem for loading, filtering, and analyzing
 timeseries data. TAPE is built to enable users to run provided and user-defined 
 analysis functions at scale in a parallelized and/or distributed manner.
 
-Over the survey lifetime of the `LSST <https://www.lsst.org/about>`_, on order 
-of ~billions of objects will have multiband lightcurves available, and TAPE has
+Over the survey lifetime of the `LSST <https://www.lsst.org/about>`_, billions of objects will have multiband lightcurves available, and TAPE has
 been built as a framework with the goal of making analysis of LSST-scale
 data accessible.
 
@@ -23,7 +22,7 @@ How to Use This Guide
 ==============================================
 
 Begin with the `Getting Started <https://tape.readthedocs.io/en/latest/gettingstarted.html>`_ guide to learn the basics of installation and
-walk through a simple example of using TAPE.
+walkthrough a simple example of using TAPE.
 
 The `Tutorials <https://tape.readthedocs.io/en/latest/tutorials.html>`_ section showcases the fundamental features of TAPE.
 
