@@ -492,6 +492,10 @@ def test_head(data_fixture, request):
 
     assert frame.npartitions == 10
 
+    # Check that a warning is raised when npartitions are requested.
+    with pytest.warns(UserWarning):
+        frame.head(5, npartitions=5)
+
     # Test inputs that should return an empty frame
     assert len(frame.head(-100)) == 0
     assert len(frame.head(0)) == 0

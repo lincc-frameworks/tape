@@ -845,7 +845,7 @@ class _Frame(dx.FrameBase):
         )
         return self._propagate_metadata(result)
 
-    def head(self, n=5, compute=True):
+    def head(self, n=5, compute=True, npartitions=None):
         """Returns `n` rows of data for previewing purposes.
 
         Parameters
@@ -854,10 +854,17 @@ class _Frame(dx.FrameBase):
             The number of desired rows. Default is 5.
         compute : bool, optional
             Whether to compute the result immediately. Default is True.
+        npartitions : int, optional
+            `npartitions` is not supported and if provided will be ignored. Instead all partitions may be used.
 
         Returns:
             A pandas DataFrame with up to `n` rows of data.
         """
+        if npartitions is not None:
+            warnings.warn(
+                "The 'npartitions' parameter is not supported for TAPE dataframes. All partitions may be used."
+            )
+
         if not compute:
             # Just use the Dask head method
             return super().head(n, compute=False)
