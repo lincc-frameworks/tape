@@ -12,7 +12,6 @@
 [![codecov](https://codecov.io/gh/lincc-frameworks/tape/branch/main/graph/badge.svg)](https://codecov.io/gh/lincc-frameworks/tape)
 [![Read the Docs](https://img.shields.io/readthedocs/tape)](https://tape.readthedocs.io/)
 [![benchmarks](https://img.shields.io/github/actions/workflow/status/lincc-frameworks/tape/asv-main.yml?label=benchmarks)](https://lincc-frameworks.github.io/tape/)
-[![GitHub issue custom search in repo](https://img.shields.io/github/issues-search/lincc-frameworks/tape?color=purple&label=Good%20first%20issues&query=is%3Aopen%20label%3A%22good%20first%20issue%22)](https://github.com/lincc-frameworks/tape/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 
 The **Time series Analysis and Processing Engine** (TAPE) is a framework for distributed time series analysis which enables the user to scale their algorithms to large datasets, created to work towards the goal of making [LSST](https://www.lsst.org/about) time series analysis accessible. It allows for efficient and scalable evaluation of algorithms on time domain data through built-in fitting and analysis methods as well as support for user-provided algorithms. TAPE supports ingestion of multiple time series formats, enabling easy access to both LSST time series objects and data from other astronomical surveys.
 
@@ -46,6 +45,12 @@ $ pip install .[dev]  # it may be necessary to use `pip install .'[dev]'` (with 
 $ pip install pytest
 $ pytest
 ```
+
+## Contributing
+
+[![GitHub issue custom search in repo](https://img.shields.io/github/issues-search/lincc-frameworks/tape?color=purple&label=Good%20first%20issues&query=is%3Aopen%20label%3A%22good%20first%20issue%22)](https://github.com/lincc-frameworks/tape/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+
+See the [Contribution Guide](https://tape.readthedocs.io/en/latest/gettingstarted/contributing.html) for complete installation instructions and contribution best practices.
 
 ## Acknowledgements
 
