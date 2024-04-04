@@ -10,3 +10,4 @@ we encourage you to open an issue on the
 
     Installing TAPE <gettingstarted/installation>
     Quickstart Guide <gettingstarted/quickstart>
+    Contribution Guide <gettingstarted/contributing>

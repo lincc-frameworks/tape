@@ -29,6 +29,7 @@ The `Tutorials <https://tape.readthedocs.io/en/latest/tutorials.html>`_ section 
 API-level information about TAPE is viewable in the 
 `API Reference <https://tape.readthedocs.io/en/latest/autoapi/index.html>`_ section.
 
+Learn more about contributing to this repository in our :doc:`Contribution Guide <gettingstarted/contributing>`.
 
 
 .. toctree::
