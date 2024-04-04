@@ -1,5 +1,6 @@
 """ Test EnsembleFrame (inherited from Dask.DataFrame) creation and manipulations. """
 
+from math import floor
 import numpy as np
 import pandas as pd
 from tape import (
@@ -470,3 +471,61 @@ def test_partition_slicing(parquet_ensemble_with_divisions):
 
     assert ens.source.npartitions == 2  # should return exactly 2 partitions
     assert len(ens.object) < prior_src_len  # should affect objects
+
+
+@pytest.mark.parametrize(
+    "data_fixture",
+    [
+        "parquet_ensemble",
+        "parquet_ensemble_with_divisions",
+    ],
+)
+def test_head(data_fixture, request):
+    """
+    Tests that head returns the correct number of rows.
+    """
+    ens = request.getfixturevalue(data_fixture)
+
+    # Test witht repartitioning the source frame
+    frame = ens.source
+    frame = frame.repartition(npartitions=10)
+
+    assert frame.npartitions == 10
+
+    # Check that a warning is raised when npartitions are requested.
+    with pytest.warns(UserWarning):
+        frame.head(5, npartitions=5)
+
+    # Test inputs that should return an empty frame
+    assert len(frame.head(-100)) == 0
+    assert len(frame.head(0)) == 0
+    assert len(frame.head(-1)) == 0
+
+    assert len(frame.head(100, compute=False).compute()) == 100
+
+    one_res = frame.head(1)
+    assert len(one_res) == 1
+    assert isinstance(one_res, TapeFrame)
+    assert set(one_res.columns) == set(frame.columns)
+
+    def_result = frame.head()
+    assert len(def_result) == 5
+    assert isinstance(one_res, TapeFrame)
+    assert set(one_res.columns) == set(frame.columns)
+
+    def_result = frame.head(24)
+    assert len(def_result) == 24
+    assert isinstance(one_res, TapeFrame)
+    assert set(one_res.columns) == set(frame.columns)
+
+    # Test that we have sane behavior even when the number of rows requested is larger than the number of rows in the frame.
+    assert len(frame.head(2 * len(frame))) == len(frame)
+
+    # Choose a value that will be guaranteed to hit every partition for this data.
+    # Note that with parquet_ensemble_with_divisions some of the partitions are empty
+    # testing that as well.
+    rows = floor(len(frame.compute()) * 0.98)
+    result = frame.head(rows)
+    assert len(result) == rows
+    assert isinstance(result, TapeFrame)
+    assert set(result.columns) == set(frame.columns)

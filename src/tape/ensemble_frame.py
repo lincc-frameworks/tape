@@ -845,6 +845,46 @@ class _Frame(dx.FrameBase):
         )
         return self._propagate_metadata(result)
 
+    def head(self, n=5, compute=True, npartitions=None):
+        """Returns `n` rows of data for previewing purposes.
+
+        Parameters
+        ----------
+        n : int, optional
+            The number of desired rows. Default is 5.
+        compute : bool, optional
+            Whether to compute the result immediately. Default is True.
+        npartitions : int, optional
+            `npartitions` is not supported and if provided will be ignored. Instead all partitions may be used.
+
+        Returns:
+            A pandas DataFrame with up to `n` rows of data.
+        """
+        if npartitions is not None:
+            warnings.warn(
+                "The 'npartitions' parameter is not supported for TAPE dataframes. All partitions may be used."
+            )
+
+        if not compute:
+            # Just use the Dask head method
+            return super().head(n, compute=False)
+
+        if n <= 0:
+            return super().head(0)
+
+        # Iterate over the partitions until we have enough rows
+        dfs = []
+        remaining_rows = n
+        for partition in self.partitions:
+            if remaining_rows == 0:
+                break
+            # Note that partition is itself a _Frame object, so we need to compute to avoid infinite recursion
+            partition_head = partition.compute().head(remaining_rows)
+            dfs.append(partition_head)
+            remaining_rows -= len(partition_head)
+
+        return pd.concat(dfs)
+
 
 class EnsembleSeries(_Frame, dd.Series):
     """A barebones extension of a Dask Series for Ensemble data."""
