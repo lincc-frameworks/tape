@@ -29,23 +29,6 @@ TAPE is available to install with pip, using the "lf-tape" package name:
 pip install lf-tape
 ```
 
-## Getting started - for developers
-
-Download code and install dependencies in a conda environment. Run unit tests at the end as a verification that the packages are properly installed.
-
-```
-$ conda create -n seriesenv python=3.11
-$ conda activate seriesenv
-
-$ git clone https://github.com/lincc-frameworks/tape
-$ cd tape/
-$ pip install .
-$ pip install .[dev]  # it may be necessary to use `pip install .'[dev]'` (with single quotes) depending on your machine.
-
-$ pip install pytest
-$ pytest
-```
-
 ## Contributing
 
 [![GitHub issue custom search in repo](https://img.shields.io/github/issues-search/lincc-frameworks/tape?color=purple&label=Good%20first%20issues&query=is%3Aopen%20label%3A%22good%20first%20issue%22)](https://github.com/lincc-frameworks/tape/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
