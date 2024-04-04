@@ -6,6 +6,7 @@ we encourage you to open an issue on the
 `TAPE github repository <https://github.com/lincc-frameworks/tape/issues>`_.
 
 .. toctree::
+    :maxdepth: 1
 
     Installing TAPE <gettingstarted/installation>
     Quickstart Guide <gettingstarted/quickstart>
