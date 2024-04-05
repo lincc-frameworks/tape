@@ -1059,7 +1059,7 @@ class Ensemble:
         use_map=True,
         on=None,
         label="",
-        single_lc=None,
+        single_lc=False,
         **kwargs,
     ):
         """Run a function from tape.TimeSeries on the available ids
@@ -1108,9 +1108,11 @@ class Ensemble:
             source or object tables. If not specified, then the id column is
             used by default. For TAPE and `light-curve` functions this is
             populated automatically.
-        single_lc: `int`, optional
-            If provided, only the lightcurve with the specified id will be
-            used in batch. Default is None.
+        single_lc: `boolean` or `int`, optional
+            If a `boolean` and True, batch will only execute on a single randomly selected
+            lightcurve. If False, batch will execute across all lightcurves as normal. To
+            specify a specific lightcurve, the integer value of the lightcurve's id can be
+            provided. Default is False.
         label: 'str', optional
             If provided the ensemble will use this label to track the result
             dataframe. If not provided, a label of the from "result_{x}" where x
@@ -1173,7 +1175,16 @@ class Ensemble:
         src_to_batch = self.source
         obj_to_batch = self.object
 
-        if single_lc is not None:
+        # Check if we only want to apply the batch function to a single lightcurve
+        if not isinstance(single_lc, bool) and not isinstance(single_lc, int):
+            raise ValueError("single_lc must be a boolean or an integer")
+        elif single_lc is True:
+            # Select the ID of a random lightcurve
+            rand_lc_id = self.select_random_timeseries(id_only=True)
+            src_to_batch = src_to_batch.loc[rand_lc_id]
+            obj_to_batch = obj_to_batch.loc[rand_lc_id]
+        elif single_lc is not False:
+            # The user provided the id of a specific lightcurve
             src_to_batch = src_to_batch.loc[single_lc]
             obj_to_batch = obj_to_batch.loc[single_lc]
 
@@ -2305,7 +2316,7 @@ class Ensemble:
         self.object.set_dirty(False)
         return self
 
-    def select_random_timeseries(self, seed=None):
+    def select_random_timeseries(self, seed=None, id_only=False):
         """Selects a random lightcurve from a random partition of the Ensemble.
 
         Parameters
@@ -2313,6 +2324,9 @@ class Ensemble:
         seed: int, or None
             Sets a seed to return the same object id on successive runs. `None`
             by default, in which case a seed is not set for the operation.
+        id_only: bool, optional
+            If True, returns only a random object id. If False, returns the
+            full timeseries for the object. Default is False.
 
         Returns
         -------
@@ -2351,7 +2365,7 @@ class Ensemble:
                 if i >= len(partitions):
                     raise IndexError("Found no object IDs in the Object Table.")
 
-        return self.to_timeseries(lcid)
+        return self.to_timeseries(lcid) if not id_only else lcid
 
     def to_timeseries(
         self,
