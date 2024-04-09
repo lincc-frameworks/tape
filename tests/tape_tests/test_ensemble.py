@@ -2127,6 +2127,46 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     assert all([col in res.columns for col in res.compute().columns])
 
 
+@pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
+def test_batch_single_lc(data_fixture, request):
+    """
+    Test that ensemble.batch() can run a function on a single light curve.
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # Perform batch only on this specific lightcurve.
+    lc = 88472935274829959
+
+    # Check that we raise an error if single_lc is neither a bool nor an integer
+    with pytest.raises(ValueError):
+        parquet_ensemble.batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc="foo")
+
+    lc_res = parquet_ensemble.prune(10).batch(
+        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=lc
+    )
+    assert len(lc_res) == 1
+
+    # Now ensure that we got the same result when we ran the function on the entire ensemble.
+    full_res = parquet_ensemble.prune(10).batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None)
+    assert full_res.compute().loc[lc].stetsonJ == lc_res.compute().iloc[0].stetsonJ
+
+    # Check that when single_lc is True we will perform batch on a random lightcurve and still get only one result.
+    rand_lc = parquet_ensemble.prune(10).batch(
+        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=True
+    )
+    assert len(rand_lc) == 1
+
+    # Now compare that result to what was computed when doing the full batch result
+    rand_lc_id = rand_lc.index.compute().values[0]
+    assert full_res.compute().loc[rand_lc_id].stetsonJ == rand_lc.compute().iloc[0].stetsonJ
+
+    # Check that when single_lc is False we get the same # of results as the full batch
+    no_lc = parquet_ensemble.prune(10).batch(
+        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=False
+    )
+    assert len(full_res) == len(no_lc)
+
+
 def test_batch_labels(parquet_ensemble):
     """
     Test that ensemble.batch() generates unique labels for result frames when none are provided.
@@ -2236,7 +2276,8 @@ def test_batch_with_custom_frame_meta(parquet_ensemble, custom_meta):
 
 @pytest.mark.parametrize("repartition", [False, True])
 @pytest.mark.parametrize("seed", [None, 42])
-def test_select_random_timeseries(parquet_ensemble, repartition, seed):
+@pytest.mark.parametrize("id_only", [True, False])
+def test_select_random_timeseries(parquet_ensemble, repartition, seed, id_only):
     """Test the behavior of ensemble.select_random_timeseries"""
 
     ens = parquet_ensemble
@@ -2244,14 +2285,17 @@ def test_select_random_timeseries(parquet_ensemble, repartition, seed):
     if repartition:
         ens.object = ens.object.repartition(npartitions=3)
 
-    ts = ens.select_random_timeseries(seed=seed)
+    ts = ens.select_random_timeseries(seed=seed, id_only=id_only)
 
-    assert isinstance(ts, TimeSeries)
+    if not id_only:
+        assert isinstance(ts, TimeSeries)
 
-    if seed == 42 and not repartition:
-        assert ts.meta["id"] == 88472935274829959
-    elif seed == 42 and repartition:
-        assert ts.meta["id"] == 88480001333818899
+    if seed == 42:
+        expected_id = 88480001333818899 if repartition else 88472935274829959
+        if id_only:
+            assert ts == expected_id
+        else:
+            assert ts.meta["id"] == expected_id
 
 
 @pytest.mark.parametrize("all_empty", [False, True])
