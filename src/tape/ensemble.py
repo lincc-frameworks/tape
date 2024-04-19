@@ -79,6 +79,9 @@ class Ensemble:
         # Default to removing empty objects.
         self.keep_empty_objects = kwargs.get("keep_empty_objects", False)
 
+        # Default to not having an Ensemble-wide seed
+        self.seed = None
+
         # Initialize critical column quantities
         self._id_col = None
         self._time_col = None
@@ -2331,7 +2334,8 @@ class Ensemble:
         ----------
         seed: int, or None
             Sets a seed to return the same object id on successive runs. `None`
-            by default, in which case a seed is not set for the operation.
+            by default, in which case `Ensemble.seed` is used if set and otherwise
+            nos seed used for the operation.
         id_only: bool, optional
             If True, returns only a random object id. If False, returns the
             full timeseries for the object. Default is False.
@@ -2350,7 +2354,8 @@ class Ensemble:
         in larger partitions.
 
         """
-
+        if seed is None:
+            seed = self.seed
         rng = np.random.default_rng(seed)
 
         # We will select one partition at random to select an object from

@@ -2134,9 +2134,7 @@ def test_batch_single_lc(data_fixture, request):
     """
 
     parquet_ensemble = request.getfixturevalue(data_fixture)
-    parquet_ensemble.calc_nobs()
-    parquet_ensemble.object.query("nobs_g > 2 and nobs_r > 2").update_ensemble()
-    parquet_ensemble._sync_tables()
+    parquet_ensemble.seed = 99
 
     # Perform batch only on this specific lightcurve.
     lc = 88472935274829959
@@ -2145,35 +2143,34 @@ def test_batch_single_lc(data_fixture, request):
 
     # Check that we raise an error if single_lc is neither a bool nor an integer
     with pytest.raises(ValueError):
-        parquet_ensemble.batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc="foo")
+        parquet_ensemble.batch(np.mean, parquet_ensemble._flux_col, use_map=True, on=None, single_lc="foo")
 
-    lc_res = parquet_ensemble.prune(10).batch(
-        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=lc
+    lc_res = (
+        parquet_ensemble.prune(10)
+        .batch(np.mean, parquet_ensemble._flux_col, use_map=True, on=None, single_lc=lc)
+        .compute()
     )
     assert len(lc_res) == 1
 
     # Now ensure that we got the same result when we ran the function on the entire ensemble.
-    full_res = parquet_ensemble.prune(10).batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None)
-    assert full_res.compute().loc[lc].stetsonJ == lc_res.compute().iloc[0].stetsonJ
+    full_res = parquet_ensemble.prune(10).batch(np.mean, parquet_ensemble._flux_col, use_map=True, on=None)
+    assert full_res.loc[lc].compute().iloc[0, 0] == lc_res.iloc[0, 0]
 
     # Check that when single_lc is True we will perform batch on a random lightcurve and still get only one result.
     parquet_ensemble.prune(10).dropna(table="source").compute()
-    rand_lc = parquet_ensemble.batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=True)
-    try:
-        rand_lc.compute()
-    except Exception as e:
-        raise ValueError(
-            "Exception Caught e for lightcurve id " + str(parquet_ensemble.last_lc_id) + " :" + str(e)
-        )
+    rand_lc = parquet_ensemble.batch(
+        np.mean, parquet_ensemble._flux_col, use_map=True, on=None, single_lc=True
+    ).compute()
     assert len(rand_lc) == 1
 
     # Now compare that result to what was computed when doing the full batch result
-    rand_lc_id = rand_lc.index.compute().values[0]
-    assert full_res.compute().loc[rand_lc_id].stetsonJ == rand_lc.compute().iloc[0].stetsonJ
+    rand_lc_id = rand_lc.index.values[0]
+    expected = full_res.loc[rand_lc_id].compute().iloc[0, 0]
+    assert expected == rand_lc.iloc[0, 0]
 
     # Check that when single_lc is False we get the same # of results as the full batch
     no_lc = parquet_ensemble.prune(10).batch(
-        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=False
+        np.mean, parquet_ensemble._flux_col, use_map=True, on=None, single_lc=False
     )
 
 
