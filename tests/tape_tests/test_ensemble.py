@@ -2137,6 +2137,8 @@ def test_batch_single_lc(data_fixture, request):
     # Perform batch only on this specific lightcurve.
     lc = 88472935274829959
 
+    # TODO parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
+
     # Check that we raise an error if single_lc is neither a bool nor an integer
     with pytest.raises(ValueError):
         parquet_ensemble.batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc="foo")
@@ -2157,7 +2159,9 @@ def test_batch_single_lc(data_fixture, request):
     try:
         rand_lc.compute()
     except Exception as e:
-        raise ValueError( "Exception Caught e for lightcurve {rand_lc} : " + str(e))
+        raise ValueError(
+            "Exception Caught e for lightcurve id " + str(parquet_ensemble.last_lc_id) + " :" + str(e)
+        )
     assert len(rand_lc) == 1
 
     # Now compare that result to what was computed when doing the full batch result

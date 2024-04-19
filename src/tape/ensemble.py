@@ -41,6 +41,11 @@ DEFAULT_FRAME_LABEL = "result"  # A base default label for an Ensemble's result 
 
 METADATA_FILENAME = "ensemble_metadata.json"
 
+import logging
+
+# Set up basic configuration for logging
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
+
 
 class Ensemble:
     """Ensemble object is a collection of light curve ids"""
@@ -57,6 +62,7 @@ class Ensemble:
              Ensemble is created without a distributed client (default).
 
         """
+        self.last_lc_id = -1
         self.result = None  # holds the latest query
 
         self.frames = {}  # Frames managed by this Ensemble, keyed by label
@@ -1181,6 +1187,8 @@ class Ensemble:
         elif single_lc is True:
             # Select the ID of a random lightcurve
             rand_lc_id = self.select_random_timeseries(id_only=True)
+            self.last_lc_id = rand_lc_id
+            logging.info("The random lightcurve id that was selected:" + str(rand_lc_id))
             src_to_batch = src_to_batch.loc[rand_lc_id]
             obj_to_batch = obj_to_batch.loc[rand_lc_id]
         elif single_lc is not False:
