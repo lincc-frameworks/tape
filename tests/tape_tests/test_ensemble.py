@@ -2137,7 +2137,7 @@ def test_batch_single_lc(data_fixture, request):
     # Perform batch only on this specific lightcurve.
     lc = 88472935274829959
 
-    # TODO parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
+    parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
 
     # Check that we raise an error if single_lc is neither a bool nor an integer
     with pytest.raises(ValueError):
