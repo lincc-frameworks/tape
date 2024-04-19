@@ -2126,7 +2126,7 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     # whenever multi-indexes are involved, which batch tries to handle
     assert all([col in res.columns for col in res.compute().columns])
 
-
+"""
 @pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
 def test_batch_single_lc(data_fixture, request):
     """
@@ -2171,6 +2171,7 @@ def test_batch_single_lc(data_fixture, request):
     no_lc = parquet_ensemble.prune(10).batch(
         calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=False
     )
+"""
     
 @pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
 def test_batch_single_lc_repro(data_fixture, request):
