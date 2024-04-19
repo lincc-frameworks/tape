@@ -2155,7 +2155,7 @@ def test_batch_single_lc(data_fixture, request):
         calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=True
     )
     try:
-        rand_lc = rand_lc.compute()
+        rand_lc.compute()
     except Exception as e:
         raise ValueError( "Exception Caught e for lightcurve {rand_lc} : " + str(e))
     assert len(rand_lc) == 1
