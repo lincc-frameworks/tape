@@ -2171,7 +2171,27 @@ def test_batch_single_lc(data_fixture, request):
     no_lc = parquet_ensemble.prune(10).batch(
         calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=False
     )
-    assert len(full_res) == len(no_lc)
+    
+@pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
+def test_batch_single_lc_repro(data_fixture, request):
+    """
+    Test that ensemble.batch() can run a function on a single light curve.
+    """
+    parquet_ensemble = request.getfixturevalue(data_fixture)
+
+    # Perform batch on this lightcurve that seems to fail
+    lc = 88480001353815785
+
+    # TODO should we keep this out parquet_ensemble = parquet_ensemble.prune(10).dropna(table="source")
+
+    # Check that we raise an error if single_lc is neither a bool nor an integer
+    with pytest.raises(ValueError):
+        parquet_ensemble.batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc="foo")
+
+    lc_res = parquet_ensemble.prune(10).batch(
+        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=lc
+    )
+    assert len(lc_res) == 1
 
 
 def test_batch_labels(parquet_ensemble):

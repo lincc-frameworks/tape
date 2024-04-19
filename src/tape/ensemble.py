@@ -1188,7 +1188,7 @@ class Ensemble:
             # Select the ID of a random lightcurve
             rand_lc_id = self.select_random_timeseries(id_only=True)
             self.last_lc_id = rand_lc_id
-            logging.info("The random lightcurve id that was selected:" + str(rand_lc_id))
+            logging.error("The random lightcurve id that was selected:" + str(rand_lc_id))
             src_to_batch = src_to_batch.loc[rand_lc_id]
             obj_to_batch = obj_to_batch.loc[rand_lc_id]
         elif single_lc is not False:
