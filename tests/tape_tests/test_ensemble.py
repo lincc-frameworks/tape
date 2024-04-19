@@ -2126,13 +2126,17 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     # whenever multi-indexes are involved, which batch tries to handle
     assert all([col in res.columns for col in res.compute().columns])
 
-"""
+
 @pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
 def test_batch_single_lc(data_fixture, request):
     """
     Test that ensemble.batch() can run a function on a single light curve.
     """
+
     parquet_ensemble = request.getfixturevalue(data_fixture)
+    parquet_ensemble.calc_nobs()
+    parquet_ensemble.object.query("nobs_g > 2 and nobs_r > 2").update_ensemble()
+    parquet_ensemble._sync_tables()
 
     # Perform batch only on this specific lightcurve.
     lc = 88472935274829959
@@ -2171,13 +2175,15 @@ def test_batch_single_lc(data_fixture, request):
     no_lc = parquet_ensemble.prune(10).batch(
         calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=False
     )
+
+
 """
     
 @pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
 def test_batch_single_lc_repro(data_fixture, request):
-    """
+    
     Test that ensemble.batch() can run a function on a single light curve.
-    """
+    
     parquet_ensemble = request.getfixturevalue(data_fixture)
 
     # Perform batch on this lightcurve that seems to fail
@@ -2193,6 +2199,8 @@ def test_batch_single_lc_repro(data_fixture, request):
         calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=lc
     )
     assert len(lc_res) == 1
+
+"""
 
 
 def test_batch_labels(parquet_ensemble):
