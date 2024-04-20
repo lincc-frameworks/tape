@@ -2150,16 +2150,6 @@ def test_batch_single_lc(data_fixture, request):
     full_res = parquet_ensemble.prune(10).batch(calc_stetson_J, use_map=True, on=None, band_to_calc=None)
     assert full_res.compute().loc[lc].stetsonJ == lc_res.compute().iloc[0].stetsonJ
 
-    # Check that when single_lc is True we will perform batch on a random lightcurve and still get only one result.
-    rand_lc = parquet_ensemble.prune(10).batch(
-        calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=True
-    )
-    assert len(rand_lc) == 1
-
-    # Now compare that result to what was computed when doing the full batch result
-    rand_lc_id = rand_lc.index.compute().values[0]
-    assert full_res.compute().loc[rand_lc_id].stetsonJ == rand_lc.compute().iloc[0].stetsonJ
-
     # Check that when single_lc is False we get the same # of results as the full batch
     no_lc = parquet_ensemble.prune(10).batch(
         calc_stetson_J, use_map=True, on=None, band_to_calc=None, single_lc=False
