@@ -2126,7 +2126,7 @@ def test_batch_by_band(parquet_ensemble, func_label, on):
     # whenever multi-indexes are involved, which batch tries to handle
     assert all([col in res.columns for col in res.compute().columns])
 
-
+# TODO: remove these test documetnation changes.
 @pytest.mark.parametrize("data_fixture", ["parquet_ensemble", "parquet_ensemble_with_divisions"])
 def test_batch_single_lc(data_fixture, request):
     """
