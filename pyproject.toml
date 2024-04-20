@@ -20,6 +20,7 @@ dependencies = [
     'numpy',
     'dask>=2024.3.0,<2024.4.2', # 2024.4.2 changes automatic repartitioning.
     'dask[distributed]>=2024.3.0',
+    'dask-expr<1.0.11', # Pin to last stable dask-esxpr
     'pyarrow',
     'pyvo',
     'scipy',
