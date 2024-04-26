@@ -1746,7 +1746,7 @@ class Ensemble:
 
             self.from_dask_dataframe(
                 from_legacy_dataframe(source_catalog._ddf),
-                 from_legacy_dataframe(object_catalog._ddf),
+                from_legacy_dataframe(object_catalog._ddf),
                 column_mapper=column_mapper,
                 sync_tables=sync_tables,
                 sorted=sorted,
