@@ -21,6 +21,7 @@ dependencies = [
     'dask>=2024.3.0',
     'dask-expr<1.0.11', # Temporary pin due to compatibility bug
     'dask[distributed]>=2024.3.0',
+    'hipscat<=0.2.9',
     'pyarrow',
     'pyvo',
     'scipy',
@@ -29,7 +30,7 @@ dependencies = [
     'coverage',
     "deprecated",
     "light-curve>=0.9.0,<0.10.0",
-    "lsdb"
+    "lsdb",
 ]
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
