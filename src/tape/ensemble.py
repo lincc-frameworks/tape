@@ -6,6 +6,7 @@ import warnings
 import requests
 import lsdb
 import dask
+from dask_expr import from_legacy_dataframe
 
 import dask.dataframe as dd
 import numpy as np
@@ -1721,7 +1722,7 @@ class Ensemble:
                     sort = True
 
             self.from_dask_dataframe(
-                source_catalog._ddf,
+                from_legacy_dataframe(source_catalog._ddf),
                 None,
                 column_mapper=column_mapper,
                 sync_tables=sync_tables,
@@ -1744,8 +1745,8 @@ class Ensemble:
                 sort = True
 
             self.from_dask_dataframe(
-                source_catalog._ddf,
-                object_catalog._ddf,
+                from_legacy_dataframe(source_catalog._ddf),
+                from_legacy_dataframe(object_catalog._ddf),
                 column_mapper=column_mapper,
                 sync_tables=sync_tables,
                 sorted=sorted,
