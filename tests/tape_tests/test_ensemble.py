@@ -2060,7 +2060,7 @@ def test_batch_by_band(func_label, on):
     """
 
     # TODO(wbeebe): This is a temporary workaround for https://github.com/lincc-frameworks/tape/issues/434 to avoid contention when reading data
-    # from the test files in parallel. This is the same as `parque_ensmemble` but uses copies of the parquet files referenced there.
+    # from the test files in parallel. This is the same as `parquet_ensemble` but uses copies of the parquet files referenced there.
     parquet_ensemble = Ensemble(client=False)
     parquet_ensemble.from_parquet(
         "tests/tape_tests/data/source/test_source2.parquet",
