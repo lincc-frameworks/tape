@@ -19,7 +19,7 @@ dependencies = [
     'pandas',
     'numpy',
     'dask>=2024.3.0',
-    'dask-expr<1.0.11', # Temporary pin due to compatibility bug
+    'dask-expr<1.0.15', # Temporary pin due to compatibility bug
     'dask[distributed]>=2024.3.0',
     'pyarrow',
     'pyvo',
