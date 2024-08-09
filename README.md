@@ -13,6 +13,8 @@
 [![Read the Docs](https://img.shields.io/readthedocs/tape)](https://tape.readthedocs.io/)
 [![benchmarks](https://img.shields.io/github/actions/workflow/status/lincc-frameworks/tape/asv-main.yml?label=benchmarks)](https://lincc-frameworks.github.io/tape/)
 
+## Please Note: This project is deprecated, and [nested-pandas](https://nested-pandas.readthedocs.io/en/latest/)/[nested-dask](https://nested-dask.readthedocs.io/en/latest/) are the successor packages that handles many of the use cases originally supported by this project more effectively. We encourage you to head over there to learn more.
+
 The **Time series Analysis and Processing Engine** (TAPE) is a framework for distributed time series analysis which enables the user to scale their algorithms to large datasets, created to work towards the goal of making [LSST](https://www.lsst.org/about) time series analysis accessible. It allows for efficient and scalable evaluation of algorithms on time domain data through built-in fitting and analysis methods as well as support for user-provided algorithms. TAPE supports ingestion of multiple time series formats, enabling easy access to both LSST time series objects and data from other astronomical surveys.
 
 In short term we are working on two main goals of the project:
