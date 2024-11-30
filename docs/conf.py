@@ -53,7 +53,9 @@ autoapi_type = "python"
 autoapi_dirs = ["../src"]
 autoapi_ignore = ["*/__main__.py", "*/_version.py"]
 autoapi_add_toc_tree_entry = False
-autoapi_member_order = "bysource"
+autoapi_member_order = "groupwise"
+autoapi_own_page_level = "class"
+autoapi_options = [ 'members', 'show-inheritance', 'show-module-summary', 'imported-members', ]
 
 html_theme = "sphinx_book_theme"
 
